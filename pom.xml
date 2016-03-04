@@ -102,6 +102,7 @@
     <module>jbpm-document</module>
     <module>jbpm-test</module>
     <module>jbpm-examples</module>    
+    <module>jbpm-process-svg</module>
   </modules>
 
   <build>
