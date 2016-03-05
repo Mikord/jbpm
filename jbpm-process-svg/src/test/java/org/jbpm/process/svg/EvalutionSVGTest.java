@@ -15,7 +15,6 @@
 
 package org.jbpm.process.svg;
 
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,9 +30,9 @@ public class EvalutionSVGTest {
     active.add("_6063D302-9D81-4C86-920B-E808A45377C2");
     String svg = SVGImageProcessor.transform(
         EvalutionSVGTest.class.getResourceAsStream("/evaluation-svg.svg"), completed, active);
-    PrintWriter out = new PrintWriter("output1.svg");
-    out.print(svg);
-    out.close();
+//    PrintWriter out = new PrintWriter("output1.svg");
+//    out.print(svg);
+//    out.close();
   }
 
   @Test
@@ -44,8 +43,8 @@ public class EvalutionSVGTest {
     active.add("PM Evaluation");
     String svg = SVGImageProcessor.transformByName(
         EvalutionSVGTest.class.getResourceAsStream("/evaluation-svg.svg"), completed, active);
-    PrintWriter out = new PrintWriter("output2.svg");
-    out.print(svg);
-    out.close();
+//    PrintWriter out = new PrintWriter("output2.svg");
+//    out.print(svg);
+//    out.close();
   }
 }
