@@ -37,6 +37,7 @@ import org.jbpm.workflow.core.node.StartNode;
 import org.jbpm.workflow.instance.NodeInstance;
 import org.jbpm.workflow.instance.NodeInstanceContainer;
 import org.jbpm.workflow.instance.WorkflowProcessInstance;
+import org.jbpm.workflow.instance.impl.MessageCorrelation;
 import org.jbpm.workflow.instance.impl.NodeInstanceFactory;
 import org.jbpm.workflow.instance.impl.NodeInstanceFactoryRegistry;
 import org.jbpm.workflow.instance.impl.NodeInstanceImpl;
@@ -276,11 +277,22 @@ public class CompositeNodeInstance extends StateBasedNodeInstance implements Nod
 
     @Override
 	public void signalEvent(String type, Object event) {
+        this.signalEvent(type, event, new MessageCorrelation() {
+            @Override
+            public boolean matches(Object event, Node node, Map<String, Object> variables) {
+                return true;
+            }
+        });
+    }
+
+	public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
 		List<NodeInstance> currentView = new ArrayList<NodeInstance>(this.nodeInstances);
 		super.signalEvent(type, event);
 		for (Node node: getCompositeNode().internalGetNodes()) {
 			if (node instanceof EventNodeInterface) {
-				if (((EventNodeInterface) node).acceptsEvent(type, event)) {
+				if (((EventNodeInterface) node).acceptsEvent(type, event) &&
+                        (!type.startsWith("Message-") || messageCorrelation.matches(event, node, getVariables()))
+                ) {
 					if (node instanceof EventNode && ((EventNode) node).getFrom() == null) {
 						EventNodeInstanceInterface eventNodeInstance = (EventNodeInstanceInterface) getNodeInstance(node);
 						eventNodeInstance.signalEvent(type, event);
@@ -291,8 +303,12 @@ public class CompositeNodeInstance extends StateBasedNodeInstance implements Nod
 						List<NodeInstance> nodeInstances = getNodeInstances(node.getId(), currentView);
 						if (nodeInstances != null && !nodeInstances.isEmpty()) {
 							for (NodeInstance nodeInstance : nodeInstances) {
-								((EventNodeInstanceInterface) nodeInstance)
-										.signalEvent(type, event);
+                                if (nodeInstance instanceof CompositeNodeInstance) {
+                                    ((CompositeNodeInstance) nodeInstance).signalEvent(type, event, messageCorrelation);
+                                }
+                                else {
+                                    ((EventNodeInstanceInterface) nodeInstance).signalEvent(type, event);
+                                }
 							}
 						}
 					}
@@ -301,7 +317,11 @@ public class CompositeNodeInstance extends StateBasedNodeInstance implements Nod
 		}
 	}
 
-	public List<NodeInstance> getNodeInstances(final long nodeId) {
+    protected Map<String, Object> getVariables() {
+        return getProcessInstance().getVariables();
+    }
+
+    public List<NodeInstance> getNodeInstances(final long nodeId) {
 		List<NodeInstance> result = new ArrayList<NodeInstance>();
 		for (final Iterator<NodeInstance> iterator = this.nodeInstances
 				.iterator(); iterator.hasNext();) {
