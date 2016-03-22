@@ -19,7 +19,11 @@ package org.jbpm.workflow.instance;
 import org.kie.api.runtime.process.EventListener;
 import org.jbpm.process.instance.ProcessInstance;
 
+import java.util.Map;
+
 public interface WorkflowProcessInstance extends ProcessInstance, org.kie.api.runtime.process.WorkflowProcessInstance {
+
+    Map<String, Object> getVariables();
 
     void addEventListener(String type, EventListener eventListener, boolean external);
     
