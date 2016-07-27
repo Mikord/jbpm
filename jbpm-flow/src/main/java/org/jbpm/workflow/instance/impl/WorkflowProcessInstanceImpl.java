@@ -252,7 +252,8 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 		}
 		return variableScopeInstance.getVariable(name);
 	}
-	
+
+    @Override
 	public Map<String, Object> getVariables() {
         // for disconnected process instances, try going through the variable scope instances
         // (as the default variable scope cannot be retrieved as the link to the process could
@@ -420,6 +421,15 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 	}
 
 	public void signalEvent(String type, Object event) {
+	    	this.signalEvent(type, event, new MessageCorrelation() {
+                @Override
+                public boolean matches(Object event, Node node, Map<String, Object> variables) {
+                    return true;
+                }
+            });
+	}
+
+	public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
 	    synchronized (this) {
 			if (getState() != ProcessInstance.STATE_ACTIVE) {
 				return;
@@ -442,7 +452,9 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 				}
 				for (Node node : getWorkflowProcess().getNodes()) {
 			        if (node instanceof EventNodeInterface) {
-			            if (((EventNodeInterface) node).acceptsEvent(type, event)) {
+			            if (((EventNodeInterface) node).acceptsEvent(type, event) &&
+                                (!type.startsWith("Message-") || messageCorrelation.matches(event, node, getVariables()))
+                        ) {
 			                if (node instanceof EventNode && ((EventNode) node).getFrom() == null) {
 			                    EventNodeInstance eventNodeInstance = (EventNodeInstance) getNodeInstance(node);
 			                    eventNodeInstance.signalEvent(type, event);
@@ -453,7 +465,12 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 								List<NodeInstance> nodeInstances = getNodeInstances(node.getId(), currentView);
 			                    if (nodeInstances != null && !nodeInstances.isEmpty()) {
 			                        for (NodeInstance nodeInstance : nodeInstances) {
-										((EventNodeInstanceInterface) nodeInstance).signalEvent(type, event);
+										if (nodeInstance instanceof CompositeNodeInstance) {
+											((CompositeNodeInstance) nodeInstance).signalEvent(type, event, messageCorrelation);
+										}
+										else {
+											((EventNodeInstanceInterface) nodeInstance).signalEvent(type, event);
+										}
 			                        }
 			                    }
 			                }

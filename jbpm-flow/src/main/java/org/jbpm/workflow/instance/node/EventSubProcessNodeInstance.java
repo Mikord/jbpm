@@ -19,6 +19,7 @@ import org.jbpm.process.instance.ProcessInstance;
 import org.jbpm.workflow.core.node.EventSubProcessNode;
 import org.jbpm.workflow.core.node.StartNode;
 import org.jbpm.workflow.instance.NodeInstanceContainer;
+import org.jbpm.workflow.instance.impl.MessageCorrelation;
 import org.kie.api.definition.process.NodeContainer;
 import org.kie.api.runtime.process.NodeInstance;
 
@@ -47,9 +48,18 @@ public class EventSubProcessNodeInstance extends CompositeContextNodeInstance {
 
     @Override
     public void signalEvent(String type, Object event) {
+        signalStartNode(type, event);
+    }
+
+    @Override
+    public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
+        signalStartNode(type, event);
+    }
+
+    private void signalStartNode(String type, Object event) {
         if (getNodeInstanceContainer().getNodeInstances().contains(this) || type.startsWith("Error-")) {
             StartNode startNode = getCompositeNode().findStartNode();
-            NodeInstance nodeInstance = getNodeInstance(startNode);  
+            NodeInstance nodeInstance = getNodeInstance(startNode);
             ((StartNodeInstance) nodeInstance).signalEvent(type, event);
         }
     }

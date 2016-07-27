@@ -21,6 +21,7 @@ import org.drools.core.util.MVELSafeHelper;
 import org.jbpm.workflow.core.impl.ExtendedNodeImpl;
 import org.jbpm.workflow.core.impl.NodeImpl;
 import org.jbpm.workflow.core.node.DynamicNode;
+import org.jbpm.workflow.instance.impl.MessageCorrelation;
 import org.jbpm.workflow.instance.impl.NodeInstanceResolverFactory;
 import org.jbpm.workflow.instance.impl.WorkItemResolverFactory;
 import org.kie.api.definition.process.Node;
@@ -87,13 +88,21 @@ public class DynamicNodeInstance extends CompositeContextNodeInstance {
 
 	public void signalEvent(String type, Object event) {
 		super.signalEvent(type, event);
+	}
+
+    @Override
+	public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
+		super.signalEvent(type, event, messageCorrelation);
+		signalToChildNodes(type);
+	}
+
+	private void signalToChildNodes(String type) {
 		for (Node node: getCompositeNode().getNodes()) {
 			if (type.equals(node.getName()) && node.getIncomingConnections().isEmpty()) {
-    			NodeInstance nodeInstance = getNodeInstance(node);
-                ((org.jbpm.workflow.instance.NodeInstance) nodeInstance)
-                	.trigger(null, NodeImpl.CONNECTION_DEFAULT_TYPE);
-    		}
+				NodeInstance nodeInstance = getNodeInstance(node);
+				((org.jbpm.workflow.instance.NodeInstance) nodeInstance)
+						.trigger(null, NodeImpl.CONNECTION_DEFAULT_TYPE);
+			}
 		}
 	}
-	
 }
