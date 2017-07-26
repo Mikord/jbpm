@@ -53,7 +53,8 @@ public class NodeInstanceLog implements Serializable, AuditEvent, org.kie.api.ru
     private String nodeId;
     private String nodeName;
     private String nodeType;
-    private Long workItemId;    
+    private Long workItemId;
+    @Column(name = "`connection`")
     private String connection;
     
     private String externalId;
