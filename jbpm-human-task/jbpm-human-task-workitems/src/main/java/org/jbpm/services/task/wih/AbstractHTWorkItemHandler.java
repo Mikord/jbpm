@@ -174,7 +174,7 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
         Date date = null;
         if(dueDateString != null && !dueDateString.isEmpty()){
             if(DateTimeUtils.isPeriod(dueDateString)){
-                Long longDateValue = DateTimeUtils.parseDateAsDuration(dueDateString.substring(1));
+                Long longDateValue = DateTimeUtils.parseDuration(dueDateString);
                 date = new Date(System.currentTimeMillis() + longDateValue);
             }else{
                 date = new Date(DateTimeUtils.parseDateTime(dueDateString));
