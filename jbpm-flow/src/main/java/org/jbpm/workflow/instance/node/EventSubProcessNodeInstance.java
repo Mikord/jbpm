@@ -22,6 +22,7 @@ import org.jbpm.process.instance.ProcessInstance;
 import org.jbpm.workflow.core.node.EventSubProcessNode;
 import org.jbpm.workflow.core.node.StartNode;
 import org.jbpm.workflow.instance.NodeInstanceContainer;
+import org.jbpm.workflow.instance.impl.MessageCorrelation;
 import org.kie.api.definition.process.NodeContainer;
 import org.kie.api.runtime.process.NodeInstance;
 
@@ -50,16 +51,25 @@ public class EventSubProcessNodeInstance extends CompositeContextNodeInstance {
 
     @Override
     public void signalEvent(String type, Object event) {
-        if (getNodeInstanceContainer().getNodeInstances().contains(this) || type.startsWith("Error-") || type.equals("timerTriggered") ) {
-            StartNode startNode = getCompositeNode().findStartNode();
-            if (resolveVariables(((EventSubProcessNode) getEventBasedNode()).getEvents()).contains(type) || type.equals("timerTriggered")) {
-                NodeInstance nodeInstance = getNodeInstance(startNode);
-                ((StartNodeInstance) nodeInstance).signalEvent(type, event);
-            }
-        }
-        super.signalEvent(type, event);
+        signalStartNode(type, event);
     }
-    
+
+    @Override
+    public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
+        signalStartNode(type, event);
+    }
+
+    private void signalStartNode(String type, Object event) {
+      if (getNodeInstanceContainer().getNodeInstances().contains(this) || type.startsWith("Error-") || type.equals("timerTriggered") ) {
+        StartNode startNode = getCompositeNode().findStartNode();
+        if (resolveVariables(((EventSubProcessNode) getEventBasedNode()).getEvents()).contains(type) || type.equals("timerTriggered")) {
+          NodeInstance nodeInstance = getNodeInstance(startNode);
+          ((StartNodeInstance) nodeInstance).signalEvent(type, event);
+        }
+      }
+      super.signalEvent(type, event);
+    }
+
     @Override
     public void nodeInstanceCompleted(org.jbpm.workflow.instance.NodeInstance nodeInstance, String outType) {
         if (nodeInstance instanceof EndNodeInstance) { 

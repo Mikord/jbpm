@@ -68,8 +68,8 @@ public class ProcessServiceImpl implements ProcessService, VariablesAware {
 
 	protected DeploymentService deploymentService;
 	protected RuntimeDataService dataService;
-	
-	
+
+
     public ProcessServiceImpl() {
         ServiceRegistry.get().register(ProcessService.class.getSimpleName(), this);
     }
@@ -334,7 +334,7 @@ public class ProcessServiceImpl implements ProcessService, VariablesAware {
                 @Override
                 public Object execute(org.kie.api.runtime.Context context) {
                     KieSession ksession = ((RegistryContext) context).lookup( KieSession.class );
-                    WorkflowProcessInstance pi = (WorkflowProcessInstance) ksession.getProcessInstance(processInstanceId, true);
+                    WorkflowProcessInstance pi = (WorkflowProcessInstance) ksession.getProcessInstance(processInstanceId);
                     if (pi == null) {
                         throw new ProcessInstanceNotFoundException("Process instance with id " + processInstanceId + " was not found");
                     }
@@ -364,7 +364,7 @@ public class ProcessServiceImpl implements ProcessService, VariablesAware {
         RuntimeEngine engine = manager.getRuntimeEngine(ProcessInstanceIdContext.get(processInstanceId));
         try {
             KieSession ksession = engine.getKieSession();
-            WorkflowProcessInstanceImpl pi = (WorkflowProcessInstanceImpl) ksession.getProcessInstance(processInstanceId, true);
+            WorkflowProcessInstanceImpl pi = (WorkflowProcessInstanceImpl) ksession.getProcessInstance(processInstanceId);
 
         	return pi.getVariables();
         } catch(SessionNotFoundException e) {

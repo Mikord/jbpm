@@ -23,6 +23,7 @@ import org.jbpm.workflow.core.impl.ExtendedNodeImpl;
 import org.jbpm.workflow.core.impl.NodeImpl;
 import org.jbpm.workflow.core.node.StateNode;
 import org.jbpm.workflow.instance.NodeInstanceContainer;
+import org.jbpm.workflow.instance.impl.MessageCorrelation;
 import org.kie.api.definition.process.Connection;
 import org.kie.api.event.rule.MatchCreatedEvent;
 import org.kie.api.runtime.process.EventListener;
@@ -73,39 +74,49 @@ public class StateNodeInstance extends CompositeContextNodeInstance implements E
     protected boolean isLinkedIncomingNodeRequired() {
     	return false;
     }
-    
+
+	@Override
 	public void signalEvent(String type, Object event) {
+		super.signalEvent(type, event);
+	}
+
+	@Override
+	public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
 		if ("signal".equals(type)) {
-			if (event instanceof String) {
-				for (Connection connection: getStateNode().getOutgoingConnections(NodeImpl.CONNECTION_DEFAULT_TYPE)) {
-					boolean selected = false;
-					Constraint constraint = getStateNode().getConstraint(connection);
-					if (constraint == null) {
-						if (((String) event).equals(connection.getTo().getName())) {
-							selected = true;
-						}
-					} else if (((String) event).equals(constraint.getName())) {
-						selected = true;
-					}
-					if (selected) {
-						triggerEvent(ExtendedNodeImpl.EVENT_NODE_EXIT);
-						removeEventListeners();
-						((org.jbpm.workflow.instance.NodeInstanceContainer) getNodeInstanceContainer())
-		            		.removeNodeInstance(this);
-						triggerConnection(connection);
-						return;
-					}
-				}
-			}
+			processSignalEvent(event);
 		} else if (getActivationEventType().equals(type)) {
 			if (event instanceof MatchCreatedEvent) {
 				activationCreated((MatchCreatedEvent) event);
 			}
 		} else {
-			super.signalEvent(type, event);
+			super.signalEvent(type, event, messageCorrelation);
 		}
 	}
-	
+
+	private void processSignalEvent(Object event) {
+		if (event instanceof String) {
+            for (Connection connection: getStateNode().getOutgoingConnections(NodeImpl.CONNECTION_DEFAULT_TYPE)) {
+                boolean selected = false;
+                Constraint constraint = getStateNode().getConstraint(connection);
+                if (constraint == null) {
+                    if (((String) event).equals(connection.getTo().getName())) {
+                        selected = true;
+                    }
+                } else if (((String) event).equals(constraint.getName())) {
+                    selected = true;
+                }
+                if (selected) {
+                    triggerEvent(ExtendedNodeImpl.EVENT_NODE_EXIT);
+                    removeEventListeners();
+                    ((NodeInstanceContainer) getNodeInstanceContainer())
+                        .removeNodeInstance(this);
+                    triggerConnection(connection);
+                    return;
+                }
+            }
+        }
+	}
+
 	private void addTriggerListener() {
 		getProcessInstance().addEventListener("signal", this, false);
 	}

@@ -230,7 +230,7 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 		}
 		return result;
 	}
-	
+
 	public NodeInstance getNodeInstance(final Node node) {
 	    Node actualNode = node;
 	    // async continuation handling
@@ -300,6 +300,7 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 		return variableScopeInstance.getVariable(name);
 	}
 
+    @Override
 	public Map<String, Object> getVariables() {
         // for disconnected process instances, try going through the variable scope instances
         // (as the default variable scope cannot be retrieved as the link to the process could
@@ -473,8 +474,17 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 		}
 	}
 
+  public void signalEvent(String type, Object event) {
+    this.signalEvent(type, event, new MessageCorrelation() {
+      @Override
+      public boolean matches(Object event, Node node, Map<String, Object> variables) {
+        return true;
+      }
+    });
+  }
+
 	@SuppressWarnings("unchecked")
-    public void signalEvent(String type, Object event) {
+  public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
 	    synchronized (this) {
 			if (getState() != ProcessInstance.STATE_ACTIVE) {
 				return;
@@ -506,25 +516,34 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 				}
 				for (Node node : getWorkflowProcess().getNodes()) {
 			        if (node instanceof EventNodeInterface) {
-			            if (((EventNodeInterface) node).acceptsEvent(type, event, (e) -> resolveVariable(e) )) {
-			                if (node instanceof EventNode && ((EventNode) node).getFrom() == null) {
-			                    EventNodeInstance eventNodeInstance = (EventNodeInstance) getNodeInstance(node);
-			                    eventNodeInstance.signalEvent(type, event);
-			                } else {
-			                    if (node instanceof EventSubProcessNode && ((resolveVariables(((EventSubProcessNode) node).getEvents()).contains(type)))) {
-    			                    EventSubProcessNodeInstance eventNodeInstance = (EventSubProcessNodeInstance) getNodeInstance(node);
-    			                    eventNodeInstance.signalEvent(type, event);
-			                    } else {
-    								List<NodeInstance> nodeInstances = getNodeInstances(node.getId(), currentView);
-    			                    if (nodeInstances != null && !nodeInstances.isEmpty()) {
-    			                        for (NodeInstance nodeInstance : nodeInstances) {
-    										((EventNodeInstanceInterface) nodeInstance).signalEvent(type, event);
-    			                        }
-    			                    }
-			                    }
-			                }
-			            }
-			        }
+                if (((EventNodeInterface) node).acceptsEvent(type, event, (e) -> resolveVariable(e)) &&
+                    (!type.startsWith("Message-") || messageCorrelation.matches(event, node, getVariables()))
+                    ) {
+                  if (node instanceof EventNode && ((EventNode) node).getFrom() == null) {
+                    EventNodeInstance eventNodeInstance = (EventNodeInstance) getNodeInstance(node);
+                    eventNodeInstance.signalEvent(type, event);
+                  }
+                  else {
+                    if (node instanceof EventSubProcessNode && ((resolveVariables(((EventSubProcessNode) node).getEvents()).contains(type)))) {
+                      EventSubProcessNodeInstance eventNodeInstance = (EventSubProcessNodeInstance) getNodeInstance(node);
+                      eventNodeInstance.signalEvent(type, event);
+                    }
+                    else {
+                      List<NodeInstance> nodeInstances = getNodeInstances(node.getId(), currentView);
+                      if (nodeInstances != null && !nodeInstances.isEmpty()) {
+                        for (NodeInstance nodeInstance : nodeInstances) {
+                          if (nodeInstance instanceof CompositeNodeInstance) {
+                            ((CompositeNodeInstance) nodeInstance).signalEvent(type, event, messageCorrelation);
+                          }
+                          else {
+                            ((EventNodeInstanceInterface) nodeInstance).signalEvent(type, event);
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
 				}
 				if (((org.jbpm.workflow.core.WorkflowProcess) getWorkflowProcess()).isDynamic()) {
 					for (Node node : getWorkflowProcess().getNodes()) {
@@ -552,6 +571,7 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 			}
 		}
 	}
+
 
 	protected List<String> resolveVariables(List<String> events) {
 	    return events.stream().map( event -> resolveVariable(event)).collect(Collectors.toList());
@@ -731,7 +751,7 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
     public void setDeploymentId(String deploymentId) {
         this.deploymentId = deploymentId;
     }
-    
+
     public String getCorrelationKey() {
         if (correlationKey == null && getMetaData().get("CorrelationKey") != null) {
             this.correlationKey = ((CorrelationKey) getMetaData().get("CorrelationKey")).toExternalForm();
@@ -749,7 +769,7 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
         }
 
         return true;
-    }    
+    }
 
     protected boolean useAsync(final Node node) {
         if (node instanceof StartNode) {
@@ -759,7 +779,7 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
         if (asyncMode) {
             return asyncMode;
         }
-        
+
         return Boolean.parseBoolean((String)getKnowledgeRuntime().getEnvironment().get("AsyncMode"));
     }
 }
