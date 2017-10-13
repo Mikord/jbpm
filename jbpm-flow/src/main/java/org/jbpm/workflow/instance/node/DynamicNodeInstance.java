@@ -141,43 +141,37 @@ public class DynamicNodeInstance extends CompositeContextNodeInstance implements
     @SuppressWarnings("unchecked")
     @Override
 	public void signalEvent(String type, Object event) {
-      if (getActivationEventType().equals(type)) {
-        if (event instanceof MatchCreatedEvent) {
-          matchCreated((MatchCreatedEvent) event);
-        }
-      } else {
-        super.signalEvent(type, event);
-      }
+		super.signalEvent(type, event);
 	}
 
     @Override
 	public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
-      if (getActivationEventType().equals(type)) {
-        if (event instanceof MatchCreatedEvent) {
-          matchCreated((MatchCreatedEvent) event);
-        }
-      } else {
-        super.signalEvent(type, event, messageCorrelation);
-        signalToChildNodes(type, event);
-      }
+		if (getActivationEventType().equals(type)) {
+			if (event instanceof MatchCreatedEvent) {
+				matchCreated((MatchCreatedEvent) event);
+			}
+		} else {
+			super.signalEvent(type, event, messageCorrelation);
+			signalToChildNodes(type, event);
+		}
 	}
 
 	private void signalToChildNodes(String type, Object event) {
-    for (Node node: getCompositeNode().getNodes()) {
-      if (type.equals(node.getName()) && node.getIncomingConnections().isEmpty()) {
-        NodeInstance nodeInstance = getNodeInstance(node);
-        if (event != null) {
-          Map<String, Object> dynamicParams = new HashMap<>();
-          if (event instanceof Map) {
-            dynamicParams.putAll((Map<String, Object>) event);
-          } else {
-            dynamicParams.put("Data", event);
-          }
-          ((org.jbpm.workflow.instance.NodeInstance) nodeInstance).setDynamicParameters(dynamicParams);
-        }
-        ((org.jbpm.workflow.instance.NodeInstance) nodeInstance).trigger(null, NodeImpl.CONNECTION_DEFAULT_TYPE);
-      }
-    }
+		for (Node node: getCompositeNode().getNodes()) {
+			if (type.equals(node.getName()) && node.getIncomingConnections().isEmpty()) {
+				NodeInstance nodeInstance = getNodeInstance(node);
+				if (event != null) {
+					Map<String, Object> dynamicParams = new HashMap<>();
+					if (event instanceof Map) {
+						dynamicParams.putAll((Map<String, Object>) event);
+					} else {
+						dynamicParams.put("Data", event);
+					}
+					((org.jbpm.workflow.instance.NodeInstance) nodeInstance).setDynamicParameters(dynamicParams);
+				}
+				((org.jbpm.workflow.instance.NodeInstance) nodeInstance).trigger(null, NodeImpl.CONNECTION_DEFAULT_TYPE);
+			}
+		}
   }
 
     protected boolean isTerminated(NodeInstance from) {
