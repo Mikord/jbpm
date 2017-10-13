@@ -60,14 +60,14 @@ public class EventSubProcessNodeInstance extends CompositeContextNodeInstance {
     }
 
     private void signalStartNode(String type, Object event) {
-      if (getNodeInstanceContainer().getNodeInstances().contains(this) || type.startsWith("Error-") || type.equals("timerTriggered") ) {
-        StartNode startNode = getCompositeNode().findStartNode();
-        if (resolveVariables(((EventSubProcessNode) getEventBasedNode()).getEvents()).contains(type) || type.equals("timerTriggered")) {
-          NodeInstance nodeInstance = getNodeInstance(startNode);
-          ((StartNodeInstance) nodeInstance).signalEvent(type, event);
+        if (getNodeInstanceContainer().getNodeInstances().contains(this) || type.startsWith("Error-") || type.equals("timerTriggered") ) {
+            StartNode startNode = getCompositeNode().findStartNode();
+            if (resolveVariables(((EventSubProcessNode) getEventBasedNode()).getEvents()).contains(type) || type.equals("timerTriggered")) {
+                NodeInstance nodeInstance = getNodeInstance(startNode);
+                ((StartNodeInstance) nodeInstance).signalEvent(type, event);
+            }
         }
-      }
-      super.signalEvent(type, event);
+        super.signalEvent(type, event);
     }
 
     @Override
