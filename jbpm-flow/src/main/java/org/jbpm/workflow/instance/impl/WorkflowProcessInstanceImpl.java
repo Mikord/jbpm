@@ -484,7 +484,7 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
   }
 
 	@SuppressWarnings("unchecked")
-  public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
+	public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
 	    synchronized (this) {
 			if (getState() != ProcessInstance.STATE_ACTIVE) {
 				return;
@@ -517,33 +517,30 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 				for (Node node : getWorkflowProcess().getNodes()) {
 			        if (node instanceof EventNodeInterface) {
                 if (((EventNodeInterface) node).acceptsEvent(type, event, (e) -> resolveVariable(e)) &&
-                    (!type.startsWith("Message-") || messageCorrelation.matches(event, node, getVariables()))
-                    ) {
-                  if (node instanceof EventNode && ((EventNode) node).getFrom() == null) {
-                    EventNodeInstance eventNodeInstance = (EventNodeInstance) getNodeInstance(node);
-                    eventNodeInstance.signalEvent(type, event);
-                  }
-                  else {
-                    if (node instanceof EventSubProcessNode && ((resolveVariables(((EventSubProcessNode) node).getEvents()).contains(type)))) {
-                      EventSubProcessNodeInstance eventNodeInstance = (EventSubProcessNodeInstance) getNodeInstance(node);
-                      eventNodeInstance.signalEvent(type, event);
-                    }
-                    else {
-                      List<NodeInstance> nodeInstances = getNodeInstances(node.getId(), currentView);
-                      if (nodeInstances != null && !nodeInstances.isEmpty()) {
-                        for (NodeInstance nodeInstance : nodeInstances) {
-                          if (nodeInstance instanceof CompositeNodeInstance) {
-                            ((CompositeNodeInstance) nodeInstance).signalEvent(type, event, messageCorrelation);
-                          }
-                          else {
-                            ((EventNodeInstanceInterface) nodeInstance).signalEvent(type, event);
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
+                        (!type.startsWith("Message-") || messageCorrelation.matches(event, node, getVariables()))
+                ) {
+			                if (node instanceof EventNode && ((EventNode) node).getFrom() == null) {
+			                    EventNodeInstance eventNodeInstance = (EventNodeInstance) getNodeInstance(node);
+			                    eventNodeInstance.signalEvent(type, event);
+			                } else {
+			                    if (node instanceof EventSubProcessNode && ((resolveVariables(((EventSubProcessNode) node).getEvents()).contains(type)))) {
+    			                    EventSubProcessNodeInstance eventNodeInstance = (EventSubProcessNodeInstance) getNodeInstance(node);
+    			                    eventNodeInstance.signalEvent(type, event);
+			                    } else {
+    								List<NodeInstance> nodeInstances = getNodeInstances(node.getId(), currentView);
+    			                    if (nodeInstances != null && !nodeInstances.isEmpty()) {
+    			                        for (NodeInstance nodeInstance : nodeInstances) {
+											if (nodeInstance instanceof CompositeNodeInstance) {
+												((CompositeNodeInstance) nodeInstance).signalEvent(type, event, messageCorrelation);
+											} else {
+												((EventNodeInstanceInterface) nodeInstance).signalEvent(type, event);
+											}
+    			                        }
+    			                    }
+			                    }
+			                }
+			            }
+			        }
 				}
 				if (((org.jbpm.workflow.core.WorkflowProcess) getWorkflowProcess()).isDynamic()) {
 					for (Node node : getWorkflowProcess().getNodes()) {
