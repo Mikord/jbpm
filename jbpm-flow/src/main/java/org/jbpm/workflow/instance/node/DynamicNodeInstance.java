@@ -23,6 +23,7 @@ import org.drools.core.util.MVELSafeHelper;
 import org.jbpm.workflow.core.impl.ExtendedNodeImpl;
 import org.jbpm.workflow.core.impl.NodeImpl;
 import org.jbpm.workflow.core.node.DynamicNode;
+import org.jbpm.workflow.instance.impl.MessageCorrelation;
 import org.jbpm.workflow.instance.impl.NodeInstanceResolverFactory;
 import org.kie.api.definition.process.Node;
 import org.kie.api.event.rule.AfterMatchFiredEvent;
@@ -66,7 +67,7 @@ public class DynamicNodeInstance extends CompositeContextNodeInstance implements
 //    		triggerCompleted(NodeImpl.CONNECTION_DEFAULT_TYPE);
 //    	}
 
-        
+
         String rule = "RuleFlow-AdHocComplete-" + getProcessInstance().getProcessId() + "-" + getDynamicNode().getUniqueId();
         boolean isActive = ((InternalAgenda) getProcessInstance().getKnowledgeRuntime().getAgenda())
             .isRuleActiveInRuleFlowGroup(getRuleFlowGroupName(), rule, getProcessInstance().getId());
@@ -75,7 +76,7 @@ public class DynamicNodeInstance extends CompositeContextNodeInstance implements
         } else {
             addActivationListener();
         }
-    	
+
     	// activate ad hoc fragments if they are marked as such
         List<Node> autoStartNodes = getDynamicNode().getAutoStartNodes();
         autoStartNodes
@@ -86,18 +87,18 @@ public class DynamicNodeInstance extends CompositeContextNodeInstance implements
         super.addEventListeners();
         addActivationListener();
     }
-    
+
     public void removeEventListeners() {
         super.removeEventListeners();
         getProcessInstance().getKnowledgeRuntime().removeEventListener(this);
         getProcessInstance().removeEventListener(getActivationEventType(), this, true);
     }
-    
+
     private void addActivationListener() {
         getProcessInstance().getKnowledgeRuntime().addEventListener(this);
         getProcessInstance().addEventListener(getActivationEventType(), this, true);
     }
-    
+
     private String getActivationEventType() {
         return "RuleFlow-AdHocComplete-" + getProcessInstance().getProcessId()
             + "-" + getDynamicNode().getUniqueId();
@@ -140,39 +141,48 @@ public class DynamicNodeInstance extends CompositeContextNodeInstance implements
     @SuppressWarnings("unchecked")
     @Override
 	public void signalEvent(String type, Object event) {
-        if (getActivationEventType().equals(type)) {
-            if (event instanceof MatchCreatedEvent) {
-                matchCreated((MatchCreatedEvent) event);
-            }
-        } else {
-    		super.signalEvent(type, event);
-    		for (Node node: getCompositeNode().getNodes()) {
-    			if (type.equals(node.getName()) && node.getIncomingConnections().isEmpty()) {
-        			NodeInstance nodeInstance = getNodeInstance(node);
-        			if (event != null) {                             
-                        Map<String, Object> dynamicParams = new HashMap<>();
-                        if (event instanceof Map) {
-                            dynamicParams.putAll((Map<String, Object>) event);                                  
-                        } else {
-                            dynamicParams.put("Data", event);
-                        }
-                        ((org.jbpm.workflow.instance.NodeInstance) nodeInstance).setDynamicParameters(dynamicParams);
-                    }
-                    ((org.jbpm.workflow.instance.NodeInstance) nodeInstance).trigger(null, NodeImpl.CONNECTION_DEFAULT_TYPE);
-        		}
-    		}
-        }
+		super.signalEvent(type, event);
 	}
+
+    @Override
+	public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
+		if (getActivationEventType().equals(type)) {
+			if (event instanceof MatchCreatedEvent) {
+				matchCreated((MatchCreatedEvent) event);
+			}
+		} else {
+			super.signalEvent(type, event, messageCorrelation);
+			signalToChildNodes(type, event);
+		}
+	}
+
+	private void signalToChildNodes(String type, Object event) {
+		for (Node node: getCompositeNode().getNodes()) {
+			if (type.equals(node.getName()) && node.getIncomingConnections().isEmpty()) {
+				NodeInstance nodeInstance = getNodeInstance(node);
+				if (event != null) {
+					Map<String, Object> dynamicParams = new HashMap<>();
+					if (event instanceof Map) {
+						dynamicParams.putAll((Map<String, Object>) event);
+					} else {
+						dynamicParams.put("Data", event);
+					}
+					((org.jbpm.workflow.instance.NodeInstance) nodeInstance).setDynamicParameters(dynamicParams);
+				}
+				((org.jbpm.workflow.instance.NodeInstance) nodeInstance).trigger(null, NodeImpl.CONNECTION_DEFAULT_TYPE);
+			}
+		}
+  }
 
     protected boolean isTerminated(NodeInstance from) {
         if (from instanceof EndNodeInstance) {
-            
+
             return ((EndNodeInstance) from).getEndNode().isTerminate();
         }
-        
+
         return false;
     }
-    
+
     public void matchCreated(MatchCreatedEvent event) {
         // check whether this activation is from the DROOLS_SYSTEM agenda group
         String ruleFlowGroup = ((RuleImpl) event.getMatch().getRule()).getRuleFlowGroup();
