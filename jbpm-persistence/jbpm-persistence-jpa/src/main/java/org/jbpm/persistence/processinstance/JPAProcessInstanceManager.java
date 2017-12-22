@@ -62,7 +62,7 @@ public class JPAProcessInstanceManager
     // In a scenario in which 1000's of processes are running daily,
     //   lazy initialization is more costly than eager initialization
     // Added volatile so that if something happens, we can figure out what
-    private volatile transient Map<Long, ProcessInstance> processInstances = new ConcurrentHashMap<Long, ProcessInstance>();
+    private transient ThreadLocal<Map<Long, ProcessInstance>> processInstances = ThreadLocal.withInitial(ConcurrentHashMap::new);
 
     
     public void setKnowledgeRuntime(InternalKnowledgeRuntime kruntime) {
@@ -92,7 +92,7 @@ public class JPAProcessInstanceManager
     }
     
     public void internalAddProcessInstance(ProcessInstance processInstance) {
-        if( ((ConcurrentHashMap<Long, ProcessInstance>) processInstances)
+        if( ((ConcurrentHashMap<Long, ProcessInstance>) processInstances.get())
                 .putIfAbsent(processInstance.getId(), processInstance) 
                 != null ) { 
             throw new ConcurrentModificationException(
@@ -112,7 +112,7 @@ public class JPAProcessInstanceManager
         }
         TransactionManager txm = (TransactionManager) this.kruntime.getEnvironment().get( EnvironmentName.TRANSACTION_MANAGER );
         org.jbpm.process.instance.ProcessInstance processInstance = null;
-        processInstance = (org.jbpm.process.instance.ProcessInstance) this.processInstances.get(id);
+        processInstance = (org.jbpm.process.instance.ProcessInstance) this.processInstances.get().get(id);
         if (processInstance != null) {
             if (((WorkflowProcessInstanceImpl) processInstance).isPersisted() && !readOnly) {
             	ProcessPersistenceContextManager ppcm 
@@ -165,7 +165,7 @@ public class JPAProcessInstanceManager
     }
 
     public Collection<ProcessInstance> getProcessInstances() {
-        return Collections.unmodifiableCollection(processInstances.values());
+        return Collections.unmodifiableCollection(processInstances.get().values());
     }
 
     public void removeProcessInstance(ProcessInstance processInstance) {
@@ -179,13 +179,14 @@ public class JPAProcessInstanceManager
     }
 
     public void internalRemoveProcessInstance(ProcessInstance processInstance) {
-        processInstances.remove( processInstance.getId() );
+        processInstances.get().remove( processInstance.getId() );
     }
     
     public void clearProcessInstances() {
-        for (ProcessInstance processInstance: new ArrayList<ProcessInstance>(processInstances.values())) {
+        for (ProcessInstance processInstance: new ArrayList<ProcessInstance>(processInstances.get().values())) {
             ((ProcessInstanceImpl) processInstance).disconnect();
         }
+        processInstances.remove();
     }
 
     public void clearProcessInstancesState() {
@@ -193,7 +194,7 @@ public class JPAProcessInstanceManager
             // at this point only timers are considered as state that needs to be cleared
             TimerManager timerManager = ((InternalProcessRuntime)kruntime.getProcessRuntime()).getTimerManager();
             
-            for (ProcessInstance processInstance: new ArrayList<ProcessInstance>(processInstances.values())) {
+            for (ProcessInstance processInstance: new ArrayList<ProcessInstance>(processInstances.get().values())) {
                 WorkflowProcessInstance pi = ((WorkflowProcessInstance) processInstance);
     
                 
