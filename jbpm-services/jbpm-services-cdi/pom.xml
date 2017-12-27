@@ -3,11 +3,15 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-services</artifactId>
-    <version>7.3.0.Final-Center-2</version>
+    <version>7.5.0.Final</version>
   </parent>
   <artifactId>jbpm-services-cdi</artifactId>
   <name>jBPM :: CDI Services</name>
-  
+
+  <properties>
+    <java.module.name>org.jbpm.services.cdi</java.module.name>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.drools</groupId>
@@ -109,8 +113,8 @@
     
     <!-- dashbuilder dataset integration for advanced queries -->
     <dependency>
-      <groupId>org.dashbuilder</groupId>
-      <artifactId>dashbuilder-dataset-api</artifactId>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-dataset-api</artifactId>
     </dependency>
 
     <!-- test -->
@@ -169,6 +173,16 @@
     <dependency>
       <groupId>org.jboss.narayana.jta</groupId>
       <artifactId>narayana-jta</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-impl</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-core</artifactId>
       <scope>test</scope>
     </dependency>
     <!-- test: arquillian -->

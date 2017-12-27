@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package org.jbpm.kie.services.impl.query.preprocessor;
 import static org.dashbuilder.dataset.filter.FilterFactory.*;
 import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_ACTUALOWNER;
 import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_ORGANIZATIONAL_ENTITY;
+import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_EXCLUDED_OWNER;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,7 +56,10 @@ public class PotOwnerTasksPreprocessor implements DataSetPreprocessor {
                 equalsTo(COLUMN_ORGANIZATIONAL_ENTITY, orgEntities),
                 OR(equalsTo(COLUMN_ACTUALOWNER, ""), isNull(COLUMN_ACTUALOWNER)));
 
-        final ColumnFilter columnFilter = OR(myGroupFilter, equalsTo(COLUMN_ACTUALOWNER, identityProvider.getName()));
+        final ColumnFilter columnFilter = AND(
+                OR(isNull(COLUMN_EXCLUDED_OWNER), notEqualsTo(COLUMN_EXCLUDED_OWNER, identityProvider.getName())),
+                OR(myGroupFilter, equalsTo(COLUMN_ACTUALOWNER, identityProvider.getName())));
+
         LOGGER.debug("Adding column filter: {}", columnFilter);
 
         if (lookup.getFirstFilterOp() != null) {

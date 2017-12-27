@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.services.task.commands;
 
@@ -93,9 +94,18 @@ public class UserGroupCallbackTaskCommand<T> extends TaskCommand<T> {
 
     protected boolean doCallbackUserOperation(String userId, TaskContext context) {
 
+        return doCallbackUserOperation(userId, context, false);
+
+    }
+    
+    protected boolean doCallbackUserOperation(String userId, TaskContext context, boolean throwExceptionWhenNotFound) {
+
         if (userId != null && context.getUserGroupCallback().existsUser(userId)) {
             addUserFromCallbackOperation(userId, context);
             return true;
+        }
+        if (throwExceptionWhenNotFound) {
+            throw new IllegalArgumentException("User " + userId + " was not found in callback " + context.getUserGroupCallback());
         }
         return false;
 
@@ -510,7 +520,7 @@ public class UserGroupCallbackTaskCommand<T> extends TaskCommand<T> {
      }
      
      protected boolean isBusinessAdmin(String userId, List<OrganizationalEntity> businessAdmins, TaskContext context) {
-         List<String> usersGroup = context.getUserGroupCallback().getGroupsForUser(userId);
+         List<String> usersGroup = new ArrayList<String>(context.getUserGroupCallback().getGroupsForUser(userId));
          usersGroup.add(userId);
          
          return businessAdmins.stream().anyMatch(oe -> usersGroup.contains(oe.getId()));

@@ -1,17 +1,18 @@
 /*
-Copyright 2013 Red Hat, Inc. and/or its affiliates.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.*/
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package org.jbpm.bpmn2;
 
@@ -37,7 +38,7 @@ import org.jbpm.process.instance.event.listeners.RuleAwareProcessEventLister;
 import org.jbpm.process.instance.event.listeners.TriggerRulesEventListener;
 import org.jbpm.process.instance.impl.demo.DoNothingWorkItemHandler;
 import org.jbpm.process.instance.impl.demo.SystemOutWorkItemHandler;
-import org.jbpm.test.util.CountDownProcessEventListener;
+import org.jbpm.test.listener.NodeLeftCountDownProcessEventListener;
 import org.jbpm.workflow.instance.WorkflowRuntimeException;
 import org.jbpm.workflow.instance.node.DynamicNodeInstance;
 import org.jbpm.workflow.instance.node.DynamicUtils;
@@ -80,9 +81,13 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 @RunWith(Parameterized.class)
 public class ActivityTest extends JbpmBpmn2TestCase {
@@ -545,7 +550,7 @@ public class ActivityTest extends JbpmBpmn2TestCase {
     @Test(timeout=10000)
     @RequirePersistence
     public void testProcesWithHumanTaskWithTimer() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Timer", 1);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("Timer", 1);
         KieBase kbase = createKnowledgeBase("BPMN2-SubProcessWithTimer.bpmn2");
         StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         ksession.addEventListener(countDownListener);
@@ -755,7 +760,7 @@ public class ActivityTest extends JbpmBpmn2TestCase {
     @Test(timeout=10000)
     @RequirePersistence
     public void testCallActivityWithTimer() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Timer", 1);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("Timer", 1);
         KieBase kbase = createKnowledgeBase("BPMN2-ParentProcess.bpmn2",
                 "BPMN2-SubProcessWithTimer.bpmn2");
         ksession = createKnowledgeSession(kbase);
@@ -1363,7 +1368,7 @@ public class ActivityTest extends JbpmBpmn2TestCase {
     @RequirePersistence
     @Test(timeout=10000)
     public void testNullVariableInScriptTaskProcess() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Timer", 1, true);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("Timer", 1, true);
         KieBase kbase = createKnowledgeBase("BPMN2-NullVariableInScriptTaskProcess.bpmn2");
         ksession = createKnowledgeSession(kbase);
         ksession.addEventListener(countDownListener);
@@ -1395,7 +1400,7 @@ public class ActivityTest extends JbpmBpmn2TestCase {
 
     @Test
     public void testCallActivityWithBoundaryEvent() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Boundary event", 1);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("Boundary event", 1);
         KieBase kbase = createKnowledgeBase(
                 "BPMN2-CallActivityWithBoundaryEvent.bpmn2",
                 "BPMN2-CallActivitySubProcessWithBoundaryEvent.bpmn2");
@@ -1962,5 +1967,32 @@ public class ActivityTest extends JbpmBpmn2TestCase {
         log = logService.findProcessInstance(processInstance.getId());
         assertNotNull(log);
         assertEquals("Parent process should be completed and not aborted", ProcessInstance.STATE_COMPLETED, log.getStatus().intValue());
+    }
+    
+    @Test
+    public void testBusinessRuleTaskFireLimit() throws Exception {
+        KieBase kbase = createKnowledgeBaseWithoutDumper("BPMN2-BusinessRuleTaskLoop.bpmn2",
+                "BPMN2-BusinessRuleTaskInfiniteLoop.drl");
+        ksession = createKnowledgeSession(kbase);
+        ksession.insert(new Person());
+        assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> { 
+            ksession.startProcess("BPMN2-BusinessRuleTask");
+        })
+        .withMessageContaining("Fire rule limit reached 10000");        
+    }
+    
+    @Test
+    public void testBusinessRuleTaskFireLimitAsParameter() throws Exception {
+        KieBase kbase = createKnowledgeBaseWithoutDumper("BPMN2-BusinessRuleTaskWithDataInputLoop.bpmn2",
+                "BPMN2-BusinessRuleTaskInfiniteLoop.drl");
+        ksession = createKnowledgeSession(kbase);
+        ksession.insert(new Person());
+        
+        Map<String, Object> parameters = Collections.singletonMap("limit", 5);
+        
+        assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> { 
+            ksession.startProcess("BPMN2-BusinessRuleTask", parameters);
+        })
+        .withMessageContaining("Fire rule limit reached 5");        
     }
 }

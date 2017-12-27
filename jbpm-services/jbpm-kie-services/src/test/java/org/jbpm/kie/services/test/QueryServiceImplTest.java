@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,12 +16,29 @@
 
 package org.jbpm.kie.services.test;
 
+import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_PROCESSID;
+import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_PROCESSINSTANCEID;
+import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_PROCESSNAME;
+import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_START;
+import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_STATUS;
+import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_TASK_VAR_NAME;
+import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_TASK_VAR_VALUE;
+import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_VAR_NAME;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.lang.reflect.Field;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,13 +87,10 @@ import org.kie.scanner.KieMavenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.jbpm.services.api.query.QueryResultMapper.*;
-import static org.junit.Assert.*;
-import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
-
 public class QueryServiceImplTest extends AbstractKieServicesBaseTest {
 
     private static final Logger logger = LoggerFactory.getLogger(KModuleDeploymentServiceTest.class);
+    private static final String PO_TASK_QUERY = "select ti.activationTime, ti.actualOwner, ti.createdBy, ti.createdOn, ti.deploymentId, " + "ti.description, ti.dueDate, ti.name, ti.parentId, ti.priority, ti.processId, ti.processInstanceId, " + "ti.processSessionId, ti.status, ti.taskId, ti.workItemId, oe.id, eo.entity_id " + "from AuditTaskImpl ti " + "left join PeopleAssignments_PotOwners po on ti.taskId = po.task_id " + "left join OrganizationalEntity oe on po.entity_id = oe.id " + " left join PeopleAssignments_ExclOwners eo on ti.taskId = eo.task_id ";
 
     private List<DeploymentUnit> units = new ArrayList<DeploymentUnit>();
     protected String correctUser = "testUser";
@@ -92,6 +106,9 @@ public class QueryServiceImplTest extends AbstractKieServicesBaseTest {
 
     @Before
     public void prepare() {
+        System.setProperty("org.jbpm.ht.callback", "custom");
+        System.setProperty("org.jbpm.ht.custom.callback", "org.jbpm.kie.services.test.objects.TestUserGroupCallbackImpl");
+
         this.dataSourceJNDIname = getDataSourceJNDI();
         configureServices();
         logger.debug("Preparing kjar");
@@ -103,6 +120,7 @@ public class QueryServiceImplTest extends AbstractKieServicesBaseTest {
         processes.add("repo/processes/general/BPMN2-UserTask.bpmn2");
         processes.add("repo/processes/general/SimpleHTProcess.bpmn2");
         processes.add("repo/processes/general/AdHocSubProcess.bpmn2");
+        processes.add("repo/processes/general/ExcludedOwner.bpmn2");
 
         DeploymentDescriptor customDescriptor = new DeploymentDescriptorImpl("org.jbpm.domain");
         customDescriptor.getBuilder().addRequiredRole("view:managers");
@@ -152,6 +170,9 @@ public class QueryServiceImplTest extends AbstractKieServicesBaseTest {
 
     @After
     public void cleanup() {
+        System.clearProperty("org.jbpm.ht.callback");
+        System.clearProperty("org.jbpm.ht.custom.callback");
+
         if (query != null) {
             try {
                 queryService.unregisterQuery(query.getName());
@@ -394,7 +415,7 @@ public class QueryServiceImplTest extends AbstractKieServicesBaseTest {
     public void testGetTaskInstancesAsPotOwners() {
 
         query = new SqlQueryDefinition("getMyTaskInstances", dataSourceJNDIname, Target.PO_TASK);
-        query.setExpression("select ti.activationTime, ti.actualOwner, ti.createdBy, ti.createdOn, ti.deploymentId, " + "ti.description, ti.dueDate, ti.name, ti.parentId, ti.priority, ti.processId, ti.processInstanceId, " + "ti.processSessionId, ti.status, ti.taskId, ti.workItemId,  oe.id " + "from AuditTaskImpl ti," + "PeopleAssignments_PotOwners po, " + "OrganizationalEntity oe " + "where ti.taskId = po.task_id and po.entity_id = oe.id ");
+        query.setExpression(PO_TASK_QUERY);
 
         queryService.registerQuery(query);
 
@@ -437,6 +458,57 @@ public class QueryServiceImplTest extends AbstractKieServicesBaseTest {
         List<TaskSummary> taskSummaries = queryService.query(query.getName(), TaskSummaryQueryMapper.get(), new QueryContext());
         assertNotNull(taskSummaries);
         assertEquals(1, taskSummaries.size());
+
+        processService.abortProcessInstance(processInstanceId);
+        processInstanceId = null;
+    }
+
+    @Test
+    public void testGetTaskInstancesAsExcludedOwner() {
+        final String potentialOwner = "maciej";
+        final String excludedOwner = "kris";
+        final List<String> roles = Arrays.asList("admins");
+
+        query = new SqlQueryDefinition("getMyTaskInstances", dataSourceJNDIname, Target.PO_TASK);
+        query.setExpression(PO_TASK_QUERY);
+
+        queryService.registerQuery(query);
+
+        List<QueryDefinition> queries = queryService.getQueries(new QueryContext());
+        assertNotNull(queries);
+        assertEquals(1, queries.size());
+
+        QueryDefinition registeredQuery = queries.get(0);
+        assertNotNull(registeredQuery);
+        assertEquals(query.getName(), registeredQuery.getName());
+        assertEquals(query.getSource(), registeredQuery.getSource());
+        assertEquals(query.getExpression(), registeredQuery.getExpression());
+        assertEquals(query.getTarget(), registeredQuery.getTarget());
+
+        registeredQuery = queryService.getQuery(query.getName());
+
+        assertNotNull(registeredQuery);
+        assertEquals(query.getName(), registeredQuery.getName());
+        assertEquals(query.getSource(), registeredQuery.getSource());
+        assertEquals(query.getExpression(), registeredQuery.getExpression());
+        assertEquals(query.getTarget(), registeredQuery.getTarget());
+
+        processInstanceId = processService.startProcess(deploymentUnit.getIdentifier(), "org.jbpm.ExcludedOwner", new HashMap<String, Object>());
+        assertNotNull(processInstanceId);
+
+        identityProvider.setName(potentialOwner);
+        identityProvider.setRoles(roles);
+
+        List<UserTaskInstanceDesc> taskInstanceLogs = queryService.query(query.getName(), UserTaskInstanceQueryMapper.get(), new QueryContext());
+        assertNotNull(taskInstanceLogs);
+        assertEquals(1, taskInstanceLogs.size());
+
+        identityProvider.setName(excludedOwner);
+        identityProvider.setRoles(roles);
+
+        taskInstanceLogs = queryService.query(query.getName(), UserTaskInstanceQueryMapper.get(), new QueryContext());
+        assertNotNull(taskInstanceLogs);
+        assertEquals(0, taskInstanceLogs.size());
 
         processService.abortProcessInstance(processInstanceId);
         processInstanceId = null;
@@ -902,7 +974,7 @@ public class QueryServiceImplTest extends AbstractKieServicesBaseTest {
         identityProvider.setRoles(roles);
 
         query = new SqlQueryDefinition("getMyTaskInstances", dataSourceJNDIname, Target.FILTERED_PO_TASK);
-        query.setExpression("select ti.activationTime, ti.actualOwner, ti.createdBy, ti.createdOn, ti.deploymentId, " + "ti.description, ti.dueDate, ti.name, ti.parentId, ti.priority, ti.processId, ti.processInstanceId, " + "ti.processSessionId, ti.status, ti.taskId, ti.workItemId,  oe.id " + "from AuditTaskImpl ti," + "PeopleAssignments_PotOwners po, " + "OrganizationalEntity oe " + "where ti.taskId = po.task_id and po.entity_id = oe.id ");
+        query.setExpression(PO_TASK_QUERY);
 
         queryService.registerQuery(query);
 
@@ -1071,7 +1143,92 @@ public class QueryServiceImplTest extends AbstractKieServicesBaseTest {
         assertNotNull(queries);
         assertEquals(0, queries.size());
     }
+    
+    @Test
+    public void testGetProcessInstancesGroupWithInterval() {
 
+        query = new SqlQueryDefinition("getAllProcessInstances", dataSourceJNDIname);
+        query.setExpression("select * from processinstancelog");
+
+        queryService.registerQuery(query);
+
+        List<QueryDefinition> queries = queryService.getQueries(new QueryContext());
+        assertNotNull(queries);
+        assertEquals(1, queries.size());
+
+        QueryParam[] parameters = QueryParam.getBuilder().append(QueryParam.groupBy(COLUMN_START, QueryParam.DAY, 30)).get();
+
+        Collection<List<Object>> instances = queryService.query(query.getName(), RawListQueryMapper.get(), new QueryContext(), parameters);
+        assertNotNull(instances);
+        assertEquals(0, instances.size());
+
+        processInstanceId = processService.startProcess(deploymentUnit.getIdentifier(), "org.jbpm.writedocument");
+        assertNotNull(processInstanceId);
+
+        long processInstanceId2 = processService.startProcess(deploymentUnit.getIdentifier(), "org.jboss.qa.bpms.HumanTask");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        // expected date is day when processes started
+        String expectedDate = sdf.format(new Date());
+
+        instances = queryService.query(query.getName(), RawListQueryMapper.get(), new QueryContext(), parameters);
+        assertNotNull(instances);
+        assertEquals(1, instances.size());
+        // write document process
+        List<Object> result = instances.iterator().next();
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        
+        assertEquals(expectedDate, result.get(0));
+
+        processService.abortProcessInstance(processInstanceId2);
+        processService.abortProcessInstance(processInstanceId);
+        processInstanceId = null;
+
+    }
+
+    
+    @Test
+    public void testGetProcessInstancesGroupWithoutInterval() {
+
+        query = new SqlQueryDefinition("getAllProcessInstances", dataSourceJNDIname);
+        query.setExpression("select * from processinstancelog");
+
+        queryService.registerQuery(query);
+
+        List<QueryDefinition> queries = queryService.getQueries(new QueryContext());
+        assertNotNull(queries);
+        assertEquals(1, queries.size());
+
+        QueryParam[] parameters = QueryParam.getBuilder().append(QueryParam.groupBy(COLUMN_START)).get();
+
+        Collection<List<Object>> instances = queryService.query(query.getName(), RawListQueryMapper.get(), new QueryContext(), parameters);
+        assertNotNull(instances);
+        assertEquals(0, instances.size());
+
+        processInstanceId = processService.startProcess(deploymentUnit.getIdentifier(), "org.jbpm.writedocument");
+        assertNotNull(processInstanceId);
+
+        long processInstanceId2 = processService.startProcess(deploymentUnit.getIdentifier(), "org.jboss.qa.bpms.HumanTask");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy");
+        // expected date is day when processes started
+        String expectedDate = sdf.format(new Date());
+
+        instances = queryService.query(query.getName(), RawListQueryMapper.get(), new QueryContext(), parameters);
+        assertNotNull(instances);
+        assertEquals(1, instances.size());
+        // write document process
+        List<Object> result = instances.iterator().next();
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        
+        assertEquals(expectedDate, result.get(0));
+
+        processService.abortProcessInstance(processInstanceId2);
+        processService.abortProcessInstance(processInstanceId);
+        processInstanceId = null;
+
+    }
+    
     protected void setFieldValue(Object instance, String fieldName, Object value) {
         try {
             Field f = instance.getClass().getDeclaredField(fieldName);

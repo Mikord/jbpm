@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.runtime.manager.impl.error;
 
@@ -19,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
@@ -283,11 +285,53 @@ public class ExecutionErrorHandlingRuntimeManagerTest extends AbstractBaseTest {
         List<ExecutionError> errors = storage.list(0, 10);
         assertNotNull(errors);
         assertEquals(expectedErrors, errors.size());
-        assertExecutionError(errors.get(0), "DB", "UserTaskWithRollback", "Hello");
-        if (expectedErrors == 2) {
-            assertExecutionError(errors.get(1), "DB", "UserTaskWithRollback", "Hello");
-        }
+        assertExecutionError(errors.get(0), "DB", "UserTaskWithRollback", "Hello");      
 
+    }
+    
+    @Test
+    public void testFailureAfterUserTaskNoWorkItemHandler() {
+        
+        RuntimeEngine runtime1 = manager.getRuntimeEngine(ProcessInstanceIdContext.get());
+        KieSession ksession1 = runtime1.getKieSession();
+        assertNotNull(ksession1);                 
+        
+        ProcessInstance pi = ksession1.startProcess("UserTaskWithCustomTask");
+        
+        manager.disposeRuntimeEngine(runtime1);
+        
+        runtime1 = manager.getRuntimeEngine(ProcessInstanceIdContext.get(pi.getId()));
+        ksession1 = runtime1.getKieSession();
+        
+        TaskService taskService = runtime1.getTaskService();
+        List<TaskSummary> tasks = taskService.getTasksAssignedAsPotentialOwner("john", "en-UK");
+        assertEquals(1, tasks.size());
+        
+        long taskId = tasks.get(0).getId();
+        
+        taskService.start(taskId, "john");
+        
+        Map<String, Object> results = new HashMap<>();
+        results.put("output1", "rollback");
+        
+        try {
+            taskService.complete(taskId, "john", results);
+            fail("Complete task should fail due to no work item handler found error");
+        } catch (Throwable e) {
+            // expected
+        }
+                 
+        manager.disposeRuntimeEngine(runtime1);
+       
+        ExecutionErrorManager errorManager = ((AbstractRuntimeManager) manager).getExecutionErrorManager();
+        ExecutionErrorStorage storage = errorManager.getStorage();
+        
+        List<ExecutionError> errors = storage.list(0, 10);
+        assertNotNull(errors);
+        assertEquals(1, errors.size());
+        assertExecutionError(errors.get(0), "Process", "UserTaskWithCustomTask", "Manual Task 2");
+        String errorMessage = errors.get(0).getErrorMessage();
+        assertTrue(errorMessage.contains("Could not find work item handler for Manual Task"));
     }
     
     private RuntimeEnvironment createEnvironment() {
@@ -342,7 +386,8 @@ public class ExecutionErrorHandlingRuntimeManagerTest extends AbstractBaseTest {
                 .entityManagerFactory(emf)
                 .userGroupCallback(userGroupCallback)
                 .addAsset(ResourceFactory.newClassPathResource("BPMN2-BrokenScriptTask.bpmn2"), ResourceType.BPMN2)
-                .addAsset(ResourceFactory.newClassPathResource("BPMN2-UserTaskWithRollback.bpmn2"), ResourceType.BPMN2);
+                .addAsset(ResourceFactory.newClassPathResource("BPMN2-UserTaskWithRollback.bpmn2"), ResourceType.BPMN2)
+                .addAsset(ResourceFactory.newClassPathResource("BPMN2-UserTaskCustomTask.bpmn2"), ResourceType.BPMN2);
         
         if (testName.getMethodName().contains("InMemoryStorage")) {
             environmentBuilder.addEnvironmentEntry("ExecutionErrorStorage", storage);

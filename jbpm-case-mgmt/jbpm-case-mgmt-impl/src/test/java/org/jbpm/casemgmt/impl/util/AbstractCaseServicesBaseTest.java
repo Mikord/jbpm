@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 - 2017 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -134,6 +134,8 @@ public abstract class AbstractCaseServicesBaseTest {
 
     protected AuthorizationManager authorizationManager;
 
+    private List<String> listenerMvelDefinitions = new ArrayList<>();
+
     protected static final String EMPTY_CASE_P_ID = "EmptyCase";
     protected static final String USER_TASK_STAGE_CASE_P_ID = "UserTaskWithStageCase";
     protected static final String USER_TASK_CASE_P_ID = "UserTaskCase";
@@ -143,6 +145,8 @@ public abstract class AbstractCaseServicesBaseTest {
     protected static final String COND_CASE_P_ID = "CaseFileConditionalEvent";
     protected static final String TWO_STAGES_CASE_P_ID = "CaseWithTwoStages";
     protected static final String TWO_STAGES_CONDITIONS_CASE_P_ID = "CaseWithTwoStagesConditions";
+    protected static final String EXPRESSION_CASE_P_ID = "ExpressionWithCaseFileItem";
+    protected static final String USER_TASK_DATA_RESTRICTIONS_CASE_P_ID = "UserTaskCaseDataRestrictions";
 
     protected static final String SUBPROCESS_P_ID = "DataVerification";
 
@@ -182,23 +186,6 @@ public abstract class AbstractCaseServicesBaseTest {
         deploymentUnit = prepareDeploymentUnit();
     }
 
-    protected DeploymentUnit prepareDeploymentUnit() {
-        assertThat(deploymentService).isNotNull();
-        KModuleDeploymentUnit deploymentUnit = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, VERSION);
-
-        final DeploymentDescriptor descriptor = new DeploymentDescriptorImpl();
-        descriptor.getBuilder().addEventListener(new NamedObjectModel(
-                "mvel",
-                "processIdentity",
-                "new org.jbpm.kie.services.impl.IdentityProviderAwareProcessListener(ksession)"
-        ));
-        deploymentUnit.setDeploymentDescriptor(descriptor);
-        deploymentUnit.setStrategy(RuntimeStrategy.PER_CASE);
-
-        deploymentService.deploy(deploymentUnit);
-        return deploymentUnit;
-    }
-
     @After
     public void tearDown() {
         clearDocumentStorageProperty();
@@ -218,6 +205,23 @@ public abstract class AbstractCaseServicesBaseTest {
 
         close();
         ServiceRegistry.get().clear();
+    }
+
+    protected DeploymentUnit prepareDeploymentUnit() {
+        assertThat(deploymentService).isNotNull();
+        KModuleDeploymentUnit deploymentUnit = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, VERSION);
+
+        final DeploymentDescriptor descriptor = new DeploymentDescriptorImpl();
+        descriptor.getBuilder().addEventListener(new NamedObjectModel(
+                "mvel",
+                "processIdentity",
+                "new org.jbpm.kie.services.impl.IdentityProviderAwareProcessListener(ksession)"
+        ));
+        deploymentUnit.setDeploymentDescriptor(descriptor);
+        deploymentUnit.setStrategy(RuntimeStrategy.PER_CASE);
+
+        deploymentService.deploy(deploymentUnit);
+        return deploymentUnit;
     }
 
     protected void close() {
@@ -340,13 +344,8 @@ public abstract class AbstractCaseServicesBaseTest {
 
         KieFileSystem kfs = createKieFileSystemWithKProject(ks);
         kfs.writePomXML(getPom(releaseId));
-        // set the deployment descriptor so we use per case runtime strategy
-        DeploymentDescriptor customDescriptor = new DeploymentDescriptorImpl("org.jbpm.domain");
-        DeploymentDescriptorBuilder ddBuilder = customDescriptor.getBuilder().runtimeStrategy(RuntimeStrategy.PER_CASE).addMarshalingStrategy(new ObjectModel("mvel", CaseMarshallerFactory.builder().withDoc().toString())).addEventListener(new ObjectModel("mvel", "new org.jbpm.casemgmt.impl.util.TrackingCaseEventListener()"));
 
-        for (ObjectModel listener : getProcessListeners()) {
-            ddBuilder.addEventListener(listener);
-        }
+        DeploymentDescriptor customDescriptor = createDeploymentDescriptor();
 
         if (extraResources == null) {
             extraResources = new HashMap<String, String>();
@@ -371,6 +370,27 @@ public abstract class AbstractCaseServicesBaseTest {
         }
 
         return (InternalKieModule) kieBuilder.getKieModule();
+    }
+
+    protected DeploymentDescriptor createDeploymentDescriptor() {
+        //add this listener by default
+        listenerMvelDefinitions.add("new org.jbpm.casemgmt.impl.util.TrackingCaseEventListener()");
+
+        DeploymentDescriptor customDescriptor = new DeploymentDescriptorImpl("org.jbpm.domain");
+        DeploymentDescriptorBuilder ddBuilder = customDescriptor.getBuilder()
+                .runtimeStrategy(RuntimeStrategy.PER_CASE)
+                .addMarshalingStrategy(new ObjectModel("mvel", CaseMarshallerFactory.builder().withDoc().toString()))
+                .addWorkItemHandler(new NamedObjectModel("mvel", "StartCaseInstance", "new org.jbpm.casemgmt.impl.wih.StartCaseWorkItemHandler(ksession)"));
+
+        listenerMvelDefinitions.forEach(
+                listenerDefinition -> ddBuilder.addEventListener(new ObjectModel("mvel", listenerDefinition))
+        );
+
+        getProcessListeners().forEach(
+                listener -> ddBuilder.addEventListener(listener)
+        );
+
+        return customDescriptor;
     }
 
     protected KieFileSystem createKieFileSystemWithKProject(KieServices ks) {
@@ -426,6 +446,10 @@ public abstract class AbstractCaseServicesBaseTest {
                 new File(tempDir, file).delete();
             }
         }
+    }
+
+    protected void registerListenerMvelDefinition(String listenerMvelDefinition) {
+        this.listenerMvelDefinitions.add(listenerMvelDefinition);
     }
 
     public void setDeploymentService(DeploymentService deploymentService) {
@@ -553,7 +577,13 @@ public abstract class AbstractCaseServicesBaseTest {
     }
 
     public void assertCaseInstanceNotActive(String caseId) {
-        Throwable thrown = catchThrowable(() -> caseService.getCaseInstance(caseId));
-        assertThat(thrown).as("Case instance is still active").isInstanceOf(CaseNotFoundException.class);
+        try {
+            CaseInstance caseInstance = caseService.getCaseInstance(caseId);
+            assertThat(caseInstance).isNotNull();
+            assertThat(caseInstance.getStatus()).isIn(CaseStatus.CLOSED.getId(), CaseStatus.CANCELLED.getId());
+        } catch (CaseNotFoundException ex) {
+            // in case it does not exist at all
+        }
+        
     }
 }

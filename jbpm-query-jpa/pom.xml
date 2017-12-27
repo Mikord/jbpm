@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm</artifactId>
-    <version>7.3.0.Final-Center-2</version>
+    <version>7.5.0.Final</version>
   </parent>
 
   <artifactId>jbpm-query-jpa</artifactId>
@@ -17,7 +17,7 @@
   <description>jBPM JPA Query</description>
 
   <properties>
-    <osgi.Bundle-SymbolicName>org.jbpm.query.jpa</osgi.Bundle-SymbolicName>
+    <java.module.name>org.jbpm.query.jpa</java.module.name>
   </properties>
 
   <build>
@@ -134,6 +134,21 @@
     <dependency>
       <groupId>org.hibernate</groupId>
       <artifactId>hibernate-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-impl</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>javax.activation</groupId>
+      <artifactId>activation</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

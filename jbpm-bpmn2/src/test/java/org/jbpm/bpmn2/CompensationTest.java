@@ -1,12 +1,12 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
- * 
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
- * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,6 +23,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.assertj.core.api.Assertions;
+import org.hamcrest.core.AnyOf;
+import org.hamcrest.core.Is;
 import org.jbpm.bpmn2.objects.TestWorkItemHandler;
 import org.jbpm.process.core.context.exception.CompensationScope;
 import org.jbpm.process.instance.impl.demo.SystemOutWorkItemHandler;
@@ -43,6 +46,8 @@ import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.process.WorkItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.Assert.*;
 
 @RunWith(Parameterized.class)
 public class CompensationTest extends JbpmBpmn2TestCase {
@@ -217,7 +222,8 @@ public class CompensationTest extends JbpmBpmn2TestCase {
         String xVal = getProcessVarValue(processInstance, "x");
         // Compensation happens in the *REVERSE* order of completion
         // Ex: if the order is 3, 17, 282, then compensation should happen in the order of 282, 17, 3
-        assertEquals("Compensation did not fire in the same order as the associated activities completed.", "_171:_131:_141:_151:", xVal );
+        // Compensation did not fire in the same order as the associated activities completed.
+        Assertions.assertThat(xVal).isEqualTo("_171:_131:_141:_151:");
     }
     
     @Test
@@ -256,7 +262,8 @@ public class CompensationTest extends JbpmBpmn2TestCase {
         if( ! isPersistence() ) { 
             assertProcessVarValue(processInstance, "x", null);
         } else { 
-            assertProcessVarValue(processInstance, "x", "");
+            String actualValue = getProcessVarValue(processInstance, "x");
+            assertThat(actualValue, AnyOf.anyOf(Is.is(""), Is.is(" "), Is.is((String) null)));
         }
     }
     

@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,24 +19,26 @@ package org.jbpm.casemgmt.impl.util;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.jbpm.test.listener.NodeLeftCountDownProcessEventListener;
+
 public class CountDownListenerFactory {
 
-    private static Map<String, CountDownProcessEventListener> listeners = new ConcurrentHashMap<>();
+    private static Map<String, NodeLeftCountDownProcessEventListener> listeners = new ConcurrentHashMap<>();
     
-    public static CountDownProcessEventListener get(String id, String nodeName, int threads) {
+    public static NodeLeftCountDownProcessEventListener get(String id, String nodeName, int threads) {
         if (listeners.containsKey(id)) {
             return listeners.get(id);
         }
-        CountDownProcessEventListener listener = new CountDownProcessEventListener(nodeName, threads);
+        NodeLeftCountDownProcessEventListener listener = new NodeLeftCountDownProcessEventListener(nodeName, threads);
         listeners.put(id, listener);
         return listener;
     }
     
-    public static CountDownProcessEventListener getExisting(String id) {
+    public static NodeLeftCountDownProcessEventListener getExisting(String id) {
         return listeners.get(id);
     }
     
-    public static CountDownProcessEventListener removeExisting(String id) {
+    public static NodeLeftCountDownProcessEventListener removeExisting(String id) {
         return listeners.remove(id);
     }
     

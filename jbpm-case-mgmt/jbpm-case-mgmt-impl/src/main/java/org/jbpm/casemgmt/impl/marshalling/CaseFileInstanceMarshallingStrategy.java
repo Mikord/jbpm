@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -51,6 +51,9 @@ public class CaseFileInstanceMarshallingStrategy implements ObjectMarshallingStr
     private static final String CASE_ROLE_ASSIGNMENTS_KEY = "CaseRoleAssignments";
     private static final String CASE_COMMENTS_KEY = "CaseComments";
     private static final String CASE_DATA_KEY = "CaseData";
+    private static final String CASE_DATA_RESTRICTIONS_KEY = "CaseDataRestrictions";
+    private static final String CASE_PARENT_INSTANCE_ID_KEY = "ParentInstanceId";
+    private static final String CASE_PARENT_WORK_ITEM_ID_KEY = "ParentWorkItemId";
     
     private Map<String, ObjectMarshallingStrategy> marshallersByName = new LinkedHashMap<String, ObjectMarshallingStrategy>();
     
@@ -151,6 +154,10 @@ public class CaseFileInstanceMarshallingStrategy implements ObjectMarshallingStr
             logger.debug("Serialized content for object {} is {}", dataEntry.getValue(), serializedContent);
         }
         
+        caseFileContent.put(CASE_DATA_RESTRICTIONS_KEY, new HashMap<>(caseFile.getAccessRestrictions()));        
+        caseFileContent.put(CASE_PARENT_INSTANCE_ID_KEY, caseFile.getParentInstanceId());
+        caseFileContent.put(CASE_PARENT_WORK_ITEM_ID_KEY, caseFile.getParentWorkItemId());
+        
         byte[] caseFileBytes = caseFileMarshaller.marshal(context, os, caseFileContent);
         logger.debug("Content of the case file instance after marshaller is of length {}", (caseFileBytes == null ? 0 : caseFileBytes.length));
         return caseFileBytes;
@@ -181,7 +188,9 @@ public class CaseFileInstanceMarshallingStrategy implements ObjectMarshallingStr
             caseFileInstance.add(serializedContent.getName(), value);
             logger.debug("Data unmarshalled into {} and put into case file under '{}' name", value, serializedContent.getName());
         }
-                
+        caseFileInstance.setAccessRestrictions((Map<String, List<String>>) caseFileContent.get(CASE_DATA_RESTRICTIONS_KEY));   
+        caseFileInstance.setParentInstanceId((Long)caseFileContent.get(CASE_PARENT_INSTANCE_ID_KEY));
+        caseFileInstance.setParentWorkItemId((Long)caseFileContent.get(CASE_PARENT_WORK_ITEM_ID_KEY));
         logger.debug("Unmarshal of CaseFileInstance completed - result {}", caseFileInstance);
         return caseFileInstance;
     }

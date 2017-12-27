@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -170,9 +170,9 @@ public abstract class AbstractRuntimeManager implements InternalRuntimeManager {
         }       
     }
     
-    protected void registerDisposeCallback(RuntimeEngine runtime, TransactionSynchronization sync) {
+    protected void registerDisposeCallback(RuntimeEngine runtime, TransactionSynchronization sync, Environment environment) {
         // register it if there is an active transaction as we assume then to be running in a managed environment e.g CMT       
-        TransactionManager tm = getTransactionManager(runtime.getKieSession().getEnvironment());
+        TransactionManager tm = getTransactionManager(environment);
         if (tm.getStatus() != TransactionManager.STATUS_NO_TRANSACTION
                 && tm.getStatus() != TransactionManager.STATUS_ROLLEDBACK
                 && tm.getStatus() != TransactionManager.STATUS_COMMITTED) {

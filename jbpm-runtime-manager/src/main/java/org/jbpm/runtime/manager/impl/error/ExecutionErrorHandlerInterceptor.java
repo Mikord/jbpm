@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -43,6 +43,9 @@ public class ExecutionErrorHandlerInterceptor extends AbstractInterceptor {
         if (counter == null) {
             counter = new AtomicInteger( 0 );
             invocationsCounter.set( counter );
+            if (executionErrorManager != null) {
+                ((ExecutionErrorManagerImpl)executionErrorManager).createHandler();
+            }
         }
         counter.incrementAndGet();
         try {
@@ -50,6 +53,9 @@ public class ExecutionErrorHandlerInterceptor extends AbstractInterceptor {
         } finally {
             if (counter.decrementAndGet() == 0) {
                 invocationsCounter.remove();
+                if (executionErrorManager != null) {
+                    ((ExecutionErrorManagerImpl)executionErrorManager).closeHandler();
+                }
             }
         }
     }

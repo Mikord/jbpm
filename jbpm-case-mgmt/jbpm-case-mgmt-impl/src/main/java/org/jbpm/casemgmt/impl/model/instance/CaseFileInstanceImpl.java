@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,8 @@
 
 package org.jbpm.casemgmt.impl.model.instance;
 
+import static java.util.stream.Collectors.toMap;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,6 +26,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.jbpm.casemgmt.api.auth.AuthorizationManager;
 import org.jbpm.casemgmt.api.model.CaseRole;
@@ -36,8 +39,6 @@ import org.kie.api.task.model.OrganizationalEntity;
 import org.kie.api.task.model.User;
 import org.kie.internal.task.api.TaskModelFactory;
 import org.kie.internal.task.api.TaskModelProvider;
-
-import static java.util.stream.Collectors.toMap;
 
 /*
  * Implementation note: since the CaseFileInstanceImpl will be marshalled/unmarshalled by 
@@ -57,9 +58,14 @@ public class CaseFileInstanceImpl implements CaseFileInstance, CaseAssignment, S
     private Date caseEndDate;
     private Date caseReopenDate;
     
+    private Long parentInstanceId;
+    private Long parentWorkItemId;
+    
     private Map<String, Object> data = new HashMap<>();    
     private Map<String, CaseRoleInstance> roles = new HashMap<>();    
     private List<CommentInstance> comments = new ArrayList<>();
+    
+    private Map<String, List<String>> accessRestrictions = new HashMap<>();
     
     private TaskModelFactory factory = TaskModelProvider.getFactory();
     
@@ -228,6 +234,32 @@ public class CaseFileInstanceImpl implements CaseFileInstance, CaseAssignment, S
         ((CaseRoleInstanceImpl)caseRoleInstance).addRoleAssignment(actualOwner);
     }
     
+    public List<String> getRolesForOrgEntities(List<String> orgEntities) {
+        List<String> collected = new ArrayList<>();
+        if (roles == null || roles.isEmpty()) {
+            return collected;
+        }
+        
+        List<CaseRoleInstance> roleInstances = new ArrayList<>();
+        for (Entry<String, CaseRoleInstance> entry : roles.entrySet()) {
+            roleInstances.add(entry.getValue());
+        }
+        
+        for (CaseRoleInstance cri : roleInstances) {
+            if (cri.getRoleAssignments() == null || cri.getRoleAssignments().isEmpty()) {
+                continue;
+            }
+            
+            for (OrganizationalEntity assignee : cri.getRoleAssignments()) {
+                if (orgEntities.contains(assignee.getId())) {
+                    collected.add(cri.getRoleName());
+                }
+            }
+                        
+        }
+        return collected;
+    }
+    
     public Map<String, CaseRoleInstance> getRolesAssignments() {
         return roles;
     }
@@ -270,6 +302,34 @@ public class CaseFileInstanceImpl implements CaseFileInstance, CaseAssignment, S
 
     public void setDefinitionId(String caseDefinitionId) {
         this.definitionId = caseDefinitionId;
+    }
+    
+    public void addDataAccessRestriction(String name, List<String> restrictedTo) {
+        if (this.accessRestrictions.get(name) != null && restrictedTo.isEmpty()) {
+            // not possible to reset restrictions with empty, use of dedicated method to remove restrictions
+            return;
+        }
+        this.accessRestrictions.put(name, restrictedTo);
+    }
+    
+    public void removeDataAccessRestriction(String name) {
+        this.accessRestrictions.remove(name);
+    }
+    
+    public Long getParentInstanceId() {
+        return parentInstanceId;
+    }
+    
+    public void setParentInstanceId(Long parentInstanceId) {
+        this.parentInstanceId = parentInstanceId;
+    }
+    
+    public Long getParentWorkItemId() {
+        return parentWorkItemId;
+    }
+    
+    public void setParentWorkItemId(Long parentWorkItemId) {
+        this.parentWorkItemId = parentWorkItemId;
     }
 
     @Override
@@ -325,6 +385,14 @@ public class CaseFileInstanceImpl implements CaseFileInstance, CaseAssignment, S
         } else if (!data.equals(other.data))
             return false;
         return true;
+    }
+
+    public Map<String, List<String>> getAccessRestrictions() {
+        return accessRestrictions;
+    }
+
+    public void setAccessRestrictions(Map<String, List<String>> accessRestrictions) {
+        this.accessRestrictions = accessRestrictions;
     }
 
 }

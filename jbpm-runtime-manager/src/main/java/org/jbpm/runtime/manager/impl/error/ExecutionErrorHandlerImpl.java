@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -90,8 +90,14 @@ public class ExecutionErrorHandlerImpl implements ExecutionErrorHandler {
                 ExecutionError error = filter.filter(errorContext);
                 logger.debug("Filter {} returned {} for {}", filter, error, cause);
                 if (error != null) {
-                    storage.store(error);
-                    logger.debug("Error event {} stored successfully in {}", error, storage);
+                    
+                    try {
+                        storage.store(error);
+                        logger.debug("Error event {} stored successfully in {}", error, storage);
+                    } catch (Throwable e) {
+                        logger.warn("Could not persist execution error {} due to {}", error, e.getMessage());
+                        logger.debug("Stack trace ", e);
+                    }
                     
                 } else {
                     logger.debug("Filter {} accepted error {} but didn't produce results (error should be ignored)", filter, cause);

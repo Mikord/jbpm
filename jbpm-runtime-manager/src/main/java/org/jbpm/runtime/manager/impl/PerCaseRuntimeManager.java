@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,7 +37,6 @@ import org.drools.persistence.api.TransactionManager;
 import org.drools.persistence.api.TransactionManagerHelper;
 import org.jbpm.process.core.timer.TimerServiceRegistry;
 import org.jbpm.process.core.timer.impl.GlobalTimerService;
-import org.jbpm.runtime.manager.impl.error.ExecutionErrorManagerImpl;
 import org.jbpm.runtime.manager.impl.factory.LocalTaskServiceFactory;
 import org.jbpm.runtime.manager.impl.mapper.EnvironmentAwareProcessInstanceContext;
 import org.jbpm.runtime.manager.impl.mapper.InMemoryMapper;
@@ -45,9 +44,11 @@ import org.jbpm.runtime.manager.impl.mapper.InternalMapper;
 import org.jbpm.runtime.manager.impl.mapper.JPAMapper;
 import org.jbpm.runtime.manager.impl.tx.DisposeSessionTransactionSynchronization;
 import org.jbpm.services.task.impl.TaskContentRegistry;
+import org.jbpm.services.task.impl.command.CommandBasedTaskService;
 import org.kie.api.command.BatchExecutionCommand;
 import org.kie.api.event.process.DefaultProcessEventListener;
 import org.kie.api.event.process.ProcessCompletedEvent;
+import org.kie.api.event.process.ProcessEventListener;
 import org.kie.api.event.process.ProcessStartedEvent;
 import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.ExecutableRunner;
@@ -143,7 +144,7 @@ public class PerCaseRuntimeManager extends AbstractRuntimeManager {
             ((RuntimeEngineImpl) runtime).setManager(this);
             ((RuntimeEngineImpl) runtime).setContext(context);
             configureRuntimeOnTaskService(internalTaskService, runtime);
-            registerDisposeCallback(runtime, new DisposeSessionTransactionSynchronization(this, runtime));
+            registerDisposeCallback(runtime, new DisposeSessionTransactionSynchronization(this, runtime), ksession.getEnvironment());
             registerItems(runtime);
             attachManager(runtime);
             ksession.addEventListener(new MaintainMappingListener(ksessionId, runtime, this.identifier, (String) contextId));
@@ -186,9 +187,7 @@ public class PerCaseRuntimeManager extends AbstractRuntimeManager {
         }
         Long ksessionId = mapper.findMapping(context, this.identifier);
         createLockOnGetEngine(ksessionId, runtime);
-        saveLocalRuntime(caseId, processInstanceId, runtime);
-        
-        ((ExecutionErrorManagerImpl)executionErrorManager).createHandler();
+        saveLocalRuntime(caseId, processInstanceId, runtime);        
 
         return runtime;
     }
@@ -247,7 +246,6 @@ public class PerCaseRuntimeManager extends AbstractRuntimeManager {
         try {
             if (canDispose(runtime)) {
                 removeLocalRuntime(runtime);                
-                ((ExecutionErrorManagerImpl)executionErrorManager).closeHandler();
                 
                 Long ksessionId = ((RuntimeEngineImpl)runtime).getKieSessionId();
                 releaseAndCleanLock(ksessionId, runtime);
@@ -269,8 +267,7 @@ public class PerCaseRuntimeManager extends AbstractRuntimeManager {
             }
         } catch (Exception e) {
             releaseAndCleanLock(runtime);
-            removeLocalRuntime(runtime);
-            ((ExecutionErrorManagerImpl)executionErrorManager).closeHandler();            
+            removeLocalRuntime(runtime);           
             throw new RuntimeException(e);
         }            
     }
@@ -683,7 +680,7 @@ public class PerCaseRuntimeManager extends AbstractRuntimeManager {
             ((RuntimeEngineImpl) engine).internalSetKieSession(ksession);
             registerItems(engine);
             attachManager(engine);
-            registerDisposeCallback(engine, new DisposeSessionTransactionSynchronization(manager, engine));
+            registerDisposeCallback(engine, new DisposeSessionTransactionSynchronization(manager, engine), ksession.getEnvironment());
             ksession.addEventListener(new MaintainMappingListener(ksessionId, engine, manager.getIdentifier(), contextId.toString()));
 
             if (context instanceof CaseContext) {
@@ -710,8 +707,10 @@ public class PerCaseRuntimeManager extends AbstractRuntimeManager {
         @Override
         public TaskService initTaskService(Context<?> context, InternalRuntimeManager manager, RuntimeEngine engine) {
             InternalTaskService internalTaskService = (InternalTaskService) taskServiceFactory.newTaskService();
-            registerDisposeCallback(engine, new DisposeSessionTransactionSynchronization(manager, engine));
-            configureRuntimeOnTaskService(internalTaskService, engine);
+            if (internalTaskService != null) {
+                registerDisposeCallback(engine, new DisposeSessionTransactionSynchronization(manager, engine), ((CommandBasedTaskService) internalTaskService).getEnvironment());
+                configureRuntimeOnTaskService(internalTaskService, engine);
+            }
             return internalTaskService;
         }
 
@@ -720,6 +719,20 @@ public class PerCaseRuntimeManager extends AbstractRuntimeManager {
     @Override
     protected boolean isUseLocking() {
         return useLocking;
+    }
+
+    @Override
+    protected void registerItems(RuntimeEngine runtime) {
+        super.registerItems(runtime);
+        if (getCaseEventSupport() != null) {
+            // add any process listeners from case event listeners
+            List<? extends EventListener> eventListener = getCaseEventSupport().getEventListeners();
+            for (EventListener listener : eventListener) {
+                if (listener instanceof ProcessEventListener) {
+                    runtime.getKieSession().addEventListener((ProcessEventListener) listener);
+                }
+            }
+        }
     }
 
 }

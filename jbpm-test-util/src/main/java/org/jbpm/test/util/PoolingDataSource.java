@@ -3,15 +3,16 @@
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.test.util;
 
@@ -65,13 +66,16 @@ public class PoolingDataSource implements DataSource {
             logger.info(url);
             if (!(className.startsWith("com.ibm.db2") || className.startsWith("com.sybase"))) {
                 try {
-                    xads.getClass().getMethod("setUrl", new Class[]{String.class}).invoke(xads, new Object[]{url});
+                    xads.getClass().getMethod("setUrl", new Class[]{String.class}).invoke(xads, url);
                 } catch (NoSuchMethodException ex) {
                     logger.info("Unable to find \"setUrl\" method in db driver JAR. Trying \"setURL\" ");
-                    xads.getClass().getMethod("setURL", new Class[]{String.class}).invoke(xads, new Object[]{url});
+                    xads.getClass().getMethod("setURL", new Class[]{String.class}).invoke(xads, url);
                 } catch (InvocationTargetException ex) {
-                    logger.info("Caught InvocationTargetException when calling setURL on driver:  " + ex);
+                    logger.info("Driver does not support setURL and setUrl method.");
+                    throw new RuntimeException(ex);
                 }
+            } else {
+                setupAdditionalDriverProperties(className);
             }
             
             try {
@@ -168,5 +172,25 @@ public class PoolingDataSource implements DataSource {
     @Override
     public java.util.logging.Logger getParentLogger() throws SQLFeatureNotSupportedException {
         return null;
+    }
+
+    private void setupAdditionalDriverProperties(String className) {
+        try {
+            xads.getClass().getMethod("setServerName", new Class[]{String.class}).invoke(xads, driverProperties.getProperty("serverName"));
+            xads.getClass().getMethod("setDatabaseName", new Class[]{String.class}).invoke(xads, driverProperties.getProperty("databaseName"));
+            if (className.startsWith("com.ibm.db2")) {
+                xads.getClass().getMethod("setDriverType", new Class[]{int.class}).invoke(xads, 4);
+                xads.getClass().getMethod("setPortNumber", new Class[]{int.class}).invoke(xads, Integer.valueOf(driverProperties.getProperty("portNumber")));
+                xads.getClass().getMethod("setResultSetHoldability", new Class[]{int.class}).invoke(xads, 1);
+                xads.getClass().getMethod("setDowngradeHoldCursorsUnderXa", new Class[]{boolean.class}).invoke(xads, true);
+            } else if (className.startsWith("com.sybase")) {
+                xads.getClass().getMethod("setPortNumber", new Class[]{int.class}).invoke(xads,  Integer.valueOf(driverProperties.getProperty("portNumber")));
+                xads.getClass().getMethod("setPassword", new Class[]{String.class}).invoke(xads, driverProperties.getProperty("password"));
+                xads.getClass().getMethod("setUser", new Class[]{String.class}).invoke(xads, driverProperties.getProperty("user"));
+            }
+        } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException ex) {
+            logger.error("Exception thrown while setting properties for {} driver", className);
+            throw new RuntimeException(ex);
+        }
     }
 }

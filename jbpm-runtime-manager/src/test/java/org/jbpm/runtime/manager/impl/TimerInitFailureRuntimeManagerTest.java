@@ -3,15 +3,16 @@
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.runtime.manager.impl;
 
@@ -32,8 +33,8 @@ import org.jboss.byteman.contrib.bmunit.BMUnitRunner;
 import org.jbpm.runtime.manager.impl.jpa.EntityManagerFactoryManager;
 import org.jbpm.runtime.manager.util.TestUtil;
 import org.jbpm.services.task.identity.JBossUserGroupCallbackImpl;
+import org.jbpm.test.listener.NodeLeftCountDownProcessEventListener;
 import org.jbpm.test.util.AbstractBaseTest;
-import org.jbpm.test.util.CountDownProcessEventListener;
 import org.jbpm.test.util.PoolingDataSource;
 import org.junit.After;
 import org.junit.Before;
@@ -91,7 +92,7 @@ public class TimerInitFailureRuntimeManagerTest extends AbstractBaseTest {
     @Test(timeout=15000)
     @BMScript(value = "byteman-scripts/failOnRuntimeManagerInitRules.btm")
     public void testPerProcessInstanceRuntimeManager() throws Exception {
-        final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Intermediate Catch Event 1", 1);
+        final NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("Intermediate Catch Event 1", 1);
         RuntimeEnvironment environment = createEnvironment(countDownListener);        
         manager = RuntimeManagerFactory.Factory.get().newPerProcessInstanceRuntimeManager(environment, "first");        
         assertNotNull(manager);
@@ -123,7 +124,7 @@ public class TimerInitFailureRuntimeManagerTest extends AbstractBaseTest {
         
         try {
             runtime = manager.getRuntimeEngine(ProcessInstanceIdContext.get(pi.getId()));
-            runtime.getTaskService();
+            runtime.getKieSession();
             fail("ProcessInstance should already be completed");
         } catch (SessionNotFoundException e) {
             // expected
@@ -134,7 +135,7 @@ public class TimerInitFailureRuntimeManagerTest extends AbstractBaseTest {
     @Test(timeout=10000)
     @BMScript(value = "byteman-scripts/failOnRuntimeManagerInitRules.btm")
     public void testPerCaseRuntimeManager() throws Exception {
-        final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Intermediate Catch Event 1", 1);
+        final NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("Intermediate Catch Event 1", 1);
         RuntimeEnvironment environment = createEnvironment(countDownListener);        
         manager = RuntimeManagerFactory.Factory.get().newPerCaseRuntimeManager(environment, "first");        
         assertNotNull(manager);
@@ -177,7 +178,7 @@ public class TimerInitFailureRuntimeManagerTest extends AbstractBaseTest {
     }
    
     
-    private RuntimeEnvironment createEnvironment(CountDownProcessEventListener countDownListener) {
+    private RuntimeEnvironment createEnvironment(NodeLeftCountDownProcessEventListener countDownListener) {
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get()
                 .newDefaultBuilder()
                 .entityManagerFactory(emf)

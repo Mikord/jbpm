@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,6 +40,8 @@ import org.dashbuilder.dataset.def.DataSetDefRegistry;
 import org.dashbuilder.dataset.def.SQLDataSetDefBuilder;
 import org.dashbuilder.dataset.exception.DataSetLookupException;
 import org.dashbuilder.dataset.filter.ColumnFilter;
+import org.dashbuilder.dataset.group.DateIntervalType;
+import org.dashbuilder.dataset.impl.AbstractDataSetLookupBuilder;
 import org.jbpm.kie.services.impl.model.ProcessAssetDesc;
 import org.jbpm.kie.services.impl.query.persistence.PersistDataSetListener;
 import org.jbpm.kie.services.impl.query.persistence.QueryDefinitionEntity;
@@ -225,8 +227,12 @@ public class QueryServiceImpl implements QueryService, DeploymentEventListener {
                 // add aggregate function
                 builder.column(((AggregateColumnFilter) filter).getColumnId(), ((AggregateColumnFilter) filter).getType(), ((AggregateColumnFilter) filter).getColumnId());
             } else if (filter instanceof GroupColumnFilter) {
+                GroupColumnFilter groupFilter = ((GroupColumnFilter) filter);
                 // add group function
                 builder.group(((GroupColumnFilter) filter).getColumnId(), ((GroupColumnFilter) filter).getNewColumnId());
+                if (groupFilter.getIntervalSize() != null) {
+                    ((AbstractDataSetLookupBuilder<?>) builder).dynamic(groupFilter.getMaxIntervals(), DateIntervalType.valueOf(groupFilter.getIntervalSize()), true);
+                }
             } else if (filter instanceof ExtraColumnFilter) {
                 // add extra column
                 builder.column(((ExtraColumnFilter) filter).getColumnId(), ((ExtraColumnFilter) filter).getNewColumnId());

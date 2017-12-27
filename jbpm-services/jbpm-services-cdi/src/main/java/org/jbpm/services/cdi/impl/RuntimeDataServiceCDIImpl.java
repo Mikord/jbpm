@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,6 +34,7 @@ import org.jbpm.services.cdi.Undeploy;
 import org.jbpm.services.task.audit.service.TaskAuditService;
 import org.jbpm.shared.services.impl.TransactionalCommandService;
 import org.kie.api.task.TaskService;
+import org.kie.api.task.UserGroupCallback;
 import org.kie.internal.identity.IdentityProvider;
 
 @ApplicationScoped
@@ -90,6 +91,12 @@ public class RuntimeDataServiceCDIImpl extends RuntimeDataServiceImpl {
     @Override
     public void setDeploymentRolesManager(DeploymentRolesManager deploymentRolesManager) {
         super.setDeploymentRolesManager(deploymentRolesManager);
+    }
+
+    @Inject
+    @Override
+    public void setUserGroupCallback(UserGroupCallback userGroupCallback) {
+        super.setUserGroupCallback(userGroupCallback);
     }
 
     @PostConstruct

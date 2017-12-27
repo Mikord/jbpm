@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,7 +45,11 @@ public class CoreFunctionQueryParamBuilder implements QueryParamBuilder<Object> 
         index++;
         if ("group".equalsIgnoreCase(param.getOperator())) {
             // if operator is group consider it as group functions
-            return new GroupColumnFilter(param.getColumn(), (String)param.getValue().get(0));
+            if (param.getValue().size() > 1) {
+                return new GroupColumnFilter(param.getColumn(), (String)param.getValue().get(0), (String)param.getValue().get(1), (Integer)param.getValue().get(2));
+            } else {
+                return new GroupColumnFilter(param.getColumn(), (String)param.getValue().get(0), null, -1);
+            }
         }
         // check core functions
         CoreFunctionType type = CoreFunctionType.getByName(param.getOperator());

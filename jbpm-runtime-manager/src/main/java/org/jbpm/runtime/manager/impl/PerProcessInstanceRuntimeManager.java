@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +15,11 @@
  */
 package org.jbpm.runtime.manager.impl;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+
 import org.drools.core.command.SingleSessionCommandService;
 import org.drools.core.command.impl.CommandBasedStatefulKnowledgeSession;
 import org.drools.core.command.impl.ExecutableCommand;
@@ -27,7 +31,6 @@ import org.drools.persistence.api.TransactionManager;
 import org.drools.persistence.api.TransactionManagerHelper;
 import org.jbpm.process.core.timer.TimerServiceRegistry;
 import org.jbpm.process.core.timer.impl.GlobalTimerService;
-import org.jbpm.runtime.manager.impl.error.ExecutionErrorManagerImpl;
 import org.jbpm.runtime.manager.impl.factory.LocalTaskServiceFactory;
 import org.jbpm.runtime.manager.impl.mapper.EnvironmentAwareProcessInstanceContext;
 import org.jbpm.runtime.manager.impl.mapper.InMemoryMapper;
@@ -36,6 +39,7 @@ import org.jbpm.runtime.manager.impl.mapper.JPAMapper;
 import org.jbpm.runtime.manager.impl.tx.DestroySessionTransactionSynchronization;
 import org.jbpm.runtime.manager.impl.tx.DisposeSessionTransactionSynchronization;
 import org.jbpm.services.task.impl.TaskContentRegistry;
+import org.jbpm.services.task.impl.command.CommandBasedTaskService;
 import org.kie.api.event.process.DefaultProcessEventListener;
 import org.kie.api.event.process.ProcessCompletedEvent;
 import org.kie.api.event.process.ProcessStartedEvent;
@@ -59,10 +63,6 @@ import org.kie.internal.task.api.ContentMarshallerContext;
 import org.kie.internal.task.api.InternalTaskService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * A RuntimeManager implementation that is backed by the "Per Process Instance" strategy. This means that every 
@@ -137,7 +137,7 @@ public class PerProcessInstanceRuntimeManager extends AbstractRuntimeManager {
 			((RuntimeEngineImpl) runtime).setManager(this);
 			((RuntimeEngineImpl) runtime).setContext(context);
 			configureRuntimeOnTaskService(internalTaskService, runtime);
-			registerDisposeCallback(runtime, new DisposeSessionTransactionSynchronization(this, runtime));
+			registerDisposeCallback(runtime, new DisposeSessionTransactionSynchronization(this, runtime), ksession.getEnvironment());
 			registerItems(runtime);
 			attachManager(runtime);
 			ksession.addEventListener(new MaintainMappingListener(ksessionId, runtime, this.identifier));
@@ -153,9 +153,7 @@ public class PerProcessInstanceRuntimeManager extends AbstractRuntimeManager {
             	        
     	}
     	createLockOnGetEngine(context, runtime);
-        saveLocalRuntime(contextId, runtime);
-        
-        ((ExecutionErrorManagerImpl)executionErrorManager).createHandler();
+        saveLocalRuntime(contextId, runtime);        
         
         return runtime;
     }
@@ -226,7 +224,6 @@ public class PerProcessInstanceRuntimeManager extends AbstractRuntimeManager {
     	try {
         	if (canDispose(runtime)) {
             	removeLocalRuntime(runtime);            	
-            	((ExecutionErrorManagerImpl)executionErrorManager).closeHandler();
             	
             	Long ksessionId = ((RuntimeEngineImpl)runtime).getKieSessionId();
             	if (runtime instanceof Disposable) {
@@ -249,8 +246,7 @@ public class PerProcessInstanceRuntimeManager extends AbstractRuntimeManager {
         	}
     	} catch (Exception e) {
     	    releaseAndCleanLock(runtime);
-    	    removeLocalRuntime(runtime);
-    	    ((ExecutionErrorManagerImpl)executionErrorManager).closeHandler();    	    
+    	    removeLocalRuntime(runtime);  	    
     	    throw new RuntimeException(e);
     	}
     }
@@ -306,7 +302,7 @@ public class PerProcessInstanceRuntimeManager extends AbstractRuntimeManager {
             		event.getProcessInstance().getId()), managerId);
             factory.onDispose(runtime.getKieSession().getIdentifier());
             registerDisposeCallback(runtime, 
-                        new DestroySessionTransactionSynchronization(runtime.getKieSession()));            
+                        new DestroySessionTransactionSynchronization(runtime.getKieSession()), runtime.getKieSession().getEnvironment());            
         }
 
         @Override
@@ -588,7 +584,7 @@ public class PerProcessInstanceRuntimeManager extends AbstractRuntimeManager {
             ((RuntimeEngineImpl)engine).internalSetKieSession(ksession);
             registerItems(engine);
             attachManager(engine);
-            registerDisposeCallback(engine, new DisposeSessionTransactionSynchronization(manager, engine));
+            registerDisposeCallback(engine, new DisposeSessionTransactionSynchronization(manager, engine), ksession.getEnvironment());
             ksession.addEventListener(new MaintainMappingListener(ksessionId, engine, manager.getIdentifier()));
     		return ksession;
     	}
@@ -596,8 +592,10 @@ public class PerProcessInstanceRuntimeManager extends AbstractRuntimeManager {
     	@Override
     	public TaskService initTaskService(Context<?> context, InternalRuntimeManager manager, RuntimeEngine engine) {
     		InternalTaskService internalTaskService = (InternalTaskService) taskServiceFactory.newTaskService();
-    		registerDisposeCallback(engine, new DisposeSessionTransactionSynchronization(manager, engine));
-            configureRuntimeOnTaskService(internalTaskService, engine);
+    		if (internalTaskService != null) {
+        		registerDisposeCallback(engine, new DisposeSessionTransactionSynchronization(manager, engine), ((CommandBasedTaskService) internalTaskService).getEnvironment());
+                configureRuntimeOnTaskService(internalTaskService, engine);
+    		}
     		return internalTaskService;
     	}
 

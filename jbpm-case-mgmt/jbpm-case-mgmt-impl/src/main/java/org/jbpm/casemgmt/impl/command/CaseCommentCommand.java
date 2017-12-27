@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package org.jbpm.casemgmt.impl.command;
 import org.drools.core.ClassObjectFilter;
 import org.drools.core.command.impl.RegistryContext;
 import org.jbpm.casemgmt.api.CaseCommentNotFoundException;
+import org.jbpm.casemgmt.api.auth.AuthorizationManager;
 import org.jbpm.casemgmt.api.model.instance.CaseFileInstance;
 import org.jbpm.casemgmt.api.model.instance.CommentInstance;
 import org.jbpm.casemgmt.impl.event.CaseEventSupport;
@@ -30,6 +31,7 @@ import org.kie.internal.identity.IdentityProvider;
 import org.kie.api.runtime.Context;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Adds or removes comment to/from case
@@ -47,27 +49,34 @@ public class CaseCommentCommand extends CaseCommand<Void> {
     private String commentId;
 
     private String updatedText;
+    
+    private List<String> restrictedTo;
+    
+    private AuthorizationManager authorizationManager;
 
-    public CaseCommentCommand(IdentityProvider identityProvider, String author, String comment) {
+    public CaseCommentCommand(IdentityProvider identityProvider, String author, String comment, List<String> restrictedTo) {
         super(identityProvider);
         this.author = author;
         this.comment = comment;
         this.add = true;
+        this.restrictedTo = restrictedTo;
     }
 
-    public CaseCommentCommand(IdentityProvider identityProvider, String commentId) {
+    public CaseCommentCommand(IdentityProvider identityProvider, String commentId, AuthorizationManager authorizationManager) {
         super(identityProvider);
         this.commentId = commentId;
         this.remove = true;
+        this.authorizationManager = authorizationManager;
     }
 
-    public CaseCommentCommand(IdentityProvider identityProvider, String commentId, String author, String updatedText) {
+    public CaseCommentCommand(IdentityProvider identityProvider, String commentId, String author, String updatedText, List<String> restrictedTo, AuthorizationManager authorizationManager) {
         super(identityProvider);
         this.commentId = commentId;
         this.author = author;
         this.updatedText = updatedText;
         this.update = true;
-
+        this.restrictedTo = restrictedTo;
+        this.authorizationManager = authorizationManager;
     }
 
     @Override
@@ -84,10 +93,10 @@ public class CaseCommentCommand extends CaseCommand<Void> {
         CaseEventSupport caseEventSupport = getCaseEventSupport(context);
 
         if (add) {
-            CommentInstance commentInstance = new CommentInstanceImpl(author, comment);
-            caseEventSupport.fireBeforeCaseCommentAdded(caseFile.getCaseId(), commentInstance);
+            CommentInstance commentInstance = new CommentInstanceImpl(author, comment, restrictedTo);
+            caseEventSupport.fireBeforeCaseCommentAdded(caseFile.getCaseId(), caseFile, commentInstance);
             ((CaseFileInstanceImpl)caseFile).addComment(commentInstance);
-            caseEventSupport.fireAfterCaseCommentAdded(caseFile.getCaseId(), commentInstance);
+            caseEventSupport.fireAfterCaseCommentAdded(caseFile.getCaseId(), caseFile, commentInstance);
         } else if (update) {
             CommentInstance toUpdate = ((CaseFileInstanceImpl)caseFile).getComments().stream()
                     .filter(c -> c.getId().equals(commentId))
@@ -96,17 +105,27 @@ public class CaseCommentCommand extends CaseCommand<Void> {
             if (!this.author.equals(toUpdate.getAuthor())) {
                 throw new IllegalStateException("Only original author can update comment");
             }
-            caseEventSupport.fireBeforeCaseCommentUpdated(caseFile.getCaseId(), toUpdate);
+            // apply authorization
+            authorizationManager.checkCommentAuthorization(caseFile.getCaseId(), caseFile, toUpdate);
+            
+            caseEventSupport.fireBeforeCaseCommentUpdated(caseFile.getCaseId(), caseFile, toUpdate);
             ((CommentInstanceImpl)toUpdate).setComment(updatedText);
-            caseEventSupport.fireBeforeCaseCommentUpdated(caseFile.getCaseId(), toUpdate);
+            if (restrictedTo != null) {
+                ((CommentInstanceImpl)toUpdate).setRestrictedTo(restrictedTo);
+            }
+            caseEventSupport.fireAfterCaseCommentUpdated(caseFile.getCaseId(), caseFile, toUpdate);
         } else if (remove) {
             CommentInstance toRemove = ((CaseFileInstanceImpl)caseFile).getComments().stream()
                     .filter(c -> c.getId().equals(commentId))
                     .findFirst()
                     .orElseThrow(() -> new CaseCommentNotFoundException("Cannot find comment with id " + commentId));
-            caseEventSupport.fireBeforeCaseCommentRemoved(caseFile.getCaseId(), toRemove);
+            
+            // apply authorization
+            authorizationManager.checkCommentAuthorization(caseFile.getCaseId(), caseFile, toRemove);
+            
+            caseEventSupport.fireBeforeCaseCommentRemoved(caseFile.getCaseId(), caseFile, toRemove);
             ((CaseFileInstanceImpl)caseFile).removeComment(toRemove);
-            caseEventSupport.fireBeforeCaseCommentRemoved(caseFile.getCaseId(), toRemove);
+            caseEventSupport.fireAfterCaseCommentRemoved(caseFile.getCaseId(), caseFile, toRemove);
         }
         ksession.update(factHandle, caseFile);
         triggerRules(ksession);

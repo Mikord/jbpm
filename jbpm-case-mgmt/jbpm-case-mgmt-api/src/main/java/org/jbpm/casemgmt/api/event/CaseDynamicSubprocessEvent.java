@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,8 @@ package org.jbpm.casemgmt.api.event;
 
 import java.util.Map;
 
+import org.jbpm.casemgmt.api.model.instance.CaseFileInstance;
+
 /**
  * Represents occurrence of dynamic subprocess add to case operation
  */
@@ -28,15 +30,15 @@ public class CaseDynamicSubprocessEvent extends CaseEvent {
     private long processInstanceId;
     private long subProcessInstanceId;
 
-    public CaseDynamicSubprocessEvent(String user, String caseId, String processId, Map<String, Object> data, long processInstanceId) {
-        super(user, caseId);
+    public CaseDynamicSubprocessEvent(String user, String caseId, CaseFileInstance caseFile, String processId, Map<String, Object> data, long processInstanceId) {
+        super(user, caseId, caseFile);
         this.data = data;
         this.processId = processId;
         this.processInstanceId = processInstanceId;
     }
     
-    public CaseDynamicSubprocessEvent(String user, String caseId, String processId, Map<String, Object> data, long processInstanceId, long subProcessInstanceId) {
-        super(user, caseId);
+    public CaseDynamicSubprocessEvent(String user, String caseId, CaseFileInstance caseFile, String processId, Map<String, Object> data, long processInstanceId, long subProcessInstanceId) {
+        super(user, caseId, caseFile);
         this.data = data;
         this.processId = processId;
         this.processInstanceId = processInstanceId;

@@ -1,17 +1,18 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.test.container.archive;
 
@@ -39,6 +40,7 @@ import org.jbpm.test.container.JbpmContainerTest;
 import org.jbpm.test.container.listeners.TrackingAgendaEventListener;
 import org.jbpm.test.container.tools.IntegrationMavenResolver;
 import org.jbpm.test.container.webspherefix.WebSphereFixedJtaPlatform;
+import org.jbpm.test.listener.DefaultCountDownProcessEventListener;
 import org.kie.api.KieServices;
 import org.kie.api.builder.KieBuilder;
 import org.kie.api.builder.KieFileSystem;
@@ -95,6 +97,7 @@ public class EJBService {
                 .addClass(EJBService.class)
                 // Workaroud for https://hibernate.atlassian.net/browse/HHH-11606
                 .addClass(WebSphereFixedJtaPlatform.class)
+                .addClass(DefaultCountDownProcessEventListener.class)
                 .addClass(JbpmContainerTest.class)
                 .addClass(AbstractEJBServicesTest.class)
                 .addClass(AbstractRuntimeEJBServicesTest.class)

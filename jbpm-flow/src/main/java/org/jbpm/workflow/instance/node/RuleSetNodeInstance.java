@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -43,6 +43,7 @@ import org.jbpm.process.instance.context.exception.ExceptionScopeInstance;
 import org.jbpm.process.instance.context.variable.VariableScopeInstance;
 import org.jbpm.process.instance.impl.ContextInstanceFactory;
 import org.jbpm.process.instance.impl.ContextInstanceFactoryRegistry;
+import org.jbpm.util.PatternConstants;
 import org.jbpm.workflow.core.node.DataAssociation;
 import org.jbpm.workflow.core.node.RuleSetNode;
 import org.jbpm.workflow.core.node.Transformation;
@@ -74,6 +75,9 @@ public class RuleSetNodeInstance extends StateBasedNodeInstance implements Event
     private static final Logger logger = LoggerFactory.getLogger(RuleSetNodeInstance.class);
     
     private static final String ACT_AS_WAIT_STATE_PROPERTY = "org.jbpm.rule.task.waitstate";
+    private static final String FIRE_RULE_LIMIT_PROPERTY = "org.jbpm.rule.task.firelimit";
+    private static final String FIRE_RULE_LIMIT_PARAMETER = "FireRuleLimit";
+    private static final int DEFAULT_FIRE_RULE_LIMIT = Integer.parseInt(System.getProperty(FIRE_RULE_LIMIT_PROPERTY, "10000"));
     
     private Map<String, FactHandle> factHandles = new HashMap<String, FactHandle>();
     private String ruleFlowGroup;
@@ -118,7 +122,7 @@ public class RuleSetNodeInstance extends StateBasedNodeInstance implements Event
                 }
 
                 if (decision != null && !decision.isEmpty()) {
-                    dmnResult = runtime.evaluateDecisionByName(dmnModel, decision, context);
+                    dmnResult = runtime.evaluateByName(dmnModel, context, decision);
                 } else {
                     dmnResult = runtime.evaluateAll(dmnModel, context);
                 }
@@ -139,6 +143,11 @@ public class RuleSetNodeInstance extends StateBasedNodeInstance implements Event
 
                 //proceed
                 for (Entry<String, Object> entry : inputs.entrySet()) {
+                    if (FIRE_RULE_LIMIT_PARAMETER.equals(entry.getKey())) {
+                        // don't put control parameter for fire limit into working memory
+                        continue;
+                    }
+                    
                     String inputKey = getRuleFlowGroup() + "_" + getProcessInstance().getId() + "_" + entry.getKey();
 
                     factHandles.put(inputKey, kruntime.insert(entry.getValue()));
@@ -150,10 +159,19 @@ public class RuleSetNodeInstance extends StateBasedNodeInstance implements Event
                             .activateRuleFlowGroup(getRuleFlowGroup(), getProcessInstance().getId(), getUniqueId());
 
                 } else {
+                    int fireLimit = DEFAULT_FIRE_RULE_LIMIT;
+                    
+                    if (inputs.containsKey(FIRE_RULE_LIMIT_PARAMETER)) {
+                        fireLimit = Integer.parseInt(inputs.get(FIRE_RULE_LIMIT_PARAMETER).toString());
+                    }
                     ((InternalAgenda) getProcessInstance().getKnowledgeRuntime().getAgenda())
                             .activateRuleFlowGroup(getRuleFlowGroup(), getProcessInstance().getId(), getUniqueId());
 
-                    ((KieSession) getProcessInstance().getKnowledgeRuntime()).fireAllRules();
+                    int fired = ((KieSession) getProcessInstance().getKnowledgeRuntime()).fireAllRules(fireLimit);
+                    if (fired == fireLimit) {
+                        throw new RuntimeException("Fire rule limit reached " + fireLimit + ", limit can be set via system property " + FIRE_RULE_LIMIT_PROPERTY 
+                                                   + " or via data input of business rule task named " + FIRE_RULE_LIMIT_PARAMETER);
+                    }
 
                     removeEventListeners();
                     retractFacts();
@@ -345,7 +363,7 @@ public class RuleSetNodeInstance extends StateBasedNodeInstance implements Event
 	private Object resolveVariable(Object s) {
         
 	    if (s instanceof String) {
-            Matcher matcher = PARAMETER_MATCHER.matcher((String) s);
+            Matcher matcher = PatternConstants.PARAMETER_MATCHER.matcher((String) s);
             while (matcher.find()) {
                 String paramName = matcher.group(1);
                

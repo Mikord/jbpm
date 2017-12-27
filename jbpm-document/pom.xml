@@ -5,12 +5,16 @@
   <parent>
     <artifactId>jbpm</artifactId>
     <groupId>org.jbpm</groupId>
-    <version>7.3.0.Final-Center-2</version>
+    <version>7.5.0.Final</version>
   </parent>
 
   <artifactId>jbpm-document</artifactId>
 
   <name>jBPM :: Document Service</name>
+
+  <properties>
+    <java.module.name>org.jbpm.document</java.module.name>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -41,6 +45,11 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

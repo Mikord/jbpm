@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -81,6 +81,10 @@ import org.slf4j.LoggerFactory;
 public class ExecutorImpl implements Executor {
 
     private static final Logger logger = LoggerFactory.getLogger(ExecutorImpl.class);
+    
+    private static final int DEFAULT_PRIORITY = 5;
+    private static final int MAX_PRIORITY = 9;
+    private static final int MIN_PRIORITY = 0;
     
     private ExecutorStoreService executorStoreService;
 
@@ -343,16 +347,16 @@ public class ExecutorImpl implements Executor {
         } else {
             requestInfo.setRetries(retries);
         }
-        int priority = 5;
+        int priority = DEFAULT_PRIORITY;
         if (ctx.getData("priority") != null) {
             priority = (Integer) ctx.getData("priority");
-            if (priority < 0) {
-                logger.warn("Priority {} is not valid (cannot be less than 0) setting it to 0", priority);
-                priority = 0;
+            if (priority < MIN_PRIORITY) {
+                logger.warn("Priority {} is not valid (cannot be less than {}) setting it to {}", MIN_PRIORITY, MIN_PRIORITY, priority);
+                priority = MIN_PRIORITY;
                 
-            } else if (priority > 9) {
-                logger.warn("Priority {} is not valid (cannot be more than 9) setting it to 9", priority);
-                priority = 9;
+            } else if (priority > MAX_PRIORITY) {
+                logger.warn("Priority {} is not valid (cannot be more than {}) setting it to {}", MAX_PRIORITY, MAX_PRIORITY, priority);
+                priority = MAX_PRIORITY;
             }
             
         }

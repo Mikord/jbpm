@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package org.jbpm.casemgmt.impl.command;
 
 import org.drools.core.ClassObjectFilter;
 import org.drools.core.command.impl.RegistryContext;
+import org.jbpm.casemgmt.api.auth.AuthorizationManager;
 import org.jbpm.casemgmt.api.model.instance.CaseFileInstance;
 import org.jbpm.casemgmt.impl.event.CaseEventSupport;
 import org.kie.api.runtime.KieSession;
@@ -38,10 +39,12 @@ public class RemoveDataCaseFileInstanceCommand extends CaseCommand<Void> {
     private static final long serialVersionUID = 6345222909719335953L;
 
     private List<String> variableNames;
+    private AuthorizationManager authorizationManager;
     
-    public RemoveDataCaseFileInstanceCommand(IdentityProvider identityProvider, List<String> variableNames) {                
+    public RemoveDataCaseFileInstanceCommand(IdentityProvider identityProvider, List<String> variableNames, AuthorizationManager authorizationManager) {                
         super(identityProvider);
         this.variableNames = variableNames;        
+        this.authorizationManager = authorizationManager;
     }
 
     @Override
@@ -53,20 +56,24 @@ public class RemoveDataCaseFileInstanceCommand extends CaseCommand<Void> {
             throw new IllegalStateException("Not able to find distinct case file - found case files " + caseFiles.size());
         }
         CaseFileInstance caseFile = (CaseFileInstance) caseFiles.iterator().next();
+        
+        // apply authorization
+        authorizationManager.checkDataAuthorization(caseFile.getCaseId(), caseFile, variableNames);
+        
         FactHandle factHandle = ksession.getFactHandle(caseFile);
         
         Map<String, Object> remove = new HashMap<>();        
         variableNames.forEach(p -> remove.put(p, caseFile.getData(p)));
         
         CaseEventSupport caseEventSupport = getCaseEventSupport(context);
-        caseEventSupport.fireBeforeCaseDataRemoved(caseFile.getCaseId(), caseFile.getDefinitionId(), remove);
+        caseEventSupport.fireBeforeCaseDataRemoved(caseFile.getCaseId(), caseFile, caseFile.getDefinitionId(), remove);
         
         variableNames.forEach(p -> caseFile.remove(p));
         
         ksession.update(factHandle, caseFile);
         triggerRules(ksession);
         
-        caseEventSupport.fireAfterCaseDataRemoved(caseFile.getCaseId(), caseFile.getDefinitionId(), remove);
+        caseEventSupport.fireAfterCaseDataRemoved(caseFile.getCaseId(), caseFile, caseFile.getDefinitionId(), remove);
         return null;
     }
 

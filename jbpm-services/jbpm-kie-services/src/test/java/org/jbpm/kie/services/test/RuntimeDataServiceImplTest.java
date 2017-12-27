@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -1302,6 +1302,14 @@ public class RuntimeDataServiceImplTest extends AbstractKieServicesBaseTest {
     	assertEquals(2, auditTasks.size());
     	assertEquals(TaskEvent.TaskEventType.ADDED, auditTasks.get(0).getType());
     	assertEquals(TaskEvent.TaskEventType.STARTED, auditTasks.get(1).getType());
+    	
+    	QueryFilter filter = new QueryFilter();
+    	filter.setFilterParams("t.type = :type ");
+    	filter.setParams(Collections.singletonMap("type", TaskEvent.TaskEventType.COMPLETED));
+    	auditTasks = runtimeDataService.getTaskEvents(userTask.getTaskId(), filter);
+    	
+    	assertNotNull(auditTasks);
+        assertEquals(0, auditTasks.size());
 
     	processService.abortProcessInstance(processInstanceId);
     	processInstanceId = null;
@@ -1339,6 +1347,8 @@ public class RuntimeDataServiceImplTest extends AbstractKieServicesBaseTest {
     public void testGetProcessInstancesByVariableAndValue() {
         Map<String, Object> params = new HashMap<String, Object>();
         params.put("approval_document", "initial content");
+        params.put("approval_reviewComment", "not yet reviewed");
+        
         processInstanceId = processService.startProcess(deploymentUnit.getIdentifier(), "org.jbpm.writedocument", params);
         assertNotNull(processInstanceId);
 
@@ -1357,6 +1367,10 @@ public class RuntimeDataServiceImplTest extends AbstractKieServicesBaseTest {
         assertEquals(1, processInstanceLogs.size());
 
         processInstanceLogs = runtimeDataService.getProcessInstancesByVariableAndValue("approval_document", "updated%", null, new QueryContext());
+        assertNotNull(processInstanceLogs);
+        assertEquals(1, processInstanceLogs.size());
+        
+        processInstanceLogs = runtimeDataService.getProcessInstancesByVariableAndValue("approval_reviewComment", "not yet%", null, new QueryContext());
         assertNotNull(processInstanceLogs);
         assertEquals(1, processInstanceLogs.size());
 
