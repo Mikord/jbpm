@@ -102,7 +102,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         pds.close();
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncScriptTask() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Hello", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -189,7 +189,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(8, logs.size());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncServiceTask() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Hello", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -245,7 +245,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(6, logs.size());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncMIUserTask() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Hello", 1, true);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -326,7 +326,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(12, logs.size());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncMISubProcess() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Hello", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -396,7 +396,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(26, logs.size());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncSubProcess() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Hello", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -449,7 +449,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(18, logs.size());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testSubProcessWithAsyncNodes() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Hello1", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -518,7 +518,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(18, logs.size());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=25000)
     public void testSubProcessWithSomeAsyncNodes() throws Exception {
 
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Hello2", 1);
@@ -577,7 +577,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(18, logs.size());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncCallActivityTask() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("CallActivity", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -629,7 +629,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
     }
 
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncAndSyncServiceTasks() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Async Service", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -695,7 +695,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(14, logs.size());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncScriptTaskIgnoreNotExistingDeployments() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Hello", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -765,7 +765,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(8, logs.size());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncModeWithScriptTask() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("EndProcess", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -825,7 +825,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(AsyncSignalEventCommand.class.getName(), commands.iterator().next());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncModeWithAsyncScriptTask() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("EndProcess", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -884,7 +884,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(AsyncSignalEventCommand.class.getName(), commands.iterator().next());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncModeWithServiceTask() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("EndProcess", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -943,7 +943,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(AsyncSignalEventCommand.class.getName(), commands.iterator().next());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncModeWithSubProcess() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("EndProcess", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
@@ -995,7 +995,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(AsyncSignalEventCommand.class.getName(), commands.iterator().next());
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncModeWithSignalProcess() throws Exception {
         final CountDownProcessEventListener countDownListenerSignalAsync = new CountDownProcessEventListener("Signal", 1, true);
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("EndProcess", 1);
@@ -1057,7 +1057,7 @@ public class AsyncContinuationSupportTest extends AbstractExecutorBaseTest {
         assertEquals(AsyncSignalEventCommand.class.getName(), commands.iterator().next());
     }
     
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testAsyncParallelGateway() throws Exception {
         final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("REST", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()

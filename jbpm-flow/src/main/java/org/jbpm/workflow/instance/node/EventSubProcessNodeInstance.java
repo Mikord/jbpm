@@ -16,6 +16,7 @@
 package org.jbpm.workflow.instance.node;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.jbpm.process.instance.ProcessInstance;
@@ -23,6 +24,7 @@ import org.jbpm.workflow.core.node.EventSubProcessNode;
 import org.jbpm.workflow.core.node.StartNode;
 import org.jbpm.workflow.instance.NodeInstanceContainer;
 import org.jbpm.workflow.instance.impl.MessageCorrelation;
+import org.kie.api.definition.process.Node;
 import org.kie.api.definition.process.NodeContainer;
 import org.kie.api.runtime.process.NodeInstance;
 
@@ -56,10 +58,19 @@ public class EventSubProcessNodeInstance extends CompositeContextNodeInstance {
 
     @Override
     public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
-        signalStartNode(type, event);
+        signalStartNode(type, event, messageCorrelation);
     }
 
     private void signalStartNode(String type, Object event) {
+        this.signalStartNode(type, event, new MessageCorrelation() {
+            @Override
+            public boolean matches(Object event, Node node, Map<String, Object> variables) {
+                return true;
+            }
+        });
+    }
+
+    private void signalStartNode(String type, Object event, MessageCorrelation messageCorrelation) {
         if (getNodeInstanceContainer().getNodeInstances().contains(this) || type.startsWith("Error-") || type.equals("timerTriggered") ) {
             StartNode startNode = getCompositeNode().findStartNode();
             if (resolveVariables(((EventSubProcessNode) getEventBasedNode()).getEvents()).contains(type) || type.equals("timerTriggered")) {
@@ -67,7 +78,7 @@ public class EventSubProcessNodeInstance extends CompositeContextNodeInstance {
                 ((StartNodeInstance) nodeInstance).signalEvent(type, event);
             }
         }
-        super.signalEvent(type, event);
+        super.signalEvent(type, event, messageCorrelation);
     }
 
     @Override
