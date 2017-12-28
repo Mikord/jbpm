@@ -1,11 +1,11 @@
 /*
- * Copyright 2005 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,10 +19,14 @@ package org.jbpm.process.core.datatype.impl.type;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-
-import org.jbpm.process.core.datatype.DataType;
+import java.util.Map;
 
 import com.thoughtworks.xstream.XStream;
+import com.thoughtworks.xstream.security.ExplicitTypePermission;
+import org.drools.core.common.ProjectClassLoader;
+import org.jbpm.process.core.datatype.DataType;
+
+import static org.kie.soup.commons.xstream.XStreamUtils.createXStream;
 
 /**
  * Representation of an object datatype.
@@ -88,19 +92,29 @@ public class ObjectDataType implements DataType {
     }
 
     public Object readValue(String value) {
-        XStream xstream = new XStream();
-        if (classLoader != null) {
-            xstream.setClassLoader(classLoader);
-        }
-        return xstream.fromXML(value);
+        return getXStream().fromXML(value);
     }
 
     public String writeValue(Object value) {
-        XStream xstream = new XStream();
+        return getXStream().toXML(value);
+    }
+
+    private XStream getXStream() {
+        XStream xstream = createXStream();
         if (classLoader != null) {
             xstream.setClassLoader(classLoader);
+            if (classLoader instanceof ProjectClassLoader ) {
+                Map<String, byte[]> store = ((ProjectClassLoader) classLoader).getStore();
+                if (store != null) {
+                    String[] classes = store.keySet().stream()
+                                            .map( s -> s.replace( '/', '.' ) )
+                                            .map( s -> s.endsWith( ".class" ) ? s.substring( 0, s.length() - ".class".length() ) : s )
+                                            .toArray( String[]::new );
+                    xstream.addPermission( new ExplicitTypePermission( classes ) );
+                }
+            }
         }
-        return xstream.toXML(value);
+        return xstream;
     }
 
     public String getStringType() {

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -88,19 +88,19 @@ import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 public class KModuleDeploymentService extends AbstractDeploymentService {
 
-    private static Logger logger = LoggerFactory.getLogger(KModuleDeploymentService.class);
+    protected static Logger logger = LoggerFactory.getLogger(KModuleDeploymentService.class);
     private static final String DEFAULT_KBASE_NAME = "defaultKieBase";
     private static final String PROCESS_ID_XPATH = "/*[local-name() = 'definitions']/*[local-name() = 'process']/@id";
 
-    private DefinitionService bpmn2Service;
+    protected DefinitionService bpmn2Service;
 
-    private DeploymentDescriptorMerger merger = new DeploymentDescriptorMerger();
+    protected DeploymentDescriptorMerger merger = new DeploymentDescriptorMerger();
 
-    private FormManagerService formManagerService;
+    protected FormManagerService formManagerService;
 
-    private ExecutorService executorService;
+    protected ExecutorService executorService;
 
-    private XPathExpression processIdXPathExpression;
+    protected XPathExpression processIdXPathExpression;
 
     public KModuleDeploymentService() {
         try {
@@ -400,7 +400,7 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
         }
     }
 
-	private void addClassToDeployedUnit(Class deploymentClass, DeployedUnitImpl deployedUnit) {
+	protected void addClassToDeployedUnit(Class deploymentClass, DeployedUnitImpl deployedUnit) {
         if( deploymentClass != null ) {
             DeploymentUnit unit = deployedUnit.getDeploymentUnit();
             Boolean limitClasses = false;

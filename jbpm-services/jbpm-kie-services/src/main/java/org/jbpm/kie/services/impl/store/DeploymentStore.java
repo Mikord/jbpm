@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,6 +36,8 @@ import org.slf4j.LoggerFactory;
 
 import com.thoughtworks.xstream.XStream;
 
+import static org.kie.soup.commons.xstream.XStreamUtils.createXStream;
+
 public class DeploymentStore {
 	
 	private static final Integer STATE_DISABLED = 0;
@@ -46,7 +48,7 @@ public class DeploymentStore {
 	
 	private static final Logger logger = LoggerFactory.getLogger(DeploymentStore.class);
 
-	private final XStream xstream = new XStream();
+	private final XStream xstream = createXStream();
 	
 	
 	private TransactionalCommandService commandService;

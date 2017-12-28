@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -57,7 +57,7 @@ import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 public class ProcessServiceImplTest extends AbstractKieServicesBaseTest {
 
-    private static final Logger logger = LoggerFactory.getLogger(KModuleDeploymentServiceTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(ProcessServiceImplTest.class);
 
     private List<DeploymentUnit> units = new ArrayList<DeploymentUnit>();
 
@@ -72,6 +72,7 @@ public class ProcessServiceImplTest extends AbstractKieServicesBaseTest {
         processes.add("repo/processes/general/humanTask.bpmn");
         processes.add("repo/processes/general/import.bpmn");
         processes.add("repo/processes/general/signal.bpmn");
+		processes.add("repo/processes/general/signalWithExpression.bpmn2");
         processes.add("repo/processes/general/callactivity.bpmn");
 
         InternalKieModule kJar1 = createKieJar(ks, releaseId, processes);
@@ -290,6 +291,37 @@ public class ProcessServiceImplTest extends AbstractKieServicesBaseTest {
     	pi = processService.getProcessInstance(processInstanceId);
     	assertNull(pi);
     }
+
+	@Test
+	public void testStartAndSignalProcessWithExpression() {
+		assertNotNull(deploymentService);
+
+		KModuleDeploymentUnit deploymentUnit = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, VERSION);
+
+		deploymentService.deploy(deploymentUnit);
+		units.add(deploymentUnit);
+
+		boolean isDeployed = deploymentService.isDeployed(deploymentUnit.getIdentifier());
+		assertTrue(isDeployed);
+
+		assertNotNull(processService);
+
+		long processInstanceId = processService.startProcess(deploymentUnit.getIdentifier(), "org.jbpm.signalWithExpression");
+		assertNotNull(processInstanceId);
+
+		ProcessInstance pi = processService.getProcessInstance(processInstanceId);
+		assertNotNull(pi);
+
+		Collection<String> signals = processService.getAvailableSignals(processInstanceId);
+		assertNotNull(signals);
+		assertEquals(1, signals.size());
+		assertTrue(signals.contains("MySignal"));
+
+		processService.signalProcessInstance(processInstanceId, "MySignal", null);
+
+		pi = processService.getProcessInstance(processInstanceId);
+		assertNull(pi);
+	}
 
     @Test
     public void testStartAndSignalProcesses() {

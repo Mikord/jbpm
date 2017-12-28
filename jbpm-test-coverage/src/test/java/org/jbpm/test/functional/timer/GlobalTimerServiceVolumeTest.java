@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,7 +40,7 @@ import org.jbpm.process.core.timer.impl.GlobalTimerService;
 import org.jbpm.process.core.timer.impl.GlobalTimerService.GlobalJobHandle;
 import org.jbpm.process.core.timer.impl.QuartzSchedulerService;
 import org.jbpm.services.task.identity.JBossUserGroupCallbackImpl;
-import org.jbpm.test.listener.CountDownProcessEventListener;
+import org.jbpm.test.listener.NodeLeftCountDownProcessEventListener;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -75,6 +75,8 @@ import org.kie.internal.task.api.model.InternalOrganizationalEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.Assert.*;
+
 @RunWith(Parameterized.class)
 public class GlobalTimerServiceVolumeTest extends TimerBaseTest {
 
@@ -88,7 +90,7 @@ public class GlobalTimerServiceVolumeTest extends TimerBaseTest {
     private EntityManagerFactory emf;
 
     private int numberOfProcesses = 10;
-    private CountDownProcessEventListener countDownListener;
+    private NodeLeftCountDownProcessEventListener countDownListener;
 
     @Parameters(name = "Strategy : {0}")
     public static Collection<Object[]> data() {
@@ -122,7 +124,7 @@ public class GlobalTimerServiceVolumeTest extends TimerBaseTest {
 
         emf = Persistence.createEntityManagerFactory("org.jbpm.test.persistence");
 
-        countDownListener = new CountDownProcessEventListener("timer", numberOfProcesses);
+        countDownListener = new NodeLeftCountDownProcessEventListener("timer", numberOfProcesses);
         // prepare listener to assert results
         final List<Long> timerExporations = new ArrayList<Long>();
         ProcessEventListener listener = new DefaultProcessEventListener(){
@@ -209,14 +211,14 @@ public class GlobalTimerServiceVolumeTest extends TimerBaseTest {
         if (timerService != null) {
             if (timerService instanceof GlobalTimerService) {
                 jobs = ((GlobalTimerService) timerService).getTimerJobsPerSession();
-
+                
                 timers = ((GlobalTimerService) timerService).getTimerJobFactoryManager().getTimerJobInstances();
             }
         }
 
         assertNotNull("Jobs should not be null as number of timers have been created", jobs);
         assertEquals("There should be no jobs in the global timer service", 0, jobs.size());
-
+        
         assertNotNull("Timer instances should not be null as number of timers have been created", timers);
         assertEquals("There should be no timer instances in the global timer service manager", 0, timers.size());
 

@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.document.service.impl;
 
@@ -19,7 +20,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-
+import java.util.UUID;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlRootElement;
@@ -27,7 +28,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 import org.jbpm.document.Document;
 
 @XmlAccessorType(XmlAccessType.FIELD)
-@XmlRootElement(name="document-object")
+@XmlRootElement(name = "document-object")
 public class DocumentImpl implements Document {
 
     private static final long serialVersionUID = -7422666286189013484L;
@@ -41,9 +42,14 @@ public class DocumentImpl implements Document {
     private Map<String, String> attributes;
 
     public DocumentImpl() {
+        // Setting default values for identifier && download link
+        this.identifier = UUID.randomUUID().toString();
     }
 
-    public DocumentImpl(String identifier, String name, long size, Date lastModified) {
+    public DocumentImpl(String identifier,
+                        String name,
+                        long size,
+                        Date lastModified) {
         this.identifier = identifier;
         this.name = name;
         this.size = size;
@@ -51,14 +57,21 @@ public class DocumentImpl implements Document {
         attributes = new HashMap<String, String>();
     }
 
-    public DocumentImpl(String name, long size, Date lastModified) {
+    public DocumentImpl(String name,
+                        long size,
+                        Date lastModified) {
+        this();
         this.name = name;
         this.size = size;
         this.lastModified = lastModified;
         attributes = new HashMap<String, String>();
     }
 
-    public DocumentImpl( String identifier, String name, long size, Date lastModified, String link ) {
+    public DocumentImpl(String identifier,
+                        String name,
+                        long size,
+                        Date lastModified,
+                        String link) {
         this.identifier = identifier;
         this.name = name;
         this.size = size;
@@ -123,8 +136,10 @@ public class DocumentImpl implements Document {
     }
 
     @Override
-    public void addAttribute(String attributeName, String attributeValue) {
-        attributes.put(attributeName, attributeValue);
+    public void addAttribute(String attributeName,
+                             String attributeValue) {
+        attributes.put(attributeName,
+                       attributeValue);
     }
 
     @Override
@@ -149,7 +164,7 @@ public class DocumentImpl implements Document {
 
     @Override
     public String toString() {
-        SimpleDateFormat sdf = new SimpleDateFormat( DOCUMENT_DATE_PATTERN );
-        return  name + PROPERTIES_SEPARATOR + size + PROPERTIES_SEPARATOR + ((lastModified!=null)? sdf.format( lastModified ) : "" ) + PROPERTIES_SEPARATOR + link ;
+        SimpleDateFormat sdf = new SimpleDateFormat(DOCUMENT_DATE_PATTERN);
+        return name + PROPERTIES_SEPARATOR + size + PROPERTIES_SEPARATOR + ((lastModified != null) ? sdf.format(lastModified) : "") + PROPERTIES_SEPARATOR + identifier;
     }
 }

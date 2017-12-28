@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.regex.Matcher;
 
 import org.drools.core.WorkItemHandlerNotFoundException;
@@ -47,6 +46,7 @@ import org.jbpm.process.instance.context.variable.VariableScopeInstance;
 import org.jbpm.process.instance.impl.AssignmentAction;
 import org.jbpm.process.instance.impl.ContextInstanceFactory;
 import org.jbpm.process.instance.impl.ContextInstanceFactoryRegistry;
+import org.jbpm.util.PatternConstants;
 import org.jbpm.workflow.core.node.Assignment;
 import org.jbpm.workflow.core.node.DataAssociation;
 import org.jbpm.workflow.core.node.Transformation;
@@ -211,7 +211,7 @@ public class WorkItemNodeInstance extends StateBasedNodeInstance implements Even
             if (entry.getValue() instanceof String) {
                 String s = (String) entry.getValue();
                 Map<String, String> replacements = new HashMap<String, String>();
-                Matcher matcher = PARAMETER_MATCHER.matcher(s);
+                Matcher matcher = PatternConstants.PARAMETER_MATCHER.matcher(s);
                 while (matcher.find()) {
                     String paramName = matcher.group(1);
                     if (replacements.get(paramName) == null) {
@@ -328,19 +328,7 @@ public class WorkItemNodeInstance extends StateBasedNodeInstance implements Even
         if (getNode() == null) {
             setMetaData("NodeType", workItem.getName());
             
-            Map<String, Object> results = workItem.getResults();
-            if (results != null && !results.isEmpty()) {
-                VariableScope variableScope = (VariableScope) ((ContextContainer) getProcessInstance().getProcess()).getDefaultContext( VariableScope.VARIABLE_SCOPE );
-                VariableScopeInstance variableScopeInstance = (VariableScopeInstance)(VariableScopeInstance)getProcessInstance().getContextInstance(VariableScope.VARIABLE_SCOPE);;
-                for (Entry<String, Object> result : results.entrySet()) {
-                    
-                    if (variableScope.findVariable(result.getKey()) != null) {
-    
-                        variableScopeInstance.getVariableScope().validateVariable(getProcessInstance().getProcessName(), result.getKey(), result.getValue());    
-                        variableScopeInstance.setVariable(result.getKey(), result.getValue());
-                    }
-                }
-            }
+            mapDynamicOutputData(workItem.getResults());
         }
         if (isInversionOfControl()) {
             KieRuntime kruntime = ((ProcessInstance) getProcessInstance()).getKnowledgeRuntime();

@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package org.jbpm.casemgmt.impl.model.instance;
 
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 import org.jbpm.casemgmt.api.model.instance.CommentInstance;
@@ -31,11 +32,14 @@ public class CommentInstanceImpl implements CommentInstance {
     private String author;    
     private String comment;
     
-    public CommentInstanceImpl(String author, String comment) {
+    private List<String> restrictedTo;
+    
+    public CommentInstanceImpl(String author, String comment, List<String> restrictedTo) {
         this.id = UUID.randomUUID().toString();
         this.createdAt = new Date();
         this.author = author;
         this.comment = comment;
+        this.restrictedTo = restrictedTo;
     }
 
     @Override
@@ -60,6 +64,15 @@ public class CommentInstanceImpl implements CommentInstance {
     
     public void setComment(String comment) {
         this.comment = comment;
+    }
+    
+    @Override
+    public List<String> getRestrictedTo() {
+        return restrictedTo;
+    }
+    
+    public void setRestrictedTo(List<String> restrictedTo) {
+        this.restrictedTo = restrictedTo;
     }
 
     @Override

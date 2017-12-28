@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,7 +21,6 @@ import java.util.Map;
 import org.drools.core.time.TimerService;
 import org.jbpm.process.core.timer.TimerServiceRegistry;
 import org.jbpm.process.core.timer.impl.GlobalTimerService;
-import org.jbpm.runtime.manager.impl.error.ExecutionErrorManagerImpl;
 import org.jbpm.runtime.manager.impl.factory.LocalTaskServiceFactory;
 import org.jbpm.runtime.manager.impl.tx.DestroySessionTransactionSynchronization;
 import org.jbpm.runtime.manager.impl.tx.DisposeSessionTransactionSynchronization;
@@ -93,8 +92,8 @@ public class PerRequestRuntimeManager extends AbstractRuntimeManager {
 	        ((RuntimeEngineImpl) runtime).setManager(this);
 	        
 	        configureRuntimeOnTaskService(internalTaskService, runtime);
-	        registerDisposeCallback(runtime, new DisposeSessionTransactionSynchronization(this, runtime));
-	        registerDisposeCallback(runtime, new DestroySessionTransactionSynchronization(runtime.getKieSession()));
+	        registerDisposeCallback(runtime, new DisposeSessionTransactionSynchronization(this, runtime), runtime.getKieSession().getEnvironment());
+	        registerDisposeCallback(runtime, new DestroySessionTransactionSynchronization(runtime.getKieSession()), runtime.getKieSession().getEnvironment());
 	        registerItems(runtime);
 	        attachManager(runtime);
     	} else {
@@ -102,7 +101,7 @@ public class PerRequestRuntimeManager extends AbstractRuntimeManager {
 	        ((RuntimeEngineImpl) runtime).setManager(this);
     	}
         local.get().put(identifier, runtime);
-        ((ExecutionErrorManagerImpl)executionErrorManager).createHandler();
+
         return runtime;
     }
     
@@ -137,7 +136,6 @@ public class PerRequestRuntimeManager extends AbstractRuntimeManager {
     	try {
         	if (canDispose(runtime)) {
         	    local.get().remove(identifier);
-        	    ((ExecutionErrorManagerImpl)executionErrorManager).closeHandler();
                 try {
                     Long ksessionId = ((RuntimeEngineImpl)runtime).getKieSessionId();
                     factory.onDispose(ksessionId);
@@ -167,7 +165,6 @@ public class PerRequestRuntimeManager extends AbstractRuntimeManager {
         	}
     	} catch (Exception e) {
     	    local.get().remove(identifier);
-    	    ((ExecutionErrorManagerImpl)executionErrorManager).closeHandler();
     	    throw new RuntimeException(e);
     	}
     }
@@ -226,8 +223,8 @@ public class PerRequestRuntimeManager extends AbstractRuntimeManager {
             }
     		KieSession ksession = factory.newKieSession();
     		((RuntimeEngineImpl)engine).internalSetKieSession(ksession);
-    		registerDisposeCallback(engine, new DisposeSessionTransactionSynchronization(manager, engine));
-            registerDisposeCallback(engine, new DestroySessionTransactionSynchronization(ksession));
+    		registerDisposeCallback(engine, new DisposeSessionTransactionSynchronization(manager, engine), ksession.getEnvironment());
+            registerDisposeCallback(engine, new DestroySessionTransactionSynchronization(ksession), ksession.getEnvironment());
             registerItems(engine);
             attachManager(engine);
     		return ksession;

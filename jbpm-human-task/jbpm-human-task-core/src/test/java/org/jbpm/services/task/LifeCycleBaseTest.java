@@ -1,20 +1,21 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.jbpm.services.task;
 
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -63,7 +64,6 @@ import org.kie.internal.task.api.model.InternalTaskData;
 
 public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
-    
     @Test
     /*
     * Related to BZ-1105868 
@@ -919,6 +919,43 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         assertEquals(Status.Suspended, task3.getTaskData().getPreviousStatus());
         assertEquals("Darth Vader", task3.getTaskData().getActualOwner().getId());
     }
+    
+    @Test
+    public void testResumeFromCompleted() {       
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name = 'This is my task name' })";
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+
+        long taskId = task.getId();
+        taskService.claim(taskId, "Darth Vader");
+
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Reserved, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        taskService.start(taskId, "Darth Vader");
+
+        task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.InProgress, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        taskService.complete(taskId, "Darth Vader", null);
+
+        task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Completed, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+       
+        assertThatExceptionOfType(PermissionDeniedException.class).isThrownBy(() -> { 
+            taskService.resume(taskId, "Darth Vader"); })
+        .withMessageContaining("was unable to execute operation 'Resume' on task id");                
+
+        task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Completed, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+    }
 
     @Test
     public void testResumeFromReservedWithIncorrectUser() {
@@ -1240,7 +1277,6 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
     @Test
     public void testForwardFromReadyToGroup() throws Exception {
         
-
         // One potential owner, should go straight to state Reserved
         String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
         str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Darth Vader') ],businessAdministrators = [ new User('Administrator') ], }),";
@@ -1253,13 +1289,13 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         long taskId = task.getId();
 
         // Check is Forwarded
-        PermissionDeniedException denied = null;
+        IllegalArgumentException failed = null;
         try {
             taskService.forward(taskId, "Darth Vader", "Knights Templer");
-        } catch (PermissionDeniedException e) {
-            denied = e;
+        } catch (IllegalArgumentException e) {
+            failed = e;
         }
-        assertNotNull("Should get permissed denied exception", denied);
+        assertNotNull("Should get permissed denied exception", failed);
     }
 
     @Test
@@ -2780,6 +2816,45 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         
         // now let's check what was actually given to listeners
         assertEquals(0, outputsAfterCompletion.size());        
+    }
+    
+    @Test
+    public void testDelegateFromReservedWithNotExistingTargetUser() throws Exception {
+        
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name = 'This is my task name' })";
+
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+        long taskId = task.getId();
+
+        // Claim and Reserved
+
+        taskService.claim(taskId, "Darth Vader");
+
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Reserved, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        // Check was not delegated
+        IllegalArgumentException failed = null;
+        try {
+            taskService.delegate(taskId, "Darth Vader", "not existing");
+        } catch (IllegalArgumentException e) {
+            failed = e;
+        }
+        assertNotNull("Should get permissed denied exception", failed);
+
+        Task task2 = taskService.getTaskById(taskId);
+        User user = createUser("Darth Vader");
+        assertTrue(task2.getPeopleAssignments().getPotentialOwners().contains(user));
+        user = createUser("Tony Stark");
+        assertFalse(task2.getPeopleAssignments().getPotentialOwners().contains(user));
+        assertEquals("Darth Vader", task2.getTaskData().getActualOwner().getId());
+        assertEquals(Status.Reserved, task2.getTaskData().getStatus());
     }
     
     protected void testCompleteWithContentAndVarListener(TaskLifeCycleEventListener listener) {

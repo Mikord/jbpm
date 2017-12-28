@@ -1,17 +1,17 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.jbpm.services.task.audit.service;
@@ -51,6 +51,8 @@ import org.kie.internal.query.QueryFilter;
 import org.kie.internal.task.api.AuditTask;
 import org.kie.internal.task.api.TaskVariable;
 import org.kie.internal.task.api.TaskVariable.VariableType;
+import org.kie.internal.task.api.model.InternalTask;
+import org.kie.internal.task.api.model.InternalTaskData;
 import org.kie.internal.task.api.model.TaskEvent;
 
 public abstract class TaskAuditBaseTest extends HumanTaskServicesBaseTest {
@@ -1082,6 +1084,166 @@ public abstract class TaskAuditBaseTest extends HumanTaskServicesBaseTest {
         assertEquals(1, allGroupAuditTasks.size());        
         assertEquals("Completed", allGroupAuditTasks.get(0).getStatus());
         assertBAMTask(taskId, "Completed");
+    }
+    
+    @Test
+    public void testLifeCycleWithBAMEndWithExited() {
+        Task task = new TaskFluent().setName("This is my task name")
+                .addPotentialGroup("Knights Templer")
+                .setAdminUser("Administrator")
+                .getTask();
+
+        taskService.addTask(task, new HashMap<String, Object>());
+        long taskId = task.getId();
+
+        List<AuditTask> allGroupAuditTasks = taskAuditService.getAllGroupAuditTasksByUser("Knights Templer", new QueryFilter());
+        assertEquals(1, allGroupAuditTasks.size());
+        assertTrue(allGroupAuditTasks.get(0).getStatus().equals("Ready"));
+        assertBAMTask(taskId, "Ready");
+
+        taskService.claim(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllAuditTasksByUser("Darth Vader", new QueryFilter());
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("Reserved", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "Reserved");
+
+        taskService.release(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllGroupAuditTasksByUser("Knights Templer", new QueryFilter());
+        assertEquals(1, allGroupAuditTasks.size());
+        assertTrue(allGroupAuditTasks.get(0).getStatus().equals("Ready"));
+        assertBAMTask(taskId, "Ready");
+
+        taskService.claim(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllAuditTasksByUser("Darth Vader", new QueryFilter());;
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("Reserved", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "Reserved");
+
+        // Go straight from Ready to Inprogress
+        taskService.start(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllAuditTasksByUser("Darth Vader", new QueryFilter());;
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("InProgress", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "InProgress");
+        
+        taskService.exit(taskId, "Administrator");
+        
+        allGroupAuditTasks = taskAuditService.getAllAuditTasks(new QueryFilter());;
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("Exited", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "Exited");
+        
+    }
+    
+    @Test
+    public void testLifeCycleWithBAMEndWithObsolete() {
+        Task task = new TaskFluent().setName("This is my task name")
+                .addPotentialGroup("Knights Templer")
+                .setAdminUser("Administrator")                
+                .getTask();
+        ((InternalTaskData)task.getTaskData()).setSkipable(true);
+
+        taskService.addTask(task, new HashMap<String, Object>());
+        long taskId = task.getId();
+
+        List<AuditTask> allGroupAuditTasks = taskAuditService.getAllGroupAuditTasksByUser("Knights Templer", new QueryFilter());
+        assertEquals(1, allGroupAuditTasks.size());
+        assertTrue(allGroupAuditTasks.get(0).getStatus().equals("Ready"));
+        assertBAMTask(taskId, "Ready");
+
+        taskService.claim(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllAuditTasksByUser("Darth Vader", new QueryFilter());
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("Reserved", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "Reserved");
+
+        taskService.release(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllGroupAuditTasksByUser("Knights Templer", new QueryFilter());
+        assertEquals(1, allGroupAuditTasks.size());
+        assertTrue(allGroupAuditTasks.get(0).getStatus().equals("Ready"));
+        assertBAMTask(taskId, "Ready");
+
+        taskService.claim(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllAuditTasksByUser("Darth Vader", new QueryFilter());;
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("Reserved", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "Reserved");
+
+        // Go straight from Ready to Inprogress
+        taskService.start(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllAuditTasksByUser("Darth Vader", new QueryFilter());;
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("InProgress", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "InProgress");
+        
+        taskService.skip(taskId, "Darth Vader");
+        
+        allGroupAuditTasks = taskAuditService.getAllAuditTasksByUser("Darth Vader", new QueryFilter());;
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("Obsolete", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "Obsolete");
+        
+    }
+    
+    @Test
+    public void testLifeCycleWithBAMEndWithFailed() {
+        Task task = new TaskFluent().setName("This is my task name")
+                .addPotentialGroup("Knights Templer")
+                .setAdminUser("Administrator")
+                .getTask();
+
+        taskService.addTask(task, new HashMap<String, Object>());
+        long taskId = task.getId();
+
+        List<AuditTask> allGroupAuditTasks = taskAuditService.getAllGroupAuditTasksByUser("Knights Templer", new QueryFilter());
+        assertEquals(1, allGroupAuditTasks.size());
+        assertTrue(allGroupAuditTasks.get(0).getStatus().equals("Ready"));
+        assertBAMTask(taskId, "Ready");
+
+        taskService.claim(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllAuditTasksByUser("Darth Vader", new QueryFilter());
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("Reserved", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "Reserved");
+
+        taskService.release(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllGroupAuditTasksByUser("Knights Templer", new QueryFilter());
+        assertEquals(1, allGroupAuditTasks.size());
+        assertTrue(allGroupAuditTasks.get(0).getStatus().equals("Ready"));
+        assertBAMTask(taskId, "Ready");
+
+        taskService.claim(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllAuditTasksByUser("Darth Vader", new QueryFilter());;
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("Reserved", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "Reserved");
+
+        // Go straight from Ready to Inprogress
+        taskService.start(taskId, "Darth Vader");
+
+        allGroupAuditTasks = taskAuditService.getAllAuditTasksByUser("Darth Vader", new QueryFilter());;
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("InProgress", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "InProgress");
+        
+        taskService.fail(taskId, "Darth Vader", null);
+        
+        allGroupAuditTasks = taskAuditService.getAllAuditTasksByUser("Darth Vader", new QueryFilter());;
+        assertEquals(1, allGroupAuditTasks.size());
+        assertEquals("Failed", allGroupAuditTasks.get(0).getStatus());
+        assertBAMTask(taskId, "Failed");
+        
     }
 
     protected Map<String, String> collectVariableNameAndValue(List<TaskVariable> variables) {

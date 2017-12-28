@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -115,7 +115,7 @@ public class UpdateTimerCommand implements ExecutableCommand<Void>, ProcessInsta
         if (wfp == null) {
             throw new IllegalArgumentException("Process instance with id " + processInstanceId + " not found");
         }
-        for (NodeInstance nodeInstance : wfp.getNodeInstances()) {
+        for (NodeInstance nodeInstance : wfp.getNodeInstances(true)) {
             if (nodeInstance instanceof TimerNodeInstance) {
                 TimerNodeInstance tni = (TimerNodeInstance) nodeInstance;
                 if (tni.getNodeName().equals(timerName) || tni.getTimerId() == timerId) {
@@ -132,7 +132,7 @@ public class UpdateTimerCommand implements ExecutableCommand<Void>, ProcessInsta
             } else if (nodeInstance instanceof StateBasedNodeInstance) {
                 StateBasedNodeInstance sbni = (StateBasedNodeInstance) nodeInstance;
                 List<Long> timerList = sbni.getTimerInstances();
-                if (sbni.getNodeName().equals(timerName) || timerList.contains(timerId)) {
+                if (sbni.getNodeName().equals(timerName) || (timerList != null && timerList.contains(timerId))) {
                     
                     if (timerList != null && timerList.size() == 1) {
                         TimerInstance timer = tm.getTimerMap().get(timerList.get(0));

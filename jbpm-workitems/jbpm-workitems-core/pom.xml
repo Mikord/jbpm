@@ -6,10 +6,28 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-workitems</artifactId>
-    <version>7.3.0.Final-Center-3</version>
+    <version>7.5.0.Final-Center-1</version>
   </parent>
 
   <artifactId>jbpm-workitems-core</artifactId>
   <name>jBPM :: WorkItems :: Core</name>
+
+  <properties>
+    <java.module.name>org.jbpm.workitem.core</java.module.name>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.google.testing.compile</groupId>
+      <artifactId>compile-testing</artifactId>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>com.sun</groupId>
+          <artifactId>tools</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
 
 </project>

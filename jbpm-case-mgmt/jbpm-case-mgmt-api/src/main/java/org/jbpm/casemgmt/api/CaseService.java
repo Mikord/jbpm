@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -101,6 +101,15 @@ public interface CaseService {
      */
     CaseInstance getCaseInstance(String caseId, boolean withData, boolean withRoles, boolean withMilestones, boolean withStages) throws CaseNotFoundException;
 
+    /**
+     * Closes case with given case id (including all attached process instances if any).
+     * Does not affect case file so in case it can still be used to reopen the case by starting new instances.
+     * @param caseId unique case id in the format PREFIX-GENERATED_ID as described on startCase method
+     * @param optional comment to be added when closing the case instance
+     * @throws CaseNotFoundException thrown in case case was not found with given id
+     */
+    void closeCase(String caseId, String comment) throws CaseNotFoundException;
+    
     /**
      * Cancels case with given case id (including all attached process instances if any).
      * Does not affect case file so in case it can still be used to reopen the case by starting new instances.
@@ -257,17 +266,19 @@ public interface CaseService {
      * @param caseId unique case id in the format PREFIX-GENERATED_ID as described on startCase method
      * @param name unique name for given value to be put into case file
      * @param value actual value to be added to case file
+     * @param restrictedTo optional case roles that this data should be restricted to
      * @throws CaseNotFoundException thrown in case case was not found with given id
      */
-    void addDataToCaseFile(String caseId, String name, Object value) throws CaseNotFoundException;
+    void addDataToCaseFile(String caseId, String name, Object value, String... restrictedTo) throws CaseNotFoundException;
 
     /**
      * Adds complete map to case file of given case. Replaces any existing value that is registered under same name.
      * @param caseId unique case id in the format PREFIX-GENERATED_ID as described on startCase method
      * @param data key value representing data to be added to case file
+     * @param restrictedTo optional case roles that this data should be restricted to
      * @throws CaseNotFoundException thrown in case case was not found with given id
      */
-    void addDataToCaseFile(String caseId, Map<String, Object> data) throws CaseNotFoundException;
+    void addDataToCaseFile(String caseId, Map<String, Object> data, String... restrictedTo) throws CaseNotFoundException;
 
     /**
      * Removes given variable (stored under name) from case file of given case.
@@ -342,9 +353,10 @@ public interface CaseService {
      * @param caseId unique case id in the format PREFIX-GENERATED_ID as described on startCase method
      * @param author author of the comment
      * @param comment actual comment (text)
+     * @param restrictedTo optional case roles that this data should be restricted to
      * @throws CaseNotFoundException thrown in case case was not found with given id
      */
-    void addCaseComment(String caseId, String author, String comment) throws CaseNotFoundException;
+    void addCaseComment(String caseId, String author, String comment, String... restrictedTo) throws CaseNotFoundException;
 
     /**
      * Updated given comment with entire text provided
@@ -352,9 +364,10 @@ public interface CaseService {
      * @param commentId unique id of the comment
      * @param author author of the comment
      * @param text updated text of the comment
+     * @param restrictedTo optional case roles that this data should be restricted to
      * @throws CaseNotFoundException thrown in case case was not found with given id
      */
-    void updateCaseComment(String caseId, String commentId, String author, String text) throws CaseNotFoundException;
+    void updateCaseComment(String caseId, String commentId, String author, String text, String... restrictedTo) throws CaseNotFoundException;
 
     /**
      * Removes given comment from the case comments list
@@ -376,6 +389,16 @@ public interface CaseService {
      * @return returns new instance (not associated with case) of CaseFileInstance populated with given data
      */
     CaseFileInstance newCaseFileInstance(String deploymentId, String caseDefinition, Map<String, Object> data);
+    
+    /**
+     * Builds and returns new CaseFileInstance with given data. Not yet associated with any case
+     * @param deploymentId deployment that case belongs to
+     * @param caseDefinition id of the case definition to be able to properly setup case file
+     * @param data initial data for case file
+     * @param accessRestrictions access restrictions to data that defines what case roles are allowed to add and manipulate given data
+     * @return returns new instance (not associated with case) of CaseFileInstance populated with given data
+     */
+    CaseFileInstance newCaseFileInstanceWithRestrictions(String deploymentId, String caseDefinition, Map<String, Object> data, Map<String, List<String>> accessRestrictions);
 
     /**
      * Builds and returns new CaseFileInstance with given data and roles assignments. Not yet associated with any case
@@ -386,6 +409,17 @@ public interface CaseService {
      * @return returns new instance (not associated with case) of CaseFileInstance populated with given data
      */
     CaseFileInstance newCaseFileInstance(String deploymentId, String caseDefinition, Map<String, Object> data, Map<String, OrganizationalEntity> rolesAssignment);
+    
+    /**
+     * Builds and returns new CaseFileInstance with given data and roles assignments. Not yet associated with any case
+     * @param deploymentId deployment that case belongs to
+     * @param caseDefinition id of the case definition to be able to properly setup case file
+     * @param data initial data for case file
+     * @param rolesAssignment initial role assignment
+     * @param accessRestrictions access restrictions to data that defines what case roles are allowed to add and manipulate given data
+     * @return returns new instance (not associated with case) of CaseFileInstance populated with given data
+     */
+    CaseFileInstance newCaseFileInstanceWithRestrictions(String deploymentId, String caseDefinition, Map<String, Object> data, Map<String, OrganizationalEntity> rolesAssignment, Map<String, List<String>> accessRestrictions);
 
     /**
      * Returns new TaskSpecification describing user task so it can be created as dynamic task. All string

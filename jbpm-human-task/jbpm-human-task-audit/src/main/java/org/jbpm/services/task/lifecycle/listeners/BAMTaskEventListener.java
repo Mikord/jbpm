@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -122,26 +122,18 @@ public class BAMTaskEventListener extends PersistableEventListener  {
         createTask(event, null, null);
     }
 
-    /**
-     * When a task is skipped, the status for dashbuilder integration task must be Exited.
-     *
-     * @param ti The task.
-     */
+
     public void afterTaskSkippedEvent(TaskEvent event) {
-        createOrUpdateTask(event, Status.Exited);
+        createOrUpdateTask(event, Status.Obsolete);
     }
 
     public void afterTaskStoppedEvent(TaskEvent event) {
         updateTask(event);
     }
 
-    /**
-     * When a task is failed, the status for dashbuilder integration task must be Exited.
-     *
-     * @param ti The task.
-     */
+    
     public void afterTaskFailedEvent(TaskEvent event) {
-        createOrUpdateTask(event, Status.Error);
+        createOrUpdateTask(event, Status.Failed);
     }
 
     public void afterTaskExitedEvent(TaskEvent event) {

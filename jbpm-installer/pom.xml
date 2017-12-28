@@ -6,13 +6,14 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm</artifactId>
-    <version>7.3.0.Final-Center-3</version>
+    <version>7.5.0.Final-Center-1</version>
   </parent>
 
   <artifactId>jbpm-installer</artifactId>
   <name>jBPM :: Installer</name>
 
   <properties>
+    <java.module.name>org.jbpm.installer</java.module.name>
     <findbugs.skip>true</findbugs.skip>
   </properties>
 

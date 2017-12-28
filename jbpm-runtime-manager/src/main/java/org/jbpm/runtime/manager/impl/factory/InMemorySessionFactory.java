@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,8 @@ import org.jbpm.process.instance.ProcessInstanceManager;
 import org.jbpm.process.instance.ProcessRuntimeImpl;
 import org.jbpm.process.instance.impl.DefaultProcessInstanceManager;
 import org.kie.api.KieBase;
+import org.kie.api.runtime.Environment;
+import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.RuntimeEnvironment;
 import org.kie.internal.runtime.manager.SessionFactory;
@@ -43,15 +45,19 @@ public class InMemorySessionFactory implements SessionFactory {
     private RuntimeEnvironment environment;
     private KieBase kbase;
     private Map<Long, KieSession> sessions = new ConcurrentHashMap<Long, KieSession>();
+    private String owner;
     
-    public InMemorySessionFactory(RuntimeEnvironment environment) {
+    public InMemorySessionFactory(RuntimeEnvironment environment, String owner) {
         this.environment = environment;
         this.kbase = environment.getKieBase();
+        this.owner = owner;
     }
     
     @Override
     public KieSession newKieSession() {
-        KieSession ksession = kbase.newKieSession(environment.getConfiguration(), environment.getEnvironment());
+        Environment env = environment.getEnvironment();
+        env.set(EnvironmentName.DEPLOYMENT_ID, owner);
+        KieSession ksession = kbase.newKieSession(environment.getConfiguration(), env);
         this.sessions.put(ksession.getIdentifier(), ksession);
         
         ProcessInstanceManager piManager = ((ProcessRuntimeImpl)((StatefulKnowledgeSessionImpl)ksession).getProcessRuntime()).getProcessInstanceManager();

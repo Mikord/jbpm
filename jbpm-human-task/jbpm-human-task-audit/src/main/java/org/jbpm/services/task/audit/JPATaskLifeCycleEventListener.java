@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 /*
  * To change this template, choose Tools | Templates
@@ -573,20 +574,6 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
             }
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.RELEASED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
           
-            AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, ti);
-            if (auditTaskImpl == null) {
-                logger.warn("Unable find audit task entry for task id {} '{}', skipping audit task update", ti.getId(), ti.getName());
-                return;
-            }
-            auditTaskImpl.setDescription(ti.getDescription());
-            auditTaskImpl.setName(ti.getName());  
-            auditTaskImpl.setActivationTime(ti.getTaskData().getActivationTime());
-            auditTaskImpl.setPriority(ti.getPriority());
-            auditTaskImpl.setDueDate(ti.getTaskData().getExpirationTime());
-            auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
-            persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
         }

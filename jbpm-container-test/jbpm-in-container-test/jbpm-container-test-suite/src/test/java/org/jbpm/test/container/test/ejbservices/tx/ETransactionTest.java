@@ -1,17 +1,18 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.test.container.test.ejbservices.tx;
 
@@ -35,11 +36,13 @@ import org.jbpm.test.container.groups.EAP;
 import org.jbpm.test.container.groups.WAS;
 import org.jbpm.test.container.groups.WLS;
 import org.jbpm.test.container.listeners.TrackingAgendaEventListener;
+import org.jbpm.test.listener.DefaultCountDownProcessEventListener;
 import org.junit.Before;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runners.MethodSorters;
+import org.kie.api.event.process.ProcessNodeLeftEvent;
 import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.ProcessInstance;
@@ -243,6 +246,18 @@ public class ETransactionTest extends AbstractRuntimeEJBServicesTest {
 
     @Test
     public void testTimer() throws Exception {
+        DefaultCountDownProcessEventListener listener = new DefaultCountDownProcessEventListener(0) {
+            @Override
+            public void afterNodeLeft(ProcessNodeLeftEvent event) {
+                if ("Timer".equals(event.getNodeInstance().getNodeName())) {
+                    countDown();
+                }
+            }
+        };
+        RuntimeManager manager = deploymentService.getRuntimeManager(kieJar);
+        RuntimeEngine engine = manager.getRuntimeEngine(ProcessInstanceIdContext.get());
+        engine.getKieSession().addEventListener(listener);
+
         Long processInstanceId = startProcessInstance(PROCESS_ID);
 
         UserTransaction ut = InitialContext.doLookup(USER_TRANSACTION_NAME);
@@ -270,7 +285,8 @@ public class ETransactionTest extends AbstractRuntimeEJBServicesTest {
 
         ut.commit();
 
-        Thread.sleep(2000);             //to make sure the timer is completed
+        listener.reset(1);
+        listener.waitTillCompleted();
 
         Assertions.assertThat(hasNodeLeft(processInstanceId, "timer")).isTrue();
         Assertions.assertThat(hasNodeLeft(processInstanceId, "Timer")).isTrue();

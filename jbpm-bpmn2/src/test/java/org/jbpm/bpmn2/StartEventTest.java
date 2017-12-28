@@ -1,17 +1,18 @@
 /*
-Copyright 2013 Red Hat, Inc. and/or its affiliates.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.*/
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package org.jbpm.bpmn2;
 
@@ -30,9 +31,8 @@ import org.drools.core.util.IoUtils;
 import org.jbpm.bpmn2.objects.NotAvailableGoodsReport;
 import org.jbpm.bpmn2.objects.Person;
 import org.jbpm.bpmn2.objects.TestWorkItemHandler;
-import org.jbpm.test.util.CountDownProcessEventListener;
+import org.jbpm.test.listener.NodeLeftCountDownProcessEventListener;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,6 +51,8 @@ import org.kie.api.runtime.process.WorkItem;
 import org.kie.internal.io.ResourceFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.assertj.core.api.Assertions.*;
 
 @RunWith(Parameterized.class)
 public class StartEventTest extends JbpmBpmn2TestCase {
@@ -74,14 +76,11 @@ public class StartEventTest extends JbpmBpmn2TestCase {
         setUpDataSource();
     }
 
-    @Before
-    public void prepare() {
-        clearHistory();
-    }
-
     @After
     public void dispose() {
         if (ksession != null) {
+            abortProcessInstances(ksession);
+            clearHistory();
             ksession.dispose();
             ksession = null;
         }
@@ -98,13 +97,11 @@ public class StartEventTest extends JbpmBpmn2TestCase {
         person = new Person();
         person.setName("john");
         ksession.insert(person);
-
-
     }
 
     @Test(timeout=10000)
     public void testTimerStartCycleLegacy() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("StartProcess", 5);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("StartProcess", 2);
         KieBase kbase = createKnowledgeBase("BPMN2-TimerStartCycleLegacy.bpmn2");
         ksession = createKnowledgeSession(kbase);
         ksession.addEventListener(countDownListener);
@@ -116,17 +113,17 @@ public class StartEventTest extends JbpmBpmn2TestCase {
         });
         logger.debug("About to start ###### " + new Date());
 
-        assertEquals(0, list.size());
+        assertThat(list.size()).isEqualTo(0);
         // then wait 5 times 5oo ms as that is period configured on the process
         countDownListener.waitTillCompleted();
         ksession.dispose();
-        assertEquals(5, getNumberOfProcessInstances("Minimal"));
+        assertThat(getNumberOfProcessInstances("Minimal")).isEqualTo(2);
 
     }
 
     @Test(timeout=10000)
     public void testTimerStart() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("StartProcess", 5);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("StartProcess", 5);
         KieBase kbase = createKnowledgeBase("BPMN2-TimerStart.bpmn2");
         ksession = createKnowledgeSession(kbase);
         ksession.addEventListener(countDownListener);
@@ -136,15 +133,15 @@ public class StartEventTest extends JbpmBpmn2TestCase {
                 list.add(event.getProcessInstance().getId());
             }
         });
-        assertEquals(0, list.size());
+        assertThat(list.size()).isEqualTo(0);
         countDownListener.waitTillCompleted();
-        assertEquals(5, getNumberOfProcessInstances("Minimal"));
+        assertThat(getNumberOfProcessInstances("Minimal")).isEqualTo(5);
 
     }
 
     @Test(timeout=10000)
     public void testTimerStartDateISO() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("StartProcess", 1);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("StartProcess", 1);
         byte[] content = IoUtils.readBytesFromInputStream(this.getClass().getResourceAsStream("/BPMN2-TimerStartDate.bpmn2"));
         String processContent = new String(content, "UTF-8");
 
@@ -164,15 +161,15 @@ public class StartEventTest extends JbpmBpmn2TestCase {
                 list.add(event.getProcessInstance().getId());
             }
         });
-        assertEquals(0, list.size());
+        assertThat(list.size()).isEqualTo(0);
         countDownListener.waitTillCompleted();
-        assertEquals(1, list.size());
+        assertThat(list.size()).isEqualTo(1);
 
     }
 
     @Test(timeout=10000)
     public void testTimerStartCycleISO() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("StartProcess", 6);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("StartProcess", 6);
         KieBase kbase = createKnowledgeBase("BPMN2-TimerStartISO.bpmn2");
         ksession = createKnowledgeSession(kbase);
         ksession.addEventListener(countDownListener);
@@ -182,15 +179,15 @@ public class StartEventTest extends JbpmBpmn2TestCase {
                 list.add(event.getProcessInstance().getId());
             }
         });
-        assertEquals(0, list.size());
+        assertThat(list.size()).isEqualTo(0);
         countDownListener.waitTillCompleted();
-        assertEquals(6, getNumberOfProcessInstances("Minimal"));
+        assertThat(getNumberOfProcessInstances("Minimal")).isEqualTo(6);
 
     }
 
     @Test(timeout=10000)
     public void testTimerStartDuration() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("StartProcess", 1);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("StartProcess", 1);
         KieBase kbase = createKnowledgeBase("BPMN2-TimerStartDuration.bpmn2");
         ksession = createKnowledgeSession(kbase);
         ksession.addEventListener(countDownListener);
@@ -201,17 +198,17 @@ public class StartEventTest extends JbpmBpmn2TestCase {
             }
         });
 
-        assertEquals(0, list.size());
+        assertThat(list.size()).isEqualTo(0);
 
         countDownListener.waitTillCompleted();
 
-        assertEquals(1, getNumberOfProcessInstances("Minimal"));
+        assertThat(getNumberOfProcessInstances("Minimal")).isEqualTo(1);
 
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=15000)
     public void testTimerStartCron() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("StartProcess", 5);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("StartProcess", 5);
         KieBase kbase = createKnowledgeBase("BPMN2-TimerStartCron.bpmn2");
         ksession = createKnowledgeSession(kbase);
         ksession.addEventListener(countDownListener);
@@ -224,7 +221,7 @@ public class StartEventTest extends JbpmBpmn2TestCase {
 
         // Timer in the process takes 1s, so after 5 seconds, there should be 5 process IDs in the list.
         countDownListener.waitTillCompleted();
-        assertEquals(5, getNumberOfProcessInstances("Minimal"));
+        assertThat(getNumberOfProcessInstances("Minimal")).isEqualTo(5);
 
     }
 
@@ -248,8 +245,8 @@ public class StartEventTest extends JbpmBpmn2TestCase {
         ProcessInstance processInstance = ksession
                 .startProcess("SignalIntermediateEvent");
         assertProcessInstanceFinished(processInstance, ksession);
-        assertEquals(1, getNumberOfProcessInstances("Minimal"));
-        assertEquals(1, getNumberOfProcessInstances("SignalIntermediateEvent"));
+        assertThat(getNumberOfProcessInstances("Minimal")).isEqualTo(1);
+        assertThat(getNumberOfProcessInstances("SignalIntermediateEvent")).isEqualTo(1);
     }
 
     @Test
@@ -264,7 +261,7 @@ public class StartEventTest extends JbpmBpmn2TestCase {
         });
         ksession.signalEvent("MySignal", "NewValue");
 
-        assertEquals(1, getNumberOfProcessInstances("Minimal"));
+        assertThat(getNumberOfProcessInstances("Minimal")).isEqualTo(1);
 
     }
 
@@ -289,17 +286,13 @@ public class StartEventTest extends JbpmBpmn2TestCase {
         });
         ksession.signalEvent("MySignal", "NewValue");
 
-        assertEquals(1, getNumberOfProcessInstances("Minimal"));
+        assertThat(getNumberOfProcessInstances("Minimal")).isEqualTo(1);
         // now remove the process from kbase to make sure runtime based listeners are removed from signal manager
         kbase.removeProcess("Minimal");
-        
-        try {
-            ksession.signalEvent("MySignal", "NewValue");
-        } catch (IllegalArgumentException e) {
-            assertEquals("Unknown process ID: Minimal", e.getMessage());
-        }
+        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> { ksession.signalEvent("MySignal", "NewValue"); })
+                    .withMessageContaining("Unknown process ID: Minimal");
         // must be still one as the process was removed
-        assertEquals(1, getNumberOfProcessInstances("Minimal"));
+        assertThat(getNumberOfProcessInstances("Minimal")).isEqualTo(1);
 
     }
 
@@ -308,12 +301,12 @@ public class StartEventTest extends JbpmBpmn2TestCase {
         KieBase kbase = createKnowledgeBase("BPMN2-MessageStart.bpmn2");
         ksession = createKnowledgeSession(kbase);
         ksession.signalEvent("Message-HelloMessage", "NewValue");
-        assertEquals(1, getNumberOfProcessInstances("Minimal"));
+        assertThat(getNumberOfProcessInstances("Minimal")).isEqualTo(1);
     }
 
     @Test
     public void testMultipleStartEventsRegularStart() throws Exception {
-        KieBase kbase = createKnowledgeBase("BPMN2-MultipleStartEventProcess.bpmn2");
+        KieBase kbase = createKnowledgeBase("BPMN2-MultipleStartEventProcessLongInterval.bpmn2");
         ksession = createKnowledgeSession(kbase);
         TestWorkItemHandler workItemHandler = new TestWorkItemHandler();
         ksession.getWorkItemManager().registerWorkItemHandler("Human Task",
@@ -323,8 +316,8 @@ public class StartEventTest extends JbpmBpmn2TestCase {
         assertProcessInstanceActive(processInstance);
         ksession = restoreSession(ksession, true);
         WorkItem workItem = workItemHandler.getWorkItem();
-        assertNotNull(workItem);
-        assertEquals("john", workItem.getParameter("ActorId"));
+        assertThat(workItem).isNotNull();
+        assertThat(workItem.getParameter("ActorId")).isEqualTo("john");
         ksession.getWorkItemManager().completeWorkItem(workItem.getId(), null);
         assertProcessInstanceFinished(processInstance, ksession);
 
@@ -332,7 +325,7 @@ public class StartEventTest extends JbpmBpmn2TestCase {
 
     @Test(timeout=10000)
     public void testMultipleStartEventsStartOnTimer() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("StartTimer", 5);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("StartTimer", 2);
         KieBase kbase = createKnowledgeBase("BPMN2-MultipleStartEventProcess.bpmn2");
         ksession = createKnowledgeSession(kbase);
         try {
@@ -346,10 +339,10 @@ public class StartEventTest extends JbpmBpmn2TestCase {
                     list.add(event.getProcessInstance().getId());
                 }
             });
-            assertEquals(0, list.size());
-            // Timer in the process takes 500ms, so after 2.5 seconds, there should be 5 process IDs in the list.
+            assertThat(list.size()).isEqualTo(0);
+            // Timer in the process takes 500ms, so after 1 second, there should be 2 process IDs in the list.
             countDownListener.waitTillCompleted();
-            assertEquals(5, getNumberOfProcessInstances("MultipleStartEvents"));
+            assertThat(getNumberOfProcessInstances("MultipleStartEvents")).isEqualTo(2);
         } finally {
             abortProcessInstances(ksession);
         }
@@ -372,7 +365,7 @@ public class StartEventTest extends JbpmBpmn2TestCase {
 
         ksession.signalEvent("startSignal", null);
 
-        assertEquals(1, list.size());
+        assertThat(list.size()).isEqualTo(1);
         WorkItem workItem = workItemHandler.getWorkItem();
         long processInstanceId = ((WorkItemImpl) workItem)
                 .getProcessInstanceId();
@@ -381,8 +374,8 @@ public class StartEventTest extends JbpmBpmn2TestCase {
                 .getProcessInstance(processInstanceId);
         ksession = restoreSession(ksession, true);
 
-        assertNotNull(workItem);
-        assertEquals("john", workItem.getParameter("ActorId"));
+        assertThat(workItem).isNotNull();
+        assertThat(workItem.getParameter("ActorId")).isEqualTo("john");
         ksession.getWorkItemManager().completeWorkItem(workItem.getId(), null);
         assertProcessInstanceFinished(processInstance, ksession);
 
@@ -405,7 +398,7 @@ public class StartEventTest extends JbpmBpmn2TestCase {
 
         ksession.startProcess("muliplestartevents", null);
 
-        assertEquals(1, list.size());
+        assertThat(list.size()).isEqualTo(1);
         WorkItem workItem = workItemHandler.getWorkItem();
         long processInstanceId = ((WorkItemImpl) workItem)
                 .getProcessInstanceId();
@@ -414,8 +407,8 @@ public class StartEventTest extends JbpmBpmn2TestCase {
                 .getProcessInstance(processInstanceId);
         ksession = restoreSession(ksession, true);
 
-        assertNotNull(workItem);
-        assertEquals("john", workItem.getParameter("ActorId"));
+        assertThat(workItem).isNotNull();
+        assertThat(workItem.getParameter("ActorId")).isEqualTo("john");
         ksession.getWorkItemManager().completeWorkItem(workItem.getId(), null);
         assertProcessInstanceFinished(processInstance, ksession);
         assertNodeTriggered(processInstanceId, "Start", "Script 1", "User task", "End");
@@ -423,7 +416,7 @@ public class StartEventTest extends JbpmBpmn2TestCase {
 
     @Test(timeout=10000)
     public void testMultipleEventBasedStartEventsTimerDifferentPaths() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("StartTimer", 2);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("StartTimer", 2);
         KieBase kbase = createKnowledgeBase("BPMN2-MultipleStartEventProcessDifferentPaths.bpmn2");
         ksession = createKnowledgeSession(kbase);
         ksession.addEventListener(countDownListener);
@@ -438,11 +431,11 @@ public class StartEventTest extends JbpmBpmn2TestCase {
             }
         });
 
-        assertEquals(0, list.size());
+        assertThat(list.size()).isEqualTo(0);
         // Timer in the process takes 1000ms, so after 2 seconds, there should be 2 process IDs in the list.
         countDownListener.waitTillCompleted();
 
-        assertEquals(2, list.size());
+        assertThat(list.size()).isEqualTo(2);
         List<WorkItem> workItems = workItemHandler.getWorkItems();
 
         for (WorkItem workItem : workItems) {
@@ -450,10 +443,9 @@ public class StartEventTest extends JbpmBpmn2TestCase {
 
             ProcessInstance processInstance = ksession
                     .getProcessInstance(processInstanceId);
-            ksession = restoreSession(ksession, true);
 
-            assertNotNull(workItem);
-            assertEquals("john", workItem.getParameter("ActorId"));
+            assertThat(workItem).isNotNull();
+            assertThat(workItem.getParameter("ActorId")).isEqualTo("john");
             ksession.getWorkItemManager().completeWorkItem(workItem.getId(), null);
             assertProcessInstanceFinished(processInstance, ksession);
             assertNodeTriggered(processInstanceId, "StartTimer", "Script 2", "User task", "End");
@@ -477,7 +469,7 @@ public class StartEventTest extends JbpmBpmn2TestCase {
 
         ksession.signalEvent("startSignal", null);
 
-        assertEquals(1, list.size());
+        assertThat(list.size()).isEqualTo(1);
         WorkItem workItem = workItemHandler.getWorkItem();
         long processInstanceId = ((WorkItemImpl) workItem)
                 .getProcessInstanceId();
@@ -486,8 +478,8 @@ public class StartEventTest extends JbpmBpmn2TestCase {
                 .getProcessInstance(processInstanceId);
         ksession = restoreSession(ksession, true);
 
-        assertNotNull(workItem);
-        assertEquals("john", workItem.getParameter("ActorId"));
+        assertThat(workItem).isNotNull();
+        assertThat(workItem.getParameter("ActorId")).isEqualTo("john");
         ksession.getWorkItemManager().completeWorkItem(workItem.getId(), null);
         assertProcessInstanceFinished(processInstance, ksession);
         assertNodeTriggered(processInstanceId, "StartSignal", "Script 3", "User task", "End");
@@ -496,7 +488,7 @@ public class StartEventTest extends JbpmBpmn2TestCase {
     @Test(timeout=10000)
     public void testMultipleEventBasedStartEventsStartOnTimer()
             throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("StartTimer", 5);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("StartTimer", 2);
         KieBase kbase = createKnowledgeBase("BPMN2-MultipleEventBasedStartEventProcess.bpmn2");
         ksession = createKnowledgeSession(kbase);
         ksession.addEventListener(countDownListener);
@@ -509,16 +501,16 @@ public class StartEventTest extends JbpmBpmn2TestCase {
                 list.add(event.getProcessInstance().getId());
             }
         });
-        assertEquals(0, list.size());
-        // Timer in the process takes 500ms, so after 2.5 seconds, there should be 5 process IDs in the list.
+        assertThat(list.size()).isEqualTo(0);
+        // Timer in the process takes 500ms, so after 1 second, there should be 2 process IDs in the list.
         countDownListener.waitTillCompleted();
-        assertEquals(5, getNumberOfProcessInstances("MultipleStartEvents"));
+        assertThat(getNumberOfProcessInstances("MultipleStartEvents")).isEqualTo(2);
 
     }
 
     @Test(timeout=10000)
     public void testTimerCycle() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("start", 5);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("start", 5);
         KieBase kbase = createKnowledgeBase("timer/BPMN2-StartTimerCycle.bpmn2");
 
         ksession = createKnowledgeSession(kbase);
@@ -527,14 +519,12 @@ public class StartEventTest extends JbpmBpmn2TestCase {
         ksession.addEventListener(listener);
 
         countDownListener.waitTillCompleted();
-        assertEquals(5, listener.getCount("start.cycle"));
-
+        assertThat(listener.getCount("start.cycle")).isEqualTo(5);
     }
-
 
     @Test(timeout=10000)
     public void testSignalStartWithTransformation() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("StartProcess", 1);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("StartProcess", 1);
         KieBase kbase = createKnowledgeBaseWithoutDumper("BPMN2-SignalStartWithTransformation.bpmn2");
         ksession = createKnowledgeSession(kbase);
         ksession.addEventListener(countDownListener);
@@ -546,11 +536,11 @@ public class StartEventTest extends JbpmBpmn2TestCase {
         });
         ksession.signalEvent("MySignal", "NewValue");
         countDownListener.waitTillCompleted();
-        assertEquals(1, getNumberOfProcessInstances("Minimal"));
-        assertNotNull(list);
-        assertEquals(1, list.size());
+        assertThat(getNumberOfProcessInstances("Minimal")).isEqualTo(1);
+        assertThat(list).isNotNull();
+        assertThat(list.size()).isEqualTo(1);
         String var = getProcessVarValue(list.get(0), "x");
-        assertEquals("NEWVALUE", var);
+        assertThat(var).isEqualTo("NEWVALUE");
     }
 
     /**
@@ -558,17 +548,15 @@ public class StartEventTest extends JbpmBpmn2TestCase {
      */
     @Test(timeout=10000)
     public void testTimerDelay() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("start", 1);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("start", 1);
         KieBase kbase = createKnowledgeBase("timer/BPMN2-StartTimerDuration.bpmn2");
 
         ksession = createKnowledgeSession(kbase);
         ksession.addEventListener(countDownListener);
         StartCountingListener listener = new StartCountingListener();
         ksession.addEventListener(listener);
-
         countDownListener.waitTillCompleted();
-
-        assertEquals(1, listener.getCount("start.delaying"));
+        assertThat(listener.getCount("start.delaying")).isEqualTo(1);
     }
 
     @Test
@@ -583,41 +571,43 @@ public class StartEventTest extends JbpmBpmn2TestCase {
         });
         NotAvailableGoodsReport report = new NotAvailableGoodsReport("test");
         ksession.signalEvent("SignalNotAvailableGoods", report);
-
-        assertEquals(1, getNumberOfProcessInstances("org.jbpm.example.SignalObjectProcess"));
-        assertEquals(1, list.size());
+        assertThat(getNumberOfProcessInstances("org.jbpm.example.SignalObjectProcess")).isEqualTo(1);
+        assertThat(list.size()).isEqualTo(1);
         assertProcessVarValue(list.get(0), "report", "NotAvailableGoodsReport{type:test}");
 
     }
 
+    /**
+     * Should fail as timer expression is not valid
+     *
+     * @throws Exception
+     */
     @Test
     public void testInvalidDateTimerStart() throws Exception {
-        try {
-            createKnowledgeBase("timer/BPMN2-StartTimerDateInvalid.bpmn2");
-            fail("Should fail as timer expression is not valid");
-        } catch (RuntimeException e) {
-            assertTrue(e.getMessage().contains("Could not parse date 'abcdef'"));
-        }
+        assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> { createKnowledgeBase("timer/BPMN2-StartTimerDateInvalid.bpmn2"); })
+                .withMessageContaining("Could not parse date 'abcdef'");
     }
 
+    /**
+     * Should fail as timer expression is not valid
+     *
+     * @throws Exception
+     */
     @Test
     public void testInvalidDurationTimerStart() throws Exception {
-        try {
-            createKnowledgeBase("timer/BPMN2-StartTimerDurationInvalid.bpmn2");
-            fail("Should fail as timer expression is not valid");
-        } catch (Exception e) {
-            assertTrue(e.getMessage().contains("Could not parse delay 'abcdef'"));
-        }
+        assertThatExceptionOfType(Exception.class).isThrownBy(() -> { createKnowledgeBase("timer/BPMN2-StartTimerDurationInvalid.bpmn2"); })
+                .withMessageContaining("Could not parse delay 'abcdef'");
     }
 
+    /**
+     * Should fail as timer expression is not valid
+     *
+     * @throws Exception
+     */
     @Test
     public void testInvalidCycleTimerStart() throws Exception {
-        try {
-            createKnowledgeBase("timer/BPMN2-StartTimerCycleInvalid.bpmn2");
-            fail("Should fail as timer expression is not valid");
-        } catch (Exception e) {
-            assertTrue(e.getMessage().contains("Could not parse delay 'abcdef'"));
-        }
+        assertThatExceptionOfType(Exception.class).isThrownBy(() -> { createKnowledgeBase("timer/BPMN2-StartTimerCycleInvalid.bpmn2"); })
+                .withMessageContaining("Could not parse delay 'abcdef'");
     }
 
 

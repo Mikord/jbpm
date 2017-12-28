@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.test.functional.task;
 
@@ -49,6 +50,8 @@ import org.kie.api.task.model.User;
 import org.kie.internal.runtime.manager.InternalRuntimeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.Assert.*;
 
 public class PessimisticLockTasksServiceTest extends JbpmTestCase {
 
@@ -108,11 +111,11 @@ public class PessimisticLockTasksServiceTest extends JbpmTestCase {
 
 
         //The process is in the first Human Task waiting for its completion
-        Assert.assertEquals(ProcessInstance.STATE_ACTIVE, process.getState());
+        assertEquals(ProcessInstance.STATE_ACTIVE, process.getState());
 
         //gets salaboy's tasks
         List<TaskSummary> salaboysTasks = taskService.getTasksAssignedAsPotentialOwner("salaboy", "en-UK");
-        Assert.assertEquals(1, salaboysTasks.size());
+        assertEquals(1, salaboysTasks.size());
 
         final long taskId = salaboysTasks.get(0).getId();
         final CountDownLatch t2StartLockedTask = new CountDownLatch(1);
@@ -190,10 +193,10 @@ public class PessimisticLockTasksServiceTest extends JbpmTestCase {
         }
 
         List<TaskSummary> pmsTasks = taskService.getTasksAssignedAsPotentialOwner("john", "en-UK");
-        Assert.assertEquals(1, pmsTasks.size());
+        assertEquals(1, pmsTasks.size());
 
         List<TaskSummary> hrsTasks = taskService.getTasksAssignedAsPotentialOwner("mary", "en-UK");
-        Assert.assertEquals(1, hrsTasks.size());
+        assertEquals(1, hrsTasks.size());
 
         ksession.abortProcessInstance(process.getId());
         assertProcessInstanceAborted(process.getId());

@@ -1,30 +1,40 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.process.workitem;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
+import org.drools.core.util.ConfFileUtils;
+import org.drools.core.util.IoUtils;
 import org.jbpm.process.core.ParameterDefinition;
 import org.jbpm.process.core.datatype.DataType;
 import org.jbpm.process.core.impl.ParameterDefinitionImpl;
-import org.drools.core.util.ConfFileUtils;
+import org.jbpm.util.WidMVELEvaluator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.jbpm.util.WidMVELEvaluator;
 
 public class WorkItemRepository {
 
@@ -127,12 +137,33 @@ public class WorkItemRepository {
 			content = ConfFileUtils.URLContentsToString(
 				new URL(path + "/index.conf"));
 		} catch (Exception e) {
-			// Do nothing
+			// get directory listings if index.conf does not exist
+			return getDirectoriesNoIndexConfig(path);
 		}
 		if (content == null) {
 			return new String[0];
 		}
 		return content.split("\n");
+	}
+
+	private static String[] getDirectoriesNoIndexConfig(String path) {
+		List<String> dirs = new ArrayList<>();
+		try {
+			URL url = new URL(path);
+			BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), IoUtils.UTF8_CHARSET));
+			String line = null;
+
+			while((line = reader.readLine()) != null) {
+				if(!line.contains(".")) {
+					dirs.add(line);
+				}
+			}
+
+			reader.close();
+			return dirs.toArray(new String[0]);
+		} catch (Exception e) {
+			return new String[0];
+		}
 	}
 
 	private static List<Map<String, Object>> getWorkDefinitionsMap(String parentPath, String file) {

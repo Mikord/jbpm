@@ -1,20 +1,22 @@
 /*
-Copyright 2013 Red Hat, Inc. and/or its affiliates.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.*/
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package org.jbpm.bpmn2;
 
+import static org.junit.Assert.*;
 import static org.kie.api.runtime.EnvironmentName.ENTITY_MANAGER_FACTORY;
 import static org.kie.api.runtime.EnvironmentName.OBJECT_MARSHALLING_STRATEGIES;
 import static org.kie.api.runtime.EnvironmentName.TRANSACTION_MANAGER;
@@ -244,7 +246,7 @@ public abstract class JbpmBpmn2TestCase extends AbstractBaseTest {
             Assume.assumeTrue(false);
         }
     }
-   
+
     @After
     public void clear() {
         clearHistory();
@@ -498,9 +500,9 @@ public abstract class JbpmBpmn2TestCase extends AbstractBaseTest {
             }
             KieSessionConfiguration config = ksession.getSessionConfiguration();
             config.setOption(ForceEagerActivationOption.YES);
+            ksession.dispose();
             StatefulKnowledgeSession result = JPAKnowledgeService.loadStatefulKnowledgeSession(id, kbase, config, env);
             AuditLoggerFactory.newInstance(Type.JPA, result, null);
-            ksession.dispose();
             return result;
         } else {
             return ksession;
@@ -735,9 +737,11 @@ public abstract class JbpmBpmn2TestCase extends AbstractBaseTest {
     protected void clearHistory() {
         if (sessionPersistence) {
             try {
-                logService.clear();
+                if (logService != null) {
+                    logService.clear();
+                }
             } catch(Exception e) {
-                
+                log.error("History could not be deleted.", e);
             }
         } else {
             if (logger != null) {

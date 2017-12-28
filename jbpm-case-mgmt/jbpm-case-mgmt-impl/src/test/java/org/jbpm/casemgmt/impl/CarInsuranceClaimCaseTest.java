@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,11 @@
 
 package org.jbpm.casemgmt.impl;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -25,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.drools.core.command.runtime.rule.FireAllRulesCommand;
 import org.jbpm.casemgmt.api.model.instance.CaseFileInstance;
 import org.jbpm.casemgmt.api.model.instance.CaseInstance;
 import org.jbpm.casemgmt.api.model.instance.CaseStageInstance;
@@ -49,11 +53,8 @@ import org.kie.api.task.model.Status;
 import org.kie.api.task.model.TaskSummary;
 import org.kie.internal.query.QueryFilter;
 import org.kie.internal.runtime.conf.ObjectModel;
-import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.junit.Assert.*;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class CarInsuranceClaimCaseTest extends AbstractCaseServicesBaseTest {
@@ -370,6 +371,7 @@ public class CarInsuranceClaimCaseTest extends AbstractCaseServicesBaseTest {
         Map<String, OrganizationalEntity> roleAssignments = new HashMap<>();
         roleAssignments.put("insured", new UserImpl(insured));
         roleAssignments.put("insuranceRepresentative", new UserImpl(insuranceRepresentative));
+        roleAssignments.put("assessor", new UserImpl("krisv"));
 
         // start new instance of a case with data and role assignment
         Map<String, Object> data = new HashMap<>();

@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -48,7 +48,6 @@ import org.jbpm.services.task.identity.JBossUserGroupCallbackImpl;
 import org.jbpm.test.util.PoolingDataSource;
 import org.jbpm.workflow.instance.impl.WorkflowProcessInstanceImpl;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.kie.api.definition.process.Node;
 import org.kie.api.event.process.ProcessEventListener;
@@ -79,6 +78,8 @@ import org.kie.internal.runtime.manager.context.EmptyContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.Assert.*;
+
 /**
  * Base test case class that shall be used for jBPM related tests. It provides four sections:
  * <ul>
@@ -108,7 +109,7 @@ import org.slf4j.LoggerFactory;
  * * clearHistory - clears history log<br/>
  * * setupPoolingDataSource - sets up data source<br/>
  */
-public abstract class JbpmJUnitBaseTestCase extends Assert {
+public abstract class JbpmJUnitBaseTestCase {
 
     /**
      * Currently supported RuntimeEngine strategies

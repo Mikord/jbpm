@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,12 +17,13 @@
 package org.jbpm.workflow.instance.node;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.drools.core.common.InternalAgenda;
 import org.drools.core.common.InternalFactHandle;
@@ -32,6 +33,8 @@ import org.drools.core.spi.Activation;
 import org.drools.core.time.TimeUtils;
 import org.drools.core.time.impl.CronExpression;
 import org.drools.core.util.MVELSafeHelper;
+import org.jbpm.process.core.ContextContainer;
+import org.jbpm.process.core.context.variable.Variable;
 import org.jbpm.process.core.context.variable.VariableScope;
 import org.jbpm.process.core.timer.BusinessCalendar;
 import org.jbpm.process.core.timer.DateTimeUtils;
@@ -42,6 +45,7 @@ import org.jbpm.process.instance.context.variable.VariableScopeInstance;
 import org.jbpm.process.instance.impl.Action;
 import org.jbpm.process.instance.timer.TimerInstance;
 import org.jbpm.process.instance.timer.TimerManager;
+import org.jbpm.util.PatternConstants;
 import org.jbpm.workflow.core.DroolsAction;
 import org.jbpm.workflow.core.node.StateBasedNode;
 import org.jbpm.workflow.instance.WorkflowProcessInstance;
@@ -58,7 +62,6 @@ import org.slf4j.LoggerFactory;
 public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl implements EventBasedNodeInstanceInterface, EventListener {
 
 	private static final long serialVersionUID = 510l;
-    protected static final Pattern PARAMETER_MATCHER = Pattern.compile("#\\{([\\S&&[^\\}]]+)\\}", Pattern.DOTALL);
 
     private static final Logger logger = LoggerFactory.getLogger(StateBasedNodeInstance.class);
 
@@ -255,7 +258,7 @@ public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl im
     	}
     	// cannot parse delay, trying to interpret it
 		Map<String, String> replacements = new HashMap<String, String>();
-		Matcher matcher = PARAMETER_MATCHER.matcher(s);
+		Matcher matcher = PatternConstants.PARAMETER_MATCHER.matcher(s);
         while (matcher.find()) {
         	String paramName = matcher.group(1);
         	if (replacements.get(paramName) == null) {
@@ -396,5 +399,31 @@ public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl im
             }
         }
         return true;
+    }
+    
+    protected void mapDynamicOutputData(Map<String, Object> results) {
+        if (results != null && !results.isEmpty()) {
+            VariableScope variableScope = (VariableScope) ((ContextContainer) getProcessInstance().getProcess()).getDefaultContext( VariableScope.VARIABLE_SCOPE );
+            VariableScopeInstance variableScopeInstance = (VariableScopeInstance)getProcessInstance().getContextInstance(VariableScope.VARIABLE_SCOPE);
+            for (Entry<String, Object> result : results.entrySet()) {
+                
+                String variableName = result.getKey();
+                Variable variable = variableScope.findVariable(variableName);
+                if (variable == null) {
+                    // check if there is any match for case file data
+                    variableName = VariableScope.CASE_FILE_PREFIX + variableName;
+                    // check only those that are defined and avoid dynamically created case file variables
+                    List<String> definedVariables = Arrays.asList(variableScope.getVariableNames());
+                    if (definedVariables.contains(variableName)) {
+                        variable = variableScope.findVariable(variableName);
+                    }
+                }
+                
+                if (variable != null) {    
+                    variableScopeInstance.getVariableScope().validateVariable(getProcessInstance().getProcessName(), variableName, result.getValue());    
+                    variableScopeInstance.setVariable(variableName, result.getValue());
+                }
+            }
+        }
     }
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import org.drools.core.ClassObjectFilter;
 import org.jbpm.casemgmt.api.AdHocFragmentNotFoundException;
 import org.jbpm.casemgmt.api.CaseActiveException;
+import org.jbpm.casemgmt.api.CaseDefinitionNotFoundException;
 import org.jbpm.casemgmt.api.CaseNotFoundException;
 import org.jbpm.casemgmt.api.CaseRuntimeDataService;
 import org.jbpm.casemgmt.api.CaseService;
@@ -52,6 +53,7 @@ import org.jbpm.casemgmt.impl.command.AddDynamicTaskCommand;
 import org.jbpm.casemgmt.impl.command.AddDynamicTaskToStageCommand;
 import org.jbpm.casemgmt.impl.command.CancelCaseCommand;
 import org.jbpm.casemgmt.impl.command.CaseCommentCommand;
+import org.jbpm.casemgmt.impl.command.CloseCaseCommand;
 import org.jbpm.casemgmt.impl.command.ModifyRoleAssignmentCommand;
 import org.jbpm.casemgmt.impl.command.RemoveDataCaseFileInstanceCommand;
 import org.jbpm.casemgmt.impl.command.ReopenCaseCommand;
@@ -220,11 +222,19 @@ public class CaseServiceImpl implements CaseService {
                 caseInstance.setCaseStages(stages);
             }
             
-            return caseInstance;
-        } else {
-            return null;
-        }
-    }    
+        } 
+        
+        return caseInstance;
+    }   
+    
+
+    @Override
+    public void closeCase(String caseId, String comment) throws CaseNotFoundException {
+        authorizationManager.checkOperationAuthorization(caseId, ProtectedOperation.CLOSE_CASE);
+        logger.debug("About to close case {} with comment {}", caseId, comment);        
+        ProcessInstanceDesc pi = verifyCaseIdExists(caseId);        
+        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new CloseCaseCommand(identityProvider, pi.getDeploymentId(), caseId, comment, processService, runtimeDataService));
+    }
 
     @Override
     public void cancelCase(String caseId) throws CaseNotFoundException {
@@ -386,21 +396,31 @@ public class CaseServiceImpl implements CaseService {
      */
 
     @Override
-    public void addDataToCaseFile(String caseId, String name, Object value) throws CaseNotFoundException {
+    public void addDataToCaseFile(String caseId, String name, Object value, String... restrictedTo) throws CaseNotFoundException {
         authorizationManager.checkOperationAuthorization(caseId, ProtectedOperation.ADD_DATA);
         ProcessInstanceDesc pi = verifyCaseIdExists(caseId);
+        
+        List<String> accessRestriction = null;
+        if (restrictedTo != null) {
+            accessRestriction = Arrays.asList(restrictedTo);
+        }
         
         Map<String, Object> parameters = new HashMap<>();
         parameters.put(name, value);
-        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new AddDataCaseFileInstanceCommand(identityProvider, parameters));        
+        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new AddDataCaseFileInstanceCommand(identityProvider, parameters, accessRestriction, authorizationManager));        
     }
 
     @Override
-    public void addDataToCaseFile(String caseId, Map<String, Object> data) throws CaseNotFoundException {
+    public void addDataToCaseFile(String caseId, Map<String, Object> data, String... restrictedTo) throws CaseNotFoundException {
         authorizationManager.checkOperationAuthorization(caseId, ProtectedOperation.ADD_DATA);
         ProcessInstanceDesc pi = verifyCaseIdExists(caseId);
         
-        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new AddDataCaseFileInstanceCommand(identityProvider, data));
+        List<String> accessRestriction = null;
+        if (restrictedTo != null) {
+            accessRestriction = Arrays.asList(restrictedTo);
+        }
+        
+        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new AddDataCaseFileInstanceCommand(identityProvider, data, accessRestriction, authorizationManager));
     }
     
     @Override
@@ -409,7 +429,7 @@ public class CaseServiceImpl implements CaseService {
         ProcessInstanceDesc pi = verifyCaseIdExists(caseId);
         
         
-        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new RemoveDataCaseFileInstanceCommand(identityProvider, Arrays.asList(name)));
+        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new RemoveDataCaseFileInstanceCommand(identityProvider, Arrays.asList(name), authorizationManager));
         
     }
 
@@ -418,7 +438,7 @@ public class CaseServiceImpl implements CaseService {
         authorizationManager.checkOperationAuthorization(caseId, ProtectedOperation.REMOVE_DATA);
         ProcessInstanceDesc pi = verifyCaseIdExists(caseId);
         
-        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new RemoveDataCaseFileInstanceCommand(identityProvider, variableNames));
+        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new RemoveDataCaseFileInstanceCommand(identityProvider, variableNames, authorizationManager));
     }
 
     /*
@@ -463,6 +483,8 @@ public class CaseServiceImpl implements CaseService {
         CaseFileInstance caseFile = internalGetCaseFileInstance(caseId, pi.getDeploymentId());
 
         List<CommentInstance> caseComments = new ArrayList<>(((CaseFileInstanceImpl) caseFile).getComments());
+        // apply authorization
+        caseComments = authorizationManager.filterByCommentAuthorization(caseId, caseFile, caseComments);
         
         int caseCommentsSize = caseComments.size();
 
@@ -500,17 +522,25 @@ public class CaseServiceImpl implements CaseService {
     }
 
     @Override
-    public void addCaseComment(String caseId, String author, String comment) throws CaseNotFoundException {
+    public void addCaseComment(String caseId, String author, String comment, String... restrictedTo) throws CaseNotFoundException {
         authorizationManager.checkOperationAuthorization(caseId, ProtectedOperation.MODIFY_COMMENT);
         ProcessInstanceDesc pi = verifyCaseIdExists(caseId);
-        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new CaseCommentCommand(identityProvider, author, comment));
+        List<String> accessRestriction = null;
+        if (restrictedTo != null && restrictedTo.length > 0) {
+            accessRestriction = Arrays.asList(restrictedTo);
+        }
+        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new CaseCommentCommand(identityProvider, author, comment, accessRestriction));
     }
     
     @Override
-    public void updateCaseComment(String caseId, String commentId, String author, String text) throws CaseNotFoundException {
+    public void updateCaseComment(String caseId, String commentId, String author, String text, String... restrictedTo) throws CaseNotFoundException {
         authorizationManager.checkOperationAuthorization(caseId, ProtectedOperation.MODIFY_COMMENT);
         ProcessInstanceDesc pi = verifyCaseIdExists(caseId);
-        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new CaseCommentCommand(identityProvider, commentId, author, text));
+        List<String> accessRestriction = null;
+        if (restrictedTo != null && restrictedTo.length > 0) {
+            accessRestriction = Arrays.asList(restrictedTo);
+        }
+        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new CaseCommentCommand(identityProvider, commentId, author, text, accessRestriction, authorizationManager));
         
     }
 
@@ -518,7 +548,7 @@ public class CaseServiceImpl implements CaseService {
     public void removeCaseComment(String caseId, String commentId) throws CaseNotFoundException {
         authorizationManager.checkOperationAuthorization(caseId, ProtectedOperation.MODIFY_COMMENT);
         ProcessInstanceDesc pi = verifyCaseIdExists(caseId);
-        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new CaseCommentCommand(identityProvider, commentId));
+        processService.execute(pi.getDeploymentId(), ProcessInstanceIdContext.get(pi.getId()), new CaseCommentCommand(identityProvider, commentId, authorizationManager));
     }
 
     /*
@@ -528,8 +558,30 @@ public class CaseServiceImpl implements CaseService {
     @Override
     public CaseFileInstance newCaseFileInstance(String deploymentId, String caseDefinition, Map<String, Object> data) {
         CaseDefinition def = caseRuntimeDataService.getCase(deploymentId, caseDefinition);
+        if (def == null) {
+            throw new CaseDefinitionNotFoundException("Case definition " + caseDefinition + " does not exist in deployment " + deploymentId);
+        }
         CaseFileInstanceImpl caseFile = new CaseFileInstanceImpl(caseDefinition, data);
         caseFile.setupRoles(def.getCaseRoles());
+        caseFile.setAccessRestrictions(def.getDataAccessRestrictions());
+        
+        return caseFile;
+    }
+    
+    @Override
+    public CaseFileInstance newCaseFileInstanceWithRestrictions(String deploymentId, String caseDefinition, Map<String, Object> data, Map<String, List<String>> accessRestrictions) {
+        CaseDefinition def = caseRuntimeDataService.getCase(deploymentId, caseDefinition);
+        if (def == null) {
+            throw new CaseDefinitionNotFoundException("Case definition " + caseDefinition + " does not exist in deployment " + deploymentId);
+        }
+        CaseFileInstanceImpl caseFile = new CaseFileInstanceImpl(caseDefinition, data);
+        caseFile.setupRoles(def.getCaseRoles());
+        
+        Map<String, List<String>> combinedAccessRestrictions = def.getDataAccessRestrictions();
+        if (accessRestrictions != null) {
+            combinedAccessRestrictions.putAll(accessRestrictions);
+        }
+        caseFile.setAccessRestrictions(combinedAccessRestrictions);
         
         return caseFile;
     }
@@ -537,14 +589,36 @@ public class CaseServiceImpl implements CaseService {
     @Override
     public CaseFileInstance newCaseFileInstance(String deploymentId, String caseDefinition, Map<String, Object> data, Map<String, OrganizationalEntity> rolesAssignment) {
         CaseDefinition def = caseRuntimeDataService.getCase(deploymentId, caseDefinition);
+        if (def == null) {
+            throw new CaseDefinitionNotFoundException("Case definition " + caseDefinition + " does not exist in deployment " + deploymentId);
+        }
         CaseFileInstanceImpl caseFile = new CaseFileInstanceImpl(caseDefinition, data);
         caseFile.setupRoles(def.getCaseRoles());
+        caseFile.setAccessRestrictions(def.getDataAccessRestrictions());
         
         rolesAssignment.entrySet().stream().forEach(entry -> caseFile.assign(entry.getKey(), entry.getValue()));
         
         return caseFile;
     }
     
+    @Override
+    public CaseFileInstance newCaseFileInstanceWithRestrictions(String deploymentId, String caseDefinition, Map<String, Object> data, Map<String, OrganizationalEntity> rolesAssignment, Map<String, List<String>> accessRestrictions) {
+        CaseDefinition def = caseRuntimeDataService.getCase(deploymentId, caseDefinition);
+        if (def == null) {
+            throw new CaseDefinitionNotFoundException("Case definition " + caseDefinition + " does not exist in deployment " + deploymentId);
+        }
+        CaseFileInstanceImpl caseFile = new CaseFileInstanceImpl(caseDefinition, data);
+        caseFile.setupRoles(def.getCaseRoles());
+        Map<String, List<String>> combinedAccessRestrictions = def.getDataAccessRestrictions();
+        if (accessRestrictions != null) {
+            combinedAccessRestrictions.putAll(accessRestrictions);
+        }
+        caseFile.setAccessRestrictions(combinedAccessRestrictions);
+        
+        rolesAssignment.entrySet().stream().forEach(entry -> caseFile.assign(entry.getKey(), entry.getValue()));
+        
+        return caseFile;
+    }
 
     @Override
     public TaskSpecification newHumanTaskSpec(String taskName, String description, String actorIds, String groupIds, Map<String, Object> parameters) {        
@@ -579,6 +653,11 @@ public class CaseServiceImpl implements CaseService {
         } else if (caseFiles.size() == 1) {
             CaseFileInstance caseFile =  caseFiles.iterator().next();
             logger.debug("Single case file {} found in working memory", caseFile);
+            
+            // apply authorization
+            Map<String, Object> filteredData = authorizationManager.filterByDataAuthorization(caseId, caseFile, caseFile.getData());
+            ((CaseFileInstanceImpl)caseFile).setData(filteredData);
+            
             return caseFile;
         } 
         logger.warn("Multiple case files found in working memory (most likely not using PER_CASE strategy), trying to filter out...");
@@ -588,6 +667,11 @@ public class CaseServiceImpl implements CaseService {
                 .orElse(null);
         logger.warn("Case file {} after filtering {}", caseFile, (caseFile == null?"not found" : "found"));
         
+        if (caseFile != null) {
+            // apply authorization
+            Map<String, Object> filteredData = authorizationManager.filterByDataAuthorization(caseId, caseFile, caseFile.getData());
+            ((CaseFileInstanceImpl)caseFile).setData(filteredData);
+        }
         return caseFile;
     }
     
@@ -652,5 +736,6 @@ public class CaseServiceImpl implements CaseService {
         
         return false;
     }
+   
 
 }

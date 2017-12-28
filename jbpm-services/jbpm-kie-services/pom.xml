@@ -5,14 +5,14 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-services</artifactId>
-    <version>7.3.0.Final-Center-3</version>
+    <version>7.5.0.Final-Center-1</version>
   </parent>
   <artifactId>jbpm-kie-services</artifactId>
   <packaging>bundle</packaging>
   <name>jBPM :: KIE Services</name>
 
   <properties>
-    <osgi.Bundle-SymbolicName>org.jbpm.kie.services.api;singleton:=true</osgi.Bundle-SymbolicName>
+    <java.module.name>org.jbpm.kie.services.api</java.module.name>
   </properties>
 
   <dependencies>
@@ -84,6 +84,10 @@
       <artifactId>kie-internal</artifactId>
     </dependency>    
     <dependency>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-commons</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.kie</groupId>
       <artifactId>kie-ci</artifactId>
       <exclusions>
@@ -94,8 +98,8 @@
       </exclusions>
     </dependency>  
     <dependency>
-      <groupId>org.uberfire</groupId>
-      <artifactId>uberfire-maven-support</artifactId>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-maven-support</artifactId>
     </dependency>
 
     <dependency>
@@ -124,17 +128,17 @@
 
     <!-- dashbuilder dataset integration for advanced queries -->
     <dependency>
-      <groupId>org.dashbuilder</groupId>
-      <artifactId>dashbuilder-dataset-api</artifactId>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-dataset-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dashbuilder</groupId>
-      <artifactId>dashbuilder-dataset-core</artifactId>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-dataset-core</artifactId>
     </dependency>
     
     <dependency>
-      <groupId>org.dashbuilder</groupId>
-      <artifactId>dashbuilder-dataset-sql</artifactId>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-dataset-sql</artifactId>
     </dependency> 
     
     <dependency>
@@ -202,6 +206,16 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-impl</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-core</artifactId>
       <scope>test</scope>
     </dependency>
 
