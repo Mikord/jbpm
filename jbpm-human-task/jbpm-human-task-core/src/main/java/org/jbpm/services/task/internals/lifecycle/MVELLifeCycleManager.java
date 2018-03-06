@@ -511,7 +511,6 @@ public class MVELLifeCycleManager implements LifeCycleManager {
 
     public static Object eval(String str, Map<String, Object> vars) {
         ParserConfiguration pconf = new ParserConfiguration();
-        pconf.setClassLoader(MVELLifeCycleManager.class.getClassLoader());
         pconf.addPackageImport("org.kie.internal.task.api.model");
         pconf.addPackageImport("org.jbpm.services.task");
         pconf.addPackageImport("org.jbpm.services.task.impl.model");
