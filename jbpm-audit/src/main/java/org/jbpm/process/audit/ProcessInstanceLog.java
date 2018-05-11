@@ -71,7 +71,8 @@ public class ProcessInstanceLog implements Serializable, AuditEvent, org.kie.api
     private String processVersion;
     
     private String processName;
-    
+
+    @Column(columnDefinition = "text")
     private String correlationKey;
     
     @Column(nullable=true)
