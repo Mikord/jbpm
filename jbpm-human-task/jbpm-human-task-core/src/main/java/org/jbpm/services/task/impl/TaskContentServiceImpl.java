@@ -62,9 +62,12 @@ public class TaskContentServiceImpl implements TaskContentService {
     @SuppressWarnings("unchecked")
 	public long addOutputContent(long taskId, Map<String, Object> params) {
         Task task = persistenceContext.findTask(taskId);
+        loadTaskVariables(task);
         long outputContentId = task.getTaskData().getOutputContentId();
         Content outputContent = persistenceContext.findContent(outputContentId);
 
+        Map<String, Object> initialContent = new HashMap<>();
+        
         long contentId = -1;
         if (outputContent == null) { 
             ContentMarshallerContext context = getMarshallerContext(task);
@@ -79,6 +82,9 @@ public class TaskContentServiceImpl implements TaskContentService {
             ContentMarshallerContext context = getMarshallerContext(task);
             Object unmarshalledObject = ContentMarshallerHelper.unmarshall(outputContent.getContent(), context.getEnvironment(), context.getClassloader());
             if(unmarshalledObject != null && unmarshalledObject instanceof Map){
+                // set initial content before updating with this params
+                initialContent.putAll((Map<String, Object>)unmarshalledObject);
+                
                 ((Map<String, Object>)unmarshalledObject).putAll(params);
             }
             ContentData outputContentData = ContentMarshallerHelper.marshal(task, unmarshalledObject, context.getEnvironment());
@@ -86,8 +92,11 @@ public class TaskContentServiceImpl implements TaskContentService {
             persistenceContext.persistContent(outputContent);
             contentId = outputContentId;
         }
-        ((InternalTaskData)task.getTaskData()).setTaskOutputVariables(params);
+        taskEventSupport.fireBeforeTaskOutputVariablesChanged(task, context, initialContent);
+                
+        ((InternalTaskData)task.getTaskData()).setTaskOutputVariables(params);        
         taskEventSupport.fireAfterTaskOutputVariablesChanged(task, context, params);
+        persistenceContext.updateTask(task);
         
         return contentId;
     }

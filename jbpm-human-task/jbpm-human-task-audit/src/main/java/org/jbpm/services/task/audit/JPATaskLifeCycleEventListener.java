@@ -25,6 +25,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.persistence.EntityManagerFactory;
 
@@ -35,6 +36,7 @@ import org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener;
 import org.jbpm.services.task.persistence.PersistableEventListener;
 import org.jbpm.services.task.utils.ClassUtil;
 import org.kie.api.task.TaskEvent;
+import org.kie.api.task.model.OrganizationalEntity;
 import org.kie.api.task.model.Task;
 import org.kie.internal.task.api.TaskContext;
 import org.kie.internal.task.api.TaskPersistenceContext;
@@ -62,13 +64,11 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskStartedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
         try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+            
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.STARTED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId ));
                  
     
@@ -78,8 +78,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
                 return;
             }
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -88,13 +88,10 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskActivatedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
-        try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+        try {            
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.ACTIVATED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
                   
             AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, ti);
@@ -103,9 +100,9 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
                 return;
             }
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
             auditTaskImpl.setDescription(ti.getDescription());    
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -114,13 +111,10 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskClaimedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
-        try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+        try {            
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.CLAIMED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
             
             AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, ti);
@@ -129,9 +123,9 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
                 return;
             }
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
             auditTaskImpl.setDescription(ti.getDescription());
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -140,13 +134,10 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskSkippedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
-        try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+        try {            
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.SKIPPED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
            
             AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, ti);
@@ -155,9 +146,9 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
                 return;
             }
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
             auditTaskImpl.setDescription(ti.getDescription());
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
             
         } finally {
@@ -168,16 +159,12 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskStoppedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
-        try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+        try {            
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.STOPPED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
-            
-          
+                      
             AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, ti);
             if (auditTaskImpl == null) {
                 logger.warn("Unable find audit task entry for task id {} '{}', skipping audit task update", ti.getId(), ti.getName());
@@ -185,8 +172,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
             }
             auditTaskImpl.setDescription(ti.getDescription());
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -196,15 +183,11 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskCompletedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
-        try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
-            persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.COMPLETED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
-    
+        try {            
+            persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.COMPLETED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));    
             
             AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, ti);
             if (auditTaskImpl == null) {
@@ -212,8 +195,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
                 return;
             }
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -222,16 +205,11 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskFailedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
-        try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+        try {            
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.FAILED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
-            
-            
             
             AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, ti);
             if (auditTaskImpl == null) {
@@ -239,8 +217,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
                 return;
             }
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -249,14 +227,12 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskAddedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
         try {
             if(ti.getTaskData().getProcessId() != null){
                 userId = ti.getTaskData().getProcessId();
-            }else if(ti.getTaskData().getActualOwner() != null){
-                userId = ti.getTaskData().getActualOwner().getId();
             }
             AuditTaskImpl auditTaskImpl = new AuditTaskImpl(
                 ti.getId(),
@@ -285,16 +261,11 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskExitedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
-        try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+        try {            
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.EXITED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
-            
-           
     
             AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, ti);
             if (auditTaskImpl == null) {
@@ -308,8 +279,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
             auditTaskImpl.setPriority(ti.getPriority());
             auditTaskImpl.setDueDate(ti.getTaskData().getExpirationTime());
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -319,7 +290,7 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskReleasedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
         try {
@@ -329,10 +300,6 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
                 logger.warn("Unable find audit task entry for task id {} '{}', skipping audit task update", ti.getId(), ti.getName());
                 return;
             }
-
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
    
             auditTaskImpl.setDescription(ti.getDescription());
             auditTaskImpl.setName(ti.getName());  
@@ -340,8 +307,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
             auditTaskImpl.setPriority(ti.getPriority());
             auditTaskImpl.setDueDate(ti.getTaskData().getExpirationTime());
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -351,13 +318,10 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskResumedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
-        try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+        try {            
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.RESUMED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
     
             
@@ -372,8 +336,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
             auditTaskImpl.setPriority(ti.getPriority());
             auditTaskImpl.setDueDate(ti.getTaskData().getExpirationTime());
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -382,13 +346,11 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskSuspendedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
         try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+            
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.SUSPENDED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
     
             AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, ti);
@@ -402,8 +364,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
             auditTaskImpl.setPriority(ti.getPriority());
             auditTaskImpl.setDueDate(ti.getTaskData().getExpirationTime());
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -412,16 +374,21 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskForwardedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
         try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
-            persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.FORWARDED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
-    
-    
+            StringBuilder message = new StringBuilder();
+            String entitiesAsString = (ti.getPeopleAssignments().getPotentialOwners()).stream().map(oe -> oe.getId()).collect(Collectors.joining(","));
+            message.append("Forward to [" + entitiesAsString + "]");
+            
+            persistenceContext.persist(new TaskEventImpl(ti.getId(), 
+                                                         org.kie.internal.task.api.model.TaskEvent.TaskEventType.FORWARDED, 
+                                                         ti.getTaskData().getProcessInstanceId(), 
+                                                         ti.getTaskData().getWorkItemId(), 
+                                                         userId, 
+                                                         message.toString()));
+            
             AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, ti);
             if (auditTaskImpl == null) {
                 logger.warn("Unable find audit task entry for task id {} '{}', skipping audit task update", ti.getId(), ti.getName());
@@ -433,8 +400,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
             auditTaskImpl.setPriority(ti.getPriority());
             auditTaskImpl.setDueDate(ti.getTaskData().getExpirationTime());
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -443,13 +410,10 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskDelegatedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
-        try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+        try {           
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.DELEGATED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
             
     
@@ -464,8 +428,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
             auditTaskImpl.setPriority(ti.getPriority());
             auditTaskImpl.setDueDate(ti.getTaskData().getExpirationTime());
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -474,13 +438,10 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
     
     @Override
     public void afterTaskNominatedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
-        try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+        try {           
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.NOMINATED, userId, new Date()));
     
             AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, ti);
@@ -494,8 +455,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
             auditTaskImpl.setPriority(ti.getPriority());
             auditTaskImpl.setDueDate(ti.getTaskData().getExpirationTime());
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -565,13 +526,10 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void beforeTaskReleasedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
-        try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+        try {            
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.RELEASED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
           
         } finally {
@@ -634,11 +592,9 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskUpdatedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
-        if (ti.getTaskData().getActualOwner() != null) {
-            userId = ti.getTaskData().getActualOwner().getId();
-        }
+        
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
         try {
             
@@ -688,7 +644,7 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
             auditTaskImpl.setName(ti.getName());
             auditTaskImpl.setPriority(ti.getPriority());
             auditTaskImpl.setDueDate(ti.getTaskData().getExpirationTime());
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
             
         } catch(Exception e){
@@ -708,13 +664,11 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskReassignedEvent(TaskEvent event) {
-        String userId = "";
+        String userId = event.getTaskContext().getUserId();
         Task ti = event.getTask();
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
         try {
-            if (ti.getTaskData().getActualOwner() != null) {
-                userId = ti.getTaskData().getActualOwner().getId();
-            }
+           
             persistenceContext.persist(new TaskEventImpl(ti.getId(), org.kie.internal.task.api.model.TaskEvent.TaskEventType.DELEGATED, ti.getTaskData().getProcessInstanceId(), ti.getTaskData().getWorkItemId(), userId));
             
     
@@ -729,8 +683,8 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
             auditTaskImpl.setPriority(ti.getPriority());
             auditTaskImpl.setDueDate(ti.getTaskData().getExpirationTime());
             auditTaskImpl.setStatus(ti.getTaskData().getStatus().name());
-            auditTaskImpl.setActualOwner(userId);
-            updateLastModifiedDate(auditTaskImpl);
+            auditTaskImpl.setActualOwner(getActualOwner(ti));
+            auditTaskImpl.setLastModificationDate(event.getEventDate());
             persistenceContext.merge(auditTaskImpl);
         } finally {
             cleanup(persistenceContext);
@@ -749,7 +703,7 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
 
     @Override
     public void afterTaskOutputVariableChangedEvent(TaskEvent event, Map<String, Object> variables) {
-
+        String userId = event.getTaskContext().getUserId();
         Task task = event.getTask();        
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
         // first cleanup previous values if any
@@ -764,6 +718,19 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
         }
         
         indexAndPersistVariables(task, variables, persistenceContext, VariableType.OUTPUT);
+        String message = "Task output data updated";
+        persistenceContext.persist(new TaskEventImpl(task.getId(), 
+                                                     org.kie.internal.task.api.model.TaskEvent.TaskEventType.UPDATED, 
+                                                     task.getTaskData().getProcessInstanceId(), 
+                                                     task.getTaskData().getWorkItemId(), 
+                                                     userId, message));
+        AuditTaskImpl auditTaskImpl = getAuditTask(event, persistenceContext, task);
+        if (auditTaskImpl == null) {
+            logger.warn("Unable find audit task entry for task id {} '{}', skipping audit task update", task.getId(), task.getName());
+            return;
+        }
+        auditTaskImpl.setLastModificationDate(event.getEventDate());
+        persistenceContext.merge(auditTaskImpl);
     }
 
     @Override
@@ -771,11 +738,11 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
         if (variables == null || variables.isEmpty()) {
             return;
         }
-        
         Task task = event.getTask();        
         TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
 
         indexAndPersistVariables(task, variables, persistenceContext, VariableType.INPUT);
+        
     }
     
     protected void indexAndPersistVariables(Task task, Map<String, Object> variables, TaskPersistenceContext persistenceContext, VariableType type) {
@@ -796,8 +763,57 @@ public class JPATaskLifeCycleEventListener extends PersistableEventListener impl
         }
     }
     
-    private void updateLastModifiedDate(AuditTaskImpl auditTaskImpl){
-        auditTaskImpl.setLastModificationDate(new Date());
+    @Override
+    public void afterTaskAssignmentsAddedEvent(TaskEvent event, AssignmentType type, List<OrganizationalEntity> entities) {                
+        assignmentsUpadted(event, type, entities, "] have been added");    
+    }
+
+    @Override
+    public void afterTaskAssignmentsRemovedEvent(TaskEvent event, AssignmentType type, List<OrganizationalEntity> entities) {
+        assignmentsUpadted(event, type, entities, "] have been removed");
+    }
+    
+    protected void assignmentsUpadted(TaskEvent event, AssignmentType type, List<OrganizationalEntity> entities, String messageSufix) {
+        if (entities == null || entities.isEmpty()) {
+            return;
+        }
+        String userId = event.getTaskContext().getUserId();
+        Task task = event.getTask();        
+        TaskPersistenceContext persistenceContext = getPersistenceContext(((TaskContext)event.getTaskContext()).getPersistenceContext());
+        StringBuilder message = new StringBuilder();
+        
+        switch (type) {
+            case POT_OWNER:
+                message.append("Potential owners [");
+                break;
+            case EXCL_OWNER:
+                message.append("Excluded owners [");
+                break;
+            case ADMIN:
+                message.append("Business administrators [");
+                break;
+            default:
+                break;
+        }
+        String entitiesAsString = entities.stream().map(oe -> oe.getId()).collect(Collectors.joining(","));
+        message.append(entitiesAsString);
+        message.append(messageSufix);
+        
+        persistenceContext.persist(new TaskEventImpl(task.getId(), 
+                                                     org.kie.internal.task.api.model.TaskEvent.TaskEventType.UPDATED, 
+                                                     task.getTaskData().getProcessInstanceId(), 
+                                                     task.getTaskData().getWorkItemId(), 
+                                                     userId, message.toString()));
+    }
+
+    
+    protected String getActualOwner(Task ti) {
+        String userId = "";
+        if (ti.getTaskData().getActualOwner() != null) {
+            userId = ti.getTaskData().getActualOwner().getId();
+        }
+        
+        return userId;
     }
 
 }

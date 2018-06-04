@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-remote-ejb-test</artifactId>
-    <version>7.5.0.Final-Center-5</version>
+    <version>7.7.0.Final-Center-2</version>
   </parent>
 
   <artifactId>jbpm-remote-ejb-test-suite</artifactId>
@@ -24,7 +24,7 @@
     <!-- properties connected with EJB services application END -->
 
     <!-- Container-related properties -->
-    <container.id>wildfly10x</container.id>
+    <container.id>wildfly11x</container.id>
 
     <!-- Default data source name applies to both supported containers -->
     <org.jbpm.persistence.ds>java:/jdbc/jbpm</org.jbpm.persistence.ds>
@@ -87,6 +87,36 @@
         <exclusion>
           <groupId>*</groupId>
           <artifactId>*</artifactId>
+        </exclusion>
+        <!-- Exclude Maven Artifact Resolver (formerly Aether) since it collides with Aether
+             when Maven Enforcer Plugin runs ban-duplicated-classes goal -->
+        <exclusion>
+          <groupId>org.apache.maven</groupId>
+          <artifactId>maven-resolver-provider</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.maven.resolver</groupId>
+          <artifactId>maven-resolver-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.maven.resolver</groupId>
+          <artifactId>maven-resolver-util</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.maven.resolver</groupId>
+          <artifactId>maven-resolver-impl</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.maven.resolver</groupId>
+          <artifactId>maven-resolver-spi</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.maven.resolver</groupId>
+          <artifactId>maven-resolver-transport-wagon</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.maven.resolver</groupId>
+          <artifactId>maven-resolver-connector-basic</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -433,11 +463,11 @@
 
   <profiles>
     <profile>
-      <id>wildfly10</id>
+      <id>wildfly11</id>
       <activation>
         <property>
           <name>container.profile</name>
-          <value>wildfly10</value>
+          <value>wildfly11</value>
         </property>
       </activation>
       <build>
@@ -452,7 +482,7 @@
                   <artifactInstaller>
                     <groupId>org.wildfly</groupId>
                     <artifactId>wildfly-dist</artifactId>
-                    <version>${version.wildfly10}</version>
+                    <version>${version.wildfly11}</version>
                   </artifactInstaller>
                 </container>
               </configuration>

@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.drools.core.util.MVELSafeHelper;
+import org.jbpm.persistence.api.integration.EventManagerProvider;
 import org.jbpm.process.instance.impl.NoOpExecutionErrorHandler;
 import org.jbpm.services.task.assignment.AssignmentService;
 import org.jbpm.services.task.assignment.AssignmentServiceProvider;
@@ -294,10 +295,22 @@ public class MVELLifeCycleManager implements LifeCycleManager {
             final List<OperationCommand> commands = operations.get(operation);
 
             Task task = persistenceContext.findTask(taskId);
+            
             if (task == null) {
             	String errorMessage = "Task '" + taskId + "' not found";
                 throw new PermissionDeniedException(errorMessage);
             }
+            
+            String deploymentId = (String) context.get(EnvironmentName.DEPLOYMENT_ID);
+            if (deploymentId != null && !deploymentId.equals(task.getTaskData().getDeploymentId())) {
+                throw new IllegalStateException("Task instance " + task.getId() + " is owned by another deployment expected " +
+                        task.getTaskData().getDeploymentId() + " found " + deploymentId);
+            }
+            // automatically load task variables on each operation if the event manager is activated
+            if (EventManagerProvider.getInstance().isActive()) {
+                taskContentService.loadTaskVariables(task);
+            }
+
             User user = persistenceContext.findUser(userId);
             OrganizationalEntity targetEntity = null;
             if (targetEntityId != null && !targetEntityId.equals("")) {
@@ -373,6 +386,8 @@ public class MVELLifeCycleManager implements LifeCycleManager {
             }
             
             evalCommand(operation, commands, task, user, targetEntity, groupIds, entities);
+            
+            persistenceContext.updateTask(task);
 
             switch (operation) {
                 case Activate: {
@@ -443,6 +458,7 @@ public class MVELLifeCycleManager implements LifeCycleManager {
                 }
                 
             }
+            
             getExecutionErrorHandler().processed(task);
         } catch (RuntimeException re) {
             throw re;

@@ -31,12 +31,14 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.jbpm.executor.AsyncJobException;
 import org.jbpm.executor.entities.ErrorInfo;
 import org.jbpm.executor.entities.RequestInfo;
+import org.jbpm.executor.impl.event.ExecutorEventSupportImpl;
 import org.jbpm.executor.impl.event.ExecutorEventSupport;
 import org.jbpm.process.core.async.AsyncExecutionMarker;
 import org.kie.api.executor.Command;
 import org.kie.api.executor.CommandCallback;
 import org.kie.api.executor.CommandContext;
 import org.kie.api.executor.ExecutionResults;
+import org.kie.api.executor.Executor;
 import org.kie.api.executor.ExecutorQueryService;
 import org.kie.api.executor.ExecutorStoreService;
 import org.kie.api.executor.Reoccurring;
@@ -65,7 +67,9 @@ public abstract class AbstractAvailableJobsExecutor {
    
     protected ExecutorStoreService executorStoreService;
     
-    protected ExecutorEventSupport eventSupport = new ExecutorEventSupport();
+    protected ExecutorEventSupport eventSupport = new ExecutorEventSupportImpl();
+    
+    protected Executor executor;
 
     public void setEventSupport(ExecutorEventSupport eventSupport) {
         this.eventSupport = eventSupport;
@@ -82,7 +86,11 @@ public abstract class AbstractAvailableJobsExecutor {
 	public void setExecutorStoreService(ExecutorStoreService executorStoreService) {
 		this.executorStoreService = executorStoreService;
 	}
-     
+         
+	public void setExecutor(Executor executor) {
+        this.executor = executor;
+    }
+
     public void executeGivenJob(RequestInfo request) {
         Throwable exception = null;
         try {
@@ -120,9 +128,10 @@ public abstract class AbstractAvailableJobsExecutor {
                         }
                         // add class loader so internally classes can be created with valid (kjar) deployment
                         ctx.setData("ClassLoader", cl);
-                        
-                        
+                                                
                         cmd = classCacheManager.findCommand(request.getCommandName(), cl);
+                        // increment execution counter directly to cover both success and failure paths
+                        request.setExecutions(request.getExecutions() + 1);                        
                         results = cmd.execute(ctx);
                       
                         
@@ -138,11 +147,11 @@ public abstract class AbstractAvailableJobsExecutor {
                         } catch (IOException e) {
                             request.setResponseData(null);
                         }
-                        results.setData("CompletedAt", new Date());
+                        results.setData("CompletedAt", new Date());                        
         
                         request.setStatus(STATUS.DONE);
                          
-                        executorStoreService.updateRequest(request);
+                        executorStoreService.updateRequest(request, null);
                         processReoccurring = true;
                     } else {
                         logger.debug("Job was already successfully executed, retrying callbacks only...");
@@ -163,7 +172,7 @@ public abstract class AbstractAvailableJobsExecutor {
                         }
                         request.setStatus(STATUS.DONE);
                         
-                        executorStoreService.updateRequest(request);
+                        executorStoreService.updateRequest(request, null);
                         processReoccurring = true;
                     }
                     // callback handling after job execution
@@ -185,6 +194,7 @@ public abstract class AbstractAvailableJobsExecutor {
                 	processReoccurring = handleException(request, e, ctx, callbacks);
                 	
                 } finally {
+                    ((ExecutorImpl) executor).clearExecution(request.getId());
                     AsyncExecutionMarker.reset();
                 	handleCompletion(processReoccurring, cmd, ctx);
                 	eventSupport.fireAfterJobExecuted(request, exception);
@@ -233,7 +243,7 @@ public abstract class AbstractAvailableJobsExecutor {
                 long retryAdd = 0l;
 
                 try {
-                    retryAdd = retryDelay.get(request.getExecutions());
+                    retryAdd = retryDelay.get(request.getExecutions() - 1); // need to decrement it as executions are directly incremented upon execution
                 } catch (IndexOutOfBoundsException ex) {
                     // in case there is no element matching given execution, use last one
                     retryAdd = retryDelay.get(retryDelay.size()-1);
@@ -242,19 +252,18 @@ public abstract class AbstractAvailableJobsExecutor {
                 request.setTime(new Date(System.currentTimeMillis() + retryAdd));                
                 logger.info("Retrying request ( with id {}) - delay configured, next retry at {}", request.getId(), request.getTime());
             }
-            request.setExecutions(request.getExecutions() + 1);
             
             logger.debug("Retrying ({}) still available!", request.getRetries());
             
-            executorStoreService.updateRequest(request);
+            executorStoreService.updateRequest(request, ((ExecutorImpl) executor).scheduleExecution(request, request.getTime()));
+            
             
             return false;
         } else {
             logger.debug("Error no retries left!");
             request.setStatus(STATUS.ERROR);
-            request.setExecutions(request.getExecutions() + 1);
             
-            executorStoreService.updateRequest(request);
+            executorStoreService.updateRequest(request, null);
             AsyncJobException wrappedException = new AsyncJobException(request.getId(), request.getCommandName(), e);
             if (callbacks != null) {
                 for (CommandCallback handler : callbacks) {                        
@@ -301,7 +310,7 @@ public abstract class AbstractAvailableJobsExecutor {
                     }
                 }
                 
-                executorStoreService.persistRequest(requestInfo);
+                executorStoreService.persistRequest(requestInfo, ((ExecutorImpl) executor).scheduleExecution(requestInfo, requestInfo.getTime()));
             }
         }
     }

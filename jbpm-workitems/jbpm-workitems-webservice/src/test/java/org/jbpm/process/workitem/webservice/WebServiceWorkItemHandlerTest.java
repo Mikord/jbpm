@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2018 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,40 +16,19 @@
 
 package org.jbpm.process.workitem.webservice;
 
-import java.lang.reflect.Array;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import javax.xml.namespace.QName;
 
 import org.apache.cxf.endpoint.Client;
-import org.apache.cxf.endpoint.ClientCallback;
-import org.apache.cxf.endpoint.dynamic.DynamicClientFactory;
-import org.apache.cxf.jaxws.endpoint.dynamic.JaxWsDynamicClientFactory;
-import org.apache.cxf.message.Message;
-import org.drools.core.process.instance.impl.WorkItemImpl;
-import org.jbpm.bpmn2.core.Bpmn2Import;
-import org.jbpm.process.workitem.core.AbstractLogOrThrowWorkItemHandler;
-import org.jbpm.workflow.core.impl.WorkflowProcessImpl;
-import org.kie.api.runtime.KieSession;
-import org.kie.api.runtime.manager.RuntimeEngine;
-import org.kie.api.runtime.manager.RuntimeManager;
-import org.kie.api.runtime.process.WorkItem;
-import org.kie.api.runtime.process.WorkItemManager;
-import org.kie.internal.runtime.Cacheable;
-import org.kie.internal.runtime.manager.RuntimeManagerRegistry;
-import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import org.apache.cxf.transport.http.HTTPConduit;
 import org.drools.core.process.instance.impl.WorkItemImpl;
 import org.jbpm.process.workitem.core.TestWorkItemManager;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.kie.api.runtime.KieSession;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.Mockito;
+import org.apache.cxf.configuration.security.AuthorizationPolicy;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
@@ -78,8 +57,6 @@ public class WebServiceWorkItemHandlerTest {
                               "someInterface");
         workItem.setParameter("Operation",
                               "someOperation");
-//        workItem.setParameter("Endpoint",
-//                              "someEndPoint");
         workItem.setParameter("Parameter",
                               "myParam");
         workItem.setParameter("Mode",
@@ -94,5 +71,48 @@ public class WebServiceWorkItemHandlerTest {
         assertEquals(1,
                      manager.getResults().size());
         assertTrue(manager.getResults().containsKey(workItem.getId()));
+    }
+
+    @Test
+    public void testExecuteSyncOperationWithBasicAuth() throws Exception {
+
+        HTTPConduit http = Mockito.mock(HTTPConduit.class,
+                                        Mockito.CALLS_REAL_METHODS);
+
+        when(clients.containsKey(anyObject())).thenReturn(true);
+        when(clients.get(anyObject())).thenReturn(client);
+        when(client.getConduit()).thenReturn(http);
+
+        TestWorkItemManager manager = new TestWorkItemManager();
+        WorkItemImpl workItem = new WorkItemImpl();
+        workItem.setParameter("Interface",
+                              "someInterface");
+        workItem.setParameter("Operation",
+                              "someOperation");
+        workItem.setParameter("Parameter",
+                              "myParam");
+        workItem.setParameter("Mode",
+                              "SYNC");
+
+        WebServiceWorkItemHandler handler = new WebServiceWorkItemHandler(kieSession,
+                                                                          "testusername",
+                                                                          "testpassword");
+        handler.setClients(clients);
+
+        handler.executeWorkItem(workItem,
+                                manager);
+        assertNotNull(manager.getResults());
+        assertEquals(1,
+                     manager.getResults().size());
+        assertTrue(manager.getResults().containsKey(workItem.getId()));
+
+        assertNotNull(http.getAuthorization());
+        AuthorizationPolicy authorizationPolicy = http.getAuthorization();
+        assertEquals("Basic",
+                     authorizationPolicy.getAuthorizationType());
+        assertEquals("testusername",
+                     authorizationPolicy.getUserName());
+        assertEquals("testpassword",
+                     authorizationPolicy.getPassword());
     }
 }

@@ -20,7 +20,9 @@ import javax.ejb.EJB;
 
 import org.jbpm.executor.ejb.impl.ClassCacheManagerEJBImpl;
 import org.jbpm.executor.impl.ClassCacheManager;
+import org.jbpm.executor.impl.event.ExecutorEventSupport;
 import org.jbpm.executor.impl.jms.JmsAvailableJobsExecutor;
+import org.jbpm.services.ejb.api.ExecutorServiceEJB;
 import org.kie.api.executor.ExecutorQueryService;
 import org.kie.api.executor.ExecutorStoreService;
 
@@ -43,5 +45,16 @@ public class JmsAvailableJobsExecutorEJBImpl extends JmsAvailableJobsExecutor {
     @Override
     public void setExecutorStoreService(ExecutorStoreService executorStoreService) {
         super.setExecutorStoreService(executorStoreService);
+    }
+    
+    @EJB
+    public void setExecutorService(ExecutorServiceEJB executorService) {
+        super.setExecutor(executorService.getExecutor());
+    }
+
+    @EJB(beanInterface = ExecutorEventSupport.class)
+    @Override
+    public void setEventSupport(ExecutorEventSupport eventSupport) {
+        super.setEventSupport(eventSupport);
     }
 }

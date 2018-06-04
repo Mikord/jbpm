@@ -3,6 +3,7 @@
   <bpmn2:itemDefinition id="_String" structureRef="String"/>
   <bpmn2:process id="ScriptTask" tns:version="1" tns:packageName="com.sample" tns:adHoc="false" name="ScriptTask Process" isExecutable="true" processType="Private">
     <bpmn2:property id="businessKey" itemSubjectRef="_String"/>
+    <bpmn2:property id="delay" itemSubjectRef="_String"/>
     <bpmn2:startEvent id="_1" name="StartProcess">
       <bpmn2:outgoing>_1-_2</bpmn2:outgoing>
     </bpmn2:startEvent>
@@ -22,14 +23,20 @@
       <bpmn2:outgoing>_2-_3</bpmn2:outgoing>
       <bpmn2:ioSpecification id="InputOutputSpecification_2">
         <bpmn2:dataInput id="DataInput_1" itemSubjectRef="_String" name="BusinessKey"/>
+        <bpmn2:dataInput id="DataInput_2" itemSubjectRef="_String" name="Delay"/>
         <bpmn2:inputSet id="_InputSet_2" name="Input Set 2">
           <bpmn2:dataInputRefs>DataInput_1</bpmn2:dataInputRefs>
+          <bpmn2:dataInputRefs>DataInput_2</bpmn2:dataInputRefs>
         </bpmn2:inputSet>
         <bpmn2:outputSet id="OutputSet_1" name="Output Set 1"/>
       </bpmn2:ioSpecification>
       <bpmn2:dataInputAssociation id="DataInputAssociation_1">
         <bpmn2:sourceRef>businessKey</bpmn2:sourceRef>
         <bpmn2:targetRef>DataInput_1</bpmn2:targetRef>
+      </bpmn2:dataInputAssociation>
+      <bpmn2:dataInputAssociation id="DataInputAssociation_2">
+        <bpmn2:sourceRef>delay</bpmn2:sourceRef>
+        <bpmn2:targetRef>DataInput_2</bpmn2:targetRef>
       </bpmn2:dataInputAssociation>
     </bpmn2:task>
     <bpmn2:sequenceFlow id="SequenceFlow_1" tns:priority="1" name="" sourceRef="_2" targetRef="Task_1"/>

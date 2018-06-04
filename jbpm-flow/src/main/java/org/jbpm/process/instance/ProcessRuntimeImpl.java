@@ -205,7 +205,8 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
             kruntime.startOperation();
 
             ProcessInstance processInstance = getProcessInstance(processInstanceId);
-	        getProcessEventSupport().fireBeforeProcessStarted( processInstance, kruntime );
+            ((org.jbpm.process.instance.ProcessInstance) processInstance).configureSLA();
+            getProcessEventSupport().fireBeforeProcessStarted( processInstance, kruntime );
 	        ((org.jbpm.process.instance.ProcessInstance) processInstance).start(trigger);
 	        getProcessEventSupport().fireAfterProcessStarted( processInstance, kruntime );
 	        return processInstance;
@@ -449,7 +450,11 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
                                                                index );
 
                         kruntime.queueWorkingMemoryAction(new SignalManagerSignalAction(eventType, event));
-                    } else if (ruleName.startsWith( "RuleFlowStateEventSubProcess-" ) || ruleName.startsWith( "RuleFlowStateEvent-" ) || ruleName.startsWith( "RuleFlow-Milestone-" ) || ruleName.startsWith( "RuleFlow-AdHocComplete-" )) {
+                    } else if (ruleName.startsWith( "RuleFlowStateEventSubProcess-" ) 
+                            || ruleName.startsWith( "RuleFlowStateEvent-" ) 
+                            || ruleName.startsWith( "RuleFlow-Milestone-" ) 
+                            || ruleName.startsWith( "RuleFlow-AdHocComplete-" )
+                            || ruleName.startsWith( "RuleFlow-AdHocActivate-" )) {
                         kruntime.queueWorkingMemoryAction(new SignalManagerSignalAction(ruleName, event));
                     }
                 }

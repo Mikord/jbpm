@@ -17,6 +17,7 @@
 package org.jbpm.kie.services.impl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,6 +31,7 @@ import org.drools.core.command.runtime.process.StartProcessCommand;
 import org.drools.core.process.instance.WorkItemManager;
 import org.jbpm.process.instance.impl.ProcessInstanceImpl;
 import org.jbpm.process.instance.impl.util.VariableUtil;
+import org.jbpm.ruleflow.instance.RuleFlowProcessInstance;
 import org.jbpm.services.api.DeploymentNotFoundException;
 import org.jbpm.services.api.DeploymentService;
 import org.jbpm.services.api.ProcessInstanceNotFoundException;
@@ -40,10 +42,12 @@ import org.jbpm.services.api.model.DeployedUnit;
 import org.jbpm.services.api.model.NodeInstanceDesc;
 import org.jbpm.services.api.model.ProcessInstanceDesc;
 import org.jbpm.services.api.service.ServiceRegistry;
+import org.jbpm.workflow.core.node.BoundaryEventNode;
 import org.jbpm.workflow.instance.impl.WorkflowProcessInstanceImpl;
 import org.jbpm.workflow.instance.node.CompositeNodeInstance;
 import org.jbpm.workflow.instance.node.EventNodeInstance;
 import org.kie.api.command.Command;
+import org.kie.api.definition.process.Node;
 import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.Context;
@@ -60,6 +64,7 @@ import org.kie.internal.runtime.manager.SessionNotFoundException;
 import org.kie.internal.runtime.manager.context.CaseContext;
 import org.kie.internal.runtime.manager.context.CorrelationKeyContext;
 import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
+import org.kie.internal.utils.LazyLoaded;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -412,7 +417,11 @@ public class ProcessServiceImpl implements ProcessService, VariablesAware {
                     if (pi == null) {
                         throw new ProcessInstanceNotFoundException("Process instance with id " + processInstanceId + " was not found");
                     }
-                    return pi.getVariable(variableName);
+                    Object variable = pi.getVariable(variableName);
+                    if (variable instanceof LazyLoaded<?>) {
+                        ((LazyLoaded<?>) variable).load();
+                    }
+                    return variable;
                 }
             });
         } catch(SessionNotFoundException e) {
@@ -445,7 +454,15 @@ public class ProcessServiceImpl implements ProcessService, VariablesAware {
             KieSession ksession = engine.getKieSession();
             WorkflowProcessInstanceImpl pi = (WorkflowProcessInstanceImpl) ksession.getProcessInstance(processInstanceId);
 
-        	return pi.getVariables();
+        	Map<String, Object> variables = pi.getVariables();
+        	
+        	for (Object variable : variables.values()) {
+        	    if (variable instanceof LazyLoaded<?>) {
+                    ((LazyLoaded<?>) variable).load();
+                }
+        	}
+        	
+        	return variables;
         } catch(SessionNotFoundException e) {
             throw new ProcessInstanceNotFoundException("Process instance with id " + processInstanceId + " was not found", e);
         } finally {
@@ -481,8 +498,10 @@ public class ProcessServiceImpl implements ProcessService, VariablesAware {
                 ((ProcessInstanceImpl) processInstance)
                         .setProcess(ksession.getKieBase().getProcess(processInstance.getProcessId()));
                 Collection<NodeInstance> activeNodes = ((WorkflowProcessInstance) processInstance).getNodeInstances();
+                Collection<String> activeBoundaryNodesSignals = getActiveBoundaryNodesSignals(processInstance, activeNodes);
 
                 activeSignals.addAll(collectActiveSignals(activeNodes));
+                activeSignals.addAll(activeBoundaryNodesSignals);
             }
 
             return activeSignals;
@@ -709,6 +728,32 @@ public class ProcessServiceImpl implements ProcessService, VariablesAware {
 
 		return activeNodesComposite;
 	}
+
+    protected List<String> getActiveBoundaryNodesSignals(ProcessInstance processInstance, Collection<NodeInstance> activeNodes) {
+        WorkflowProcessInstance workflowProcessInstance = (WorkflowProcessInstance) processInstance;
+        ArrayList<Node> processNodesList = new ArrayList(Arrays.asList(((RuleFlowProcessInstance) workflowProcessInstance).getNodeContainer().getNodes()));
+        List<String> activeBoundaryNodesSignals = new ArrayList<>();
+
+        Map<String, NodeInstance> uniqueIdNodeInstanceMap = new HashMap<>();
+        for(NodeInstance activeNode : activeNodes) {
+            uniqueIdNodeInstanceMap.put((String) activeNode.getNode().getMetaData().get("UniqueId"), activeNode);
+        }
+
+
+        try {
+            for(Node processNode : processNodesList) {
+                if(processNode instanceof BoundaryEventNode && uniqueIdNodeInstanceMap.containsKey(((BoundaryEventNode) processNode).getAttachedToNodeId())) {
+                    activeBoundaryNodesSignals.add(VariableUtil.resolveVariable((String) processNode.getMetaData().get("SignalName"),
+                                                                                uniqueIdNodeInstanceMap.get(((BoundaryEventNode) processNode).getAttachedToNodeId())));
+                }
+            }
+
+            return activeBoundaryNodesSignals;
+        } catch(Exception e) {
+            logger.debug("Unable to retrieve boundary event nodes for active nodes in processInstance {}", processInstance.getId());
+            return new ArrayList<>();
+        }
+    }
 
 	@Override
 	public <T> T process(T variables, ClassLoader cl) {

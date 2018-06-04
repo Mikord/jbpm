@@ -22,6 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 import java.io.File;
@@ -36,8 +37,10 @@ import java.util.Map;
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
 import org.drools.core.util.StringUtils;
 import org.jbpm.kie.services.impl.KModuleDeploymentUnit;
+import org.jbpm.kie.test.objects.Image;
 import org.jbpm.kie.test.util.AbstractKieServicesBaseTest;
 import org.jbpm.services.api.ProcessInstanceNotFoundException;
+import org.jbpm.services.api.TaskNotFoundException;
 import org.jbpm.services.api.model.DeploymentUnit;
 import org.jbpm.services.api.model.UserTaskInstanceDesc;
 import org.jbpm.services.task.commands.GetTaskCommand;
@@ -55,8 +58,10 @@ import org.kie.api.task.model.OrganizationalEntity;
 import org.kie.api.task.model.Status;
 import org.kie.api.task.model.Task;
 import org.kie.api.task.model.User;
+import org.kie.internal.query.QueryFilter;
 import org.kie.internal.task.api.TaskModelProvider;
 import org.kie.internal.task.api.model.InternalTask;
+import org.kie.internal.task.api.model.TaskEvent;
 import org.kie.scanner.KieMavenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,6 +85,7 @@ private static final Logger logger = LoggerFactory.getLogger(KModuleDeploymentSe
         processes.add("repo/processes/general/EmptyHumanTask.bpmn");
         processes.add("repo/processes/general/humanTask.bpmn");
         processes.add("repo/processes/general/NoFormNameHumanTask.bpmn");
+        processes.add("repo/processes/general/BPMN2-UserTaskImageVar.bpmn2");
         
         InternalKieModule kJar1 = createKieJar(ks, releaseId, processes);
         File pom = new File("target/kmodule", "pom.xml");
@@ -778,5 +784,146 @@ private static final Logger logger = LoggerFactory.getLogger(KModuleDeploymentSe
         assertEquals("Write a Document", task.getName());
         assertEquals(9, task.getPriority().intValue()); 
         
+    }
+    
+    @Test
+    public void testProcessWithLazyLoadedVariable() {
+        
+        Image newImage = new Image("test");
+        Map<String, Object> params = new HashMap<>();
+        params.put("image", newImage);
+        processInstanceId = processService.startProcess(deploymentUnit.getIdentifier(), "UserTaskImageVar", params);
+        assertNotNull(processInstanceId);
+        
+        Image processVar = (Image) processService.getProcessInstanceVariable(processInstanceId, "image");
+        assertImageVariable(processVar, "test");
+        // make sure there is no NPE when accessing not exesting variable
+        processVar = (Image) processService.getProcessInstanceVariable(processInstanceId, "imageNotExisting");
+        assertNull(processVar);
+        
+        Map<String, Object> variables = processService.getProcessInstanceVariables(processInstanceId);
+        assertEquals(1, variables.size());
+        assertTrue(variables.containsKey("image"));
+        assertImageVariable((Image) variables.get("image"), "test");
+        
+        List<Long> taskIds = runtimeDataService.getTasksByProcessInstanceId(processInstanceId);
+        assertNotNull(taskIds);
+        assertEquals(1, taskIds.size());
+                
+        Long taskId = taskIds.get(0);
+        
+        Map<String, Object> input = userTaskService.getTaskInputContentByTaskId(taskId);
+        assertNotNull(input);
+        assertEquals(3, input.size());
+        assertTrue(input.containsKey("Image"));
+        
+        Image image = (Image) input.get("Image");
+        assertImageVariable(image, "test");
+        
+        // now let's add some output data
+        Map<String, Object> values = new HashMap<String, Object>();
+        Image updatedImage = new Image("updated test");
+        values.put("UpdatedImage", updatedImage);
+        Long contentId = userTaskService.saveContent(taskId, values);
+        assertNotNull(contentId);
+        
+        // let's now validate it
+        Map<String, Object> output = userTaskService.getTaskOutputContentByTaskId(taskId);
+        assertNotNull(output);
+        assertEquals(1, output.size());
+        assertTrue(output.containsKey("UpdatedImage"));
+        
+        image = (Image) output.get("UpdatedImage");
+        assertImageVariable(image, "updated test");
+       
+    }
+
+    @Test
+    public void testTaskOperationWithUserOrWithIdentityProvider() {
+        processInstanceId = processService.startProcess(deploymentUnit.getIdentifier(), "org.jbpm.writedocument");
+        assertNotNull(processInstanceId);
+    
+        ProcessInstance instance = processService.getProcessInstance(processInstanceId);
+        assertNotNull(instance);
+
+        List<Long> taskIds = runtimeDataService.getTasksByProcessInstanceId(processInstanceId);
+        assertNotNull(taskIds);
+        assertEquals(1, taskIds.size());
+        
+        Long taskId = taskIds.get(0);
+    
+        userTaskService.start(taskId, "salaboy");
+    
+        List<TaskEvent> auditTasks = runtimeDataService.getTaskEvents(taskId, new QueryFilter());
+        assertNotNull(auditTasks);
+        assertEquals(2, auditTasks.size());
+        assertEquals(TaskEvent.TaskEventType.ADDED, auditTasks.get(0).getType());
+        assertEquals("org.jbpm.writedocument", auditTasks.get(0).getUserId());
+        assertEquals(TaskEvent.TaskEventType.STARTED, auditTasks.get(1).getType());
+        assertEquals("salaboy", auditTasks.get(1).getUserId());
+        
+        identityProvider.setName("salaboy");
+        userTaskService.stop(taskId, null);
+        
+        auditTasks = runtimeDataService.getTaskEvents(taskId, new QueryFilter());
+        assertNotNull(auditTasks);
+        assertEquals(3, auditTasks.size());
+        assertEquals(TaskEvent.TaskEventType.ADDED, auditTasks.get(0).getType());
+        assertEquals("org.jbpm.writedocument", auditTasks.get(0).getUserId());
+        assertEquals(TaskEvent.TaskEventType.STARTED, auditTasks.get(1).getType());
+        assertEquals("salaboy", auditTasks.get(1).getUserId());
+        assertEquals(TaskEvent.TaskEventType.STOPPED, auditTasks.get(2).getType());
+        assertEquals("salaboy", auditTasks.get(2).getUserId());
+        
+        Map<String, Object> params = new HashMap<>();
+        params.put("test", "value");
+        userTaskService.saveContent(taskId, params);
+        
+        auditTasks = runtimeDataService.getTaskEvents(taskId, new QueryFilter());
+        assertNotNull(auditTasks);
+        assertEquals(4, auditTasks.size());
+        assertEquals(TaskEvent.TaskEventType.ADDED, auditTasks.get(0).getType());
+        assertEquals("org.jbpm.writedocument", auditTasks.get(0).getUserId());
+        assertEquals(TaskEvent.TaskEventType.STARTED, auditTasks.get(1).getType());
+        assertEquals("salaboy", auditTasks.get(1).getUserId());
+        assertEquals(TaskEvent.TaskEventType.STOPPED, auditTasks.get(2).getType());
+        assertEquals("salaboy", auditTasks.get(2).getUserId());
+        assertEquals(TaskEvent.TaskEventType.UPDATED, auditTasks.get(3).getType());
+        assertEquals("salaboy", auditTasks.get(3).getUserId());
+    
+        identityProvider.setName("testUser");
+        processService.abortProcessInstance(processInstanceId);
+        processInstanceId = null;
+    
+    }
+    
+    protected void assertImageVariable(Image processVar, String name) {
+        assertNotNull(processVar);
+        assertNotNull(processVar.getName());
+        assertEquals(name, processVar.getName());
+        assertNotNull(processVar.getContent());
+        assertEquals(1, processVar.getContent().length);
+    }
+
+    @Test
+    public void testCompleteAutoProgressWrongDeploymentId() {
+        processInstanceId = processService.startProcess(deploymentUnit.getIdentifier(), "org.jbpm.writedocument");
+        assertNotNull(processInstanceId);
+        List<Long> taskIds = runtimeDataService.getTasksByProcessInstanceId(processInstanceId);
+        assertNotNull(taskIds);
+        assertEquals(1, taskIds.size());
+        
+        Long taskId = taskIds.get(0);
+        userTaskService.release(taskId, "salaboy");
+        
+        Map<String, Object> results = new HashMap<String, Object>();
+        results.put("Result", "some document data");
+        assertThatExceptionOfType(TaskNotFoundException.class).isThrownBy(() -> { 
+            userTaskService.completeAutoProgress("wrong-one", taskId, "salaboy", results); })
+        .withMessageContaining("Task with id " + taskId + " is not associated with wrong-one");
+               
+        UserTaskInstanceDesc task = runtimeDataService.getTaskById(taskId);
+        assertNotNull(task);
+        assertEquals(Status.Ready.toString(), task.getStatus());
     }
 }

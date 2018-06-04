@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-in-container-test</artifactId>
-    <version>7.5.0.Final-Center-5</version>
+    <version>7.7.0.Final-Center-2</version>
   </parent>
 
   <artifactId>jbpm-container-test-suite</artifactId>
@@ -33,6 +33,9 @@
     <configurations.dir>${project.build.directory}/configurations</configurations.dir>
     <container.profile.dir>${configurations.dir}/cargo-profile</container.profile.dir>
     <container.log.file>${container.profile.dir}/profile-log.txt</container.log.file>
+
+    <!-- Overridden until jboss-integration-platform-parent is upgraded -->
+    <version.org.jboss.shrinkwrap.resolver>3.1.0</version.org.jboss.shrinkwrap.resolver>
   </properties>
 
   <dependencyManagement>
@@ -312,6 +315,38 @@
       <groupId>org.jbpm</groupId>
       <artifactId>jbpm-kie-services</artifactId>
       <scope>test</scope>
+      <!-- Exclude Aether since it collides with Maven Artifact Resolver (formerly Aether)
+           brought by ShrinkWrap Resolver on a client classpath -->
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.maven</groupId>
+          <artifactId>maven-aether-provider</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.aether</groupId>
+          <artifactId>aether-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.aether</groupId>
+          <artifactId>aether-util</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.aether</groupId>
+          <artifactId>aether-impl</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.aether</groupId>
+          <artifactId>aether-spi</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.aether</groupId>
+          <artifactId>aether-transport-wagon</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.aether</groupId>
+          <artifactId>aether-connector-basic</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
   </dependencies>
@@ -487,15 +522,15 @@
 
   <profiles>
     <profile>
-      <id>wildfly10</id>
+      <id>wildfly11</id>
       <activation>
         <property>
           <name>container.profile</name>
-          <value>wildfly10</value>
+          <value>wildfly11</value>
         </property>
       </activation>
       <properties>
-        <container.id>wildfly10x</container.id>
+        <container.id>wildfly11x</container.id>
         <container.port>8080</container.port>
         <org.jbpm.persistence.ds>java:/jdbc/jbpm</org.jbpm.persistence.ds>
         <container.tm>org.hibernate.service.jta.platform.internal.JBossAppServerJtaPlatform</container.tm>
@@ -512,7 +547,7 @@
                   <artifactInstaller>
                     <groupId>org.wildfly</groupId>
                     <artifactId>wildfly-dist</artifactId>
-                    <version>${version.wildfly10}</version>
+                    <version>${version.wildfly11}</version>
                   </artifactInstaller>
                   <dependencies>
                     <dependency>
@@ -553,7 +588,7 @@
           <dependency>
             <groupId>org.wildfly.arquillian</groupId>
             <artifactId>wildfly-arquillian-container-remote</artifactId>
-            <version>1.1.0.Final</version>
+            <version>2.1.0.Final</version>
           </dependency>
         </dependencies>
       </dependencyManagement>
@@ -579,7 +614,7 @@
         </property>
       </activation>
       <properties>
-        <container.id>wildfly10x</container.id>
+        <container.id>wildfly11x</container.id>
         <container.port>8080</container.port>
         <org.jbpm.persistence.ds>java:/jdbc/jbpm</org.jbpm.persistence.ds>
         <container.tm>org.hibernate.service.jta.platform.internal.JBossAppServerJtaPlatform</container.tm>
@@ -636,7 +671,7 @@
           <dependency>
             <groupId>org.wildfly.arquillian</groupId>
             <artifactId>wildfly-arquillian-container-remote</artifactId>
-            <version>1.1.0.Final</version>
+            <version>2.1.0.Final</version>
           </dependency>
         </dependencies>
       </dependencyManagement>
@@ -847,6 +882,27 @@
             <groupId>org.jboss.arquillian.container</groupId>
             <artifactId>arquillian-wls-remote-12.1.x</artifactId>
             <version>1.0.1.Final</version>
+            <exclusions>
+              <!--
+                   Following artifacts are from wls-common module which is a parent of the arquillian-wls-remote-12.1.x
+                   adapter. However, these dependencies are only needed by REST-based wls adapters. Therefore, they
+                   are excluded so they don't cause issues with certain artifacts on a wls side like org.glassfish.hk2
+                   which would be loaded twice - once from wlclient.jar and once as transitive dependencies of these
+                   artifacts
+              -->
+              <exclusion>
+                <groupId>org.glassfish.jersey.core</groupId>
+                <artifactId>jersey-client</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>org.glassfish.jersey.media</groupId>
+                <artifactId>jersey-media-json-processing</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>org.glassfish.jersey.media</groupId>
+                <artifactId>jersey-media-multipart</artifactId>
+              </exclusion>
+            </exclusions>
           </dependency>
         </dependencies>
       </dependencyManagement>

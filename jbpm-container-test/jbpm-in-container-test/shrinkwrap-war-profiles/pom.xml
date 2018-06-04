@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-in-container-test</artifactId>
-    <version>7.5.0.Final-Center-5</version>
+    <version>7.7.0.Final-Center-2</version>
   </parent>
 
   <artifactId>shrinkwrap-war-profiles</artifactId>
@@ -74,12 +74,6 @@
             <exclusion>
               <groupId>org.jboss.spec.javax.annotation</groupId>
               <artifactId>jboss-annotations-api_1.2_spec</artifactId>
-            </exclusion>
-            <!-- Seems as a bug in ShrinkWrap which resolves also optional dependencies,
-                 so we have to exclude all of them -->
-            <exclusion>
-              <groupId>org.springframework</groupId>
-              <artifactId>*</artifactId>
             </exclusion>
           </exclusions>
         </dependency>
@@ -185,11 +179,11 @@
     </profile>
 
     <profile>
-      <id>shrinkwrap-remote-wildfly10</id>
+      <id>shrinkwrap-remote-wildfly11</id>
       <activation>
         <property>
           <name>container.profile</name>
-          <value>wildfly10</value>
+          <value>wildfly11</value>
         </property>
       </activation>
       <dependencies>
