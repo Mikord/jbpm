@@ -64,7 +64,7 @@ public class SendHtmlTest extends AbstractBaseTest {
 
     private Random random = new Random();
     private int uniqueTestNum = -1;
-
+    
     private EmailWorkItemHandler emailWorkItemHandler = new EmailWorkItemHandler();
 
     @Before

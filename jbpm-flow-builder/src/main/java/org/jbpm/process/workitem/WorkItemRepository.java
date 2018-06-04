@@ -16,9 +16,8 @@
 
 package org.jbpm.process.workitem;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.net.URL;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -28,11 +27,12 @@ import java.util.Map;
 import java.util.Set;
 
 import org.drools.core.util.ConfFileUtils;
-import org.drools.core.util.IoUtils;
+
 import org.jbpm.process.core.ParameterDefinition;
 import org.jbpm.process.core.datatype.DataType;
 import org.jbpm.process.core.impl.ParameterDefinitionImpl;
 import org.jbpm.util.WidMVELEvaluator;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,12 +41,16 @@ public class WorkItemRepository {
     private static final Logger logger = LoggerFactory.getLogger(WorkItemRepository.class);
 
 	public static Map<String, WorkDefinitionImpl> getWorkDefinitions(String path) {
-		return getWorkDefinitions(path, null);
+		return getWorkDefinitions(path, null, null);
 	}
 
 	public static Map<String, WorkDefinitionImpl> getWorkDefinitions(String path, String[] definitionNames) {
+		return getWorkDefinitions(path, definitionNames, null);
+	}
+
+	public static Map<String, WorkDefinitionImpl> getWorkDefinitions(String path, String[] definitionNames, String widName) {
 		Map<String, WorkDefinitionImpl> workDefinitions = new HashMap<String, WorkDefinitionImpl>();
-		List<Map<String, Object>> workDefinitionsMaps = getAllWorkDefinitionsMap(path);
+		List<Map<String, Object>> workDefinitionsMaps = getAllWorkDefinitionsMap(path, widName);
 		for (Map<String, Object> workDefinitionMap : workDefinitionsMaps) {
 			if (workDefinitionMap != null) {
 				WorkDefinitionImpl workDefinition = new WorkDefinitionImpl();
@@ -111,22 +115,26 @@ public class WorkItemRepository {
 			if(definitionNames.length > 0) {
 				workDefinitions.keySet().retainAll(new HashSet(Arrays.asList(definitionNames)));
 			} else {
-				return new HashMap<String, WorkDefinitionImpl>();
+				return new HashMap<>();
 			}
 
 		}
 		return workDefinitions;
 	}
 
-	private static List<Map<String, Object>> getAllWorkDefinitionsMap(String directory) {
+	private static List<Map<String, Object>> getAllWorkDefinitionsMap(String directory, String widName) {
 		List<Map<String, Object>> workDefinitions = new ArrayList<Map<String, Object>>();
-		for (String s: getDirectories(directory)) {
-			try {
-				workDefinitions.addAll(getAllWorkDefinitionsMap(directory + "/" + s));
-			} catch (Throwable t) {
-				t.printStackTrace();
+		if(widName != null) {
+			workDefinitions.addAll(getWorkDefinitionsMapForSingleDir(directory, widName));
+		} else {
+			for (String s: getDirectories(directory)) {
+				try {
+					workDefinitions.addAll(getAllWorkDefinitionsMap(directory + "/" + s, null));
+				} catch (Throwable t) {
+					logger.error("Error retrieving work definitions: " + t.getMessage());
+				}
+				workDefinitions.addAll(getWorkDefinitionsMap(directory, s));
 			}
-			workDefinitions.addAll(getWorkDefinitionsMap(directory, s));
 		}
 		return workDefinitions;
 	}
@@ -137,8 +145,7 @@ public class WorkItemRepository {
 			content = ConfFileUtils.URLContentsToString(
 				new URL(path + "/index.conf"));
 		} catch (Exception e) {
-			// get directory listings if index.conf does not exist
-			return getDirectoriesNoIndexConfig(path);
+			// directory has no index.conf - do nothing
 		}
 		if (content == null) {
 			return new String[0];
@@ -146,28 +153,17 @@ public class WorkItemRepository {
 		return content.split("\n");
 	}
 
-	private static String[] getDirectoriesNoIndexConfig(String path) {
-		List<String> dirs = new ArrayList<>();
-		try {
-			URL url = new URL(path);
-			BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), IoUtils.UTF8_CHARSET));
-			String line = null;
-
-			while((line = reader.readLine()) != null) {
-				if(!line.contains(".")) {
-					dirs.add(line);
-				}
-			}
-
-			reader.close();
-			return dirs.toArray(new String[0]);
-		} catch (Exception e) {
-			return new String[0];
-		}
+	private static List<Map<String, Object>> getWorkDefinitionsMapForSingleDir(String parentPath, String widName) {
+		String path = parentPath + "/" + widName + ".wid";
+		return getWorkDefinitionsForPath(parentPath, path, widName);
 	}
 
 	private static List<Map<String, Object>> getWorkDefinitionsMap(String parentPath, String file) {
 		String path = parentPath + "/" + file + "/" + file + ".wid";
+		return getWorkDefinitionsForPath(parentPath, path, file);
+	}
+
+	private static List<Map<String, Object>> getWorkDefinitionsForPath(String parentPath, String path, String file) {
 		String content = null;
 		try {
 			content = ConfFileUtils.URLContentsToString(new URL(path));

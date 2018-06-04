@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 package org.jbpm.bpmn2.xml;
 
 import java.util.LinkedList;

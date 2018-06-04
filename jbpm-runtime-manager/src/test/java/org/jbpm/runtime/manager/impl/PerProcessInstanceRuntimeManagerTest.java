@@ -752,13 +752,10 @@ public class PerProcessInstanceRuntimeManagerTest extends AbstractBaseTest {
 
         manager = RuntimeManagerFactory.Factory.get().newPerProcessInstanceRuntimeManager(environment);
         assertNotNull(manager);
-        
         countDownListener.reset(2);
         countDownListener.waitTillCompleted();
 
         runtime = manager.getRuntimeEngine(ProcessInstanceIdContext.get(pi1.getId()));
-        
-        runtime.getKieSession().abortProcessInstance(pi1.getId());
 
         runtime.getKieSession().abortProcessInstance(pi1.getId());
 

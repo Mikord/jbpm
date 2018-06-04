@@ -3,7 +3,7 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-services-ejb</artifactId>
-    <version>7.5.0.Final-Center-5</version>
+    <version>7.7.0.Final-Center-2</version>
   </parent>
   <artifactId>jbpm-services-ejb-api</artifactId>
   <name>jBPM :: EJB Services API</name>
@@ -17,7 +17,12 @@
       <groupId>org.jbpm</groupId>
       <artifactId>jbpm-services-api</artifactId>
     </dependency>
-    
+
+    <dependency>
+      <groupId>org.kie</groupId>
+      <artifactId>kie-api</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>org.kie</groupId>
       <artifactId>kie-internal</artifactId>

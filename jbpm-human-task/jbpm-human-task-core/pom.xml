@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-human-task</artifactId>
-    <version>7.5.0.Final-Center-5</version>
+    <version>7.7.0.Final-Center-2</version>
   </parent>
   <artifactId>jbpm-human-task-core</artifactId>
   <packaging>bundle</packaging>
@@ -49,6 +49,10 @@
     <dependency>
       <groupId>org.jbpm</groupId>
       <artifactId>jbpm-query-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jbpm</groupId>
+      <artifactId>jbpm-persistence-api</artifactId>
     </dependency>
 
     <dependency>
@@ -233,11 +237,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.kie</groupId>
-      <artifactId>kie-test-util</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>com.sun.xml.bind</groupId>
       <artifactId>jaxb-impl</artifactId>
       <scope>test</scope>
@@ -263,7 +262,7 @@
     	<groupId>com.google.guava</groupId>
     	<artifactId>guava</artifactId>
     </dependency>
-    
+
     <dependency>
       <groupId>org.assertj</groupId>
       <artifactId>assertj-core</artifactId>

@@ -18,13 +18,22 @@ package org.jbpm.test.regression;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 
 import org.assertj.core.api.Assertions;
+import org.jbpm.executor.AsynchronousJobEvent;
+import org.jbpm.executor.impl.ExecutorServiceImpl;
 import org.jbpm.executor.impl.wih.AsyncWorkItemHandler;
+import org.jbpm.executor.test.CountDownAsyncJobListener;
+import org.jbpm.persistence.util.PersistenceUtil;
 import org.jbpm.test.JbpmAsyncJobTestCase;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.Test;
+import org.kie.api.executor.ExecutorService;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.query.QueryContext;
@@ -52,11 +61,24 @@ public class ParallelAsyncJobsTest extends JbpmAsyncJobTestCase {
      * complete and the scan interval is 1 second. On the other hand a task should not complete in
      * the 4 seconds so pending task count should not be lower than 3 if parallelism does not work.
      */
-    @Test
+    @Test(timeout=30000)
     @BZ("1146829")
     public void testRunBasicAsync() throws Exception {
+        ExecutorService executorService = getExecutorService();
+        final Set<String> threadExeuctingJobs = new HashSet<>();
+        CountDownAsyncJobListener countDownListener = new CountDownAsyncJobListener(4) {
+
+            @Override
+            public void afterJobExecuted(AsynchronousJobEvent event) {
+                super.afterJobExecuted(event);
+                threadExeuctingJobs.add(Thread.currentThread().getName());
+            }
+            
+        };
+        ((ExecutorServiceImpl) executorService).addAsyncJobListener(countDownListener);
+        
         KieSession ks = createKSession(PARENT, SUBPROCESS);
-        ks.getWorkItemManager().registerWorkItemHandler("async", new AsyncWorkItemHandler(getExecutorService(),
+        ks.getWorkItemManager().registerWorkItemHandler("async", new AsyncWorkItemHandler(executorService,
                 "org.jbpm.test.command.LongRunningCommand"));
 
         List<String> exceptions = new ArrayList<String>();
@@ -72,20 +94,30 @@ public class ParallelAsyncJobsTest extends JbpmAsyncJobTestCase {
         // assert that the main process was completed as tasks are executed asynchronously
         assertProcessInstanceCompleted(pi.getId());
 
-        // wait for the JobExecutor to pick up at least 2 jobs
-        Thread.sleep(4000);
-
-        // assert that more than 1 task was picked up by the executor - if parallel execution
-        // does work then more than 1 task got picked up because the scan interval is 1 second!
-        Assertions.assertThat(getExecutorService().getPendingRequests(new QueryContext()).size())
-                .as("More than 2 async jobs should have been executed").isLessThanOrEqualTo(2);
-
-        // wait for the process
-        Thread.sleep(8000);
+        countDownListener.waitTillCompleted();
 
         // assert that all jobs have where completed.
-        Assertions.assertThat(getExecutorService().getCompletedRequests(new QueryContext()))
+        Assertions.assertThat(executorService.getCompletedRequests(new QueryContext()))
                 .as("All async jobs should have been executed").hasSize(4);
+        Assertions.assertThat(threadExeuctingJobs)
+        .as("There should be 4 distinct threads as jobs where executed in parallel").hasSize(4);
+    }
+    
+    @Override
+    protected PoolingDataSource setupPoolingDataSource() {        
+        
+        Properties dsProps = PersistenceUtil.getDatasourceProperties();
+        String jdbcUrl = dsProps.getProperty("url");
+        String driverClass = dsProps.getProperty("driverClassName");        
+
+        // Setup the datasource
+        PoolingDataSource ds1 = PersistenceUtil.setupPoolingDataSource(dsProps, "jdbc/jbpm-ds", false);
+        if (driverClass.startsWith("org.h2")) {
+            ds1.getDriverProperties().setProperty("url", jdbcUrl);
+        }
+        ds1.getDriverProperties().setProperty("POOL_CONNECTIONS", "false");
+        ds1.init();
+        return ds1;
     }
 
 }

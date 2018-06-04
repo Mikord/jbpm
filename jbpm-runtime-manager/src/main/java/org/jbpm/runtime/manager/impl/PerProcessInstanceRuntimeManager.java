@@ -132,7 +132,7 @@ public class PerProcessInstanceRuntimeManager extends AbstractRuntimeManager {
 				}
 				ksession = factory.findKieSessionById(ksessionId);
 			}
-			InternalTaskService internalTaskService = (InternalTaskService) taskServiceFactory.newTaskService();			
+			InternalTaskService internalTaskService = newTaskService(taskServiceFactory);			
 			runtime = new RuntimeEngineImpl(ksession, internalTaskService);
 			((RuntimeEngineImpl) runtime).setManager(this);
 			((RuntimeEngineImpl) runtime).setContext(context);
@@ -205,8 +205,8 @@ public class PerProcessInstanceRuntimeManager extends AbstractRuntimeManager {
         if (ksessionId == null) {
             // make sure ksession is not use by any other context
             Object contextId = mapper.findContextId(ksession.getIdentifier(), this.identifier);
-            if (contextId != null) {
-                throw new IllegalStateException("KieSession with id " + ksession.getIdentifier() + " is already used by another context");
+            if (contextId != null && !contextId.equals(context.getContextId().toString())) {
+                throw new IllegalStateException("KieSession with id " + ksession.getIdentifier() + " is already used by another context " + contextId + " expected is "+ context.getContextId());
             }
             return;
         }
@@ -591,7 +591,7 @@ public class PerProcessInstanceRuntimeManager extends AbstractRuntimeManager {
 
     	@Override
     	public TaskService initTaskService(Context<?> context, InternalRuntimeManager manager, RuntimeEngine engine) {
-    		InternalTaskService internalTaskService = (InternalTaskService) taskServiceFactory.newTaskService();
+    		InternalTaskService internalTaskService = newTaskService(taskServiceFactory);
     		if (internalTaskService != null) {
         		registerDisposeCallback(engine, new DisposeSessionTransactionSynchronization(manager, engine), ((CommandBasedTaskService) internalTaskService).getEnvironment());
                 configureRuntimeOnTaskService(internalTaskService, engine);

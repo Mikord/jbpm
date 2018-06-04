@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-persistence</artifactId>
-    <version>7.5.0.Final-Center-5</version>
+    <version>7.7.0.Final-Center-2</version>
   </parent>
 
   <artifactId>jbpm-persistence-jpa</artifactId>
@@ -214,6 +214,9 @@
               org.drools.persistence.map,
               org.jbpm.marshalling.impl,
               org.jbpm.persistence.api,
+              org.jbpm.persistence.api.integration,
+              org.jbpm.persistence.api.integration.base,
+              org.jbpm.persistence.api.integration.model,
               org.jbpm.process.core.async,
               org.jbpm.process.core.timer,
               org.jbpm.process.core.timer.impl,

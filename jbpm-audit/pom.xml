@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm</artifactId>
-    <version>7.5.0.Final-Center-5</version>
+    <version>7.7.0.Final-Center-2</version>
   </parent>
 
   <artifactId>jbpm-audit</artifactId>
@@ -104,6 +104,7 @@
     <dependency>
       <groupId>org.assertj</groupId>
       <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.sun.xml.bind</groupId>
@@ -120,7 +121,7 @@
       <artifactId>activation</artifactId>
       <scope>test</scope>
     </dependency>
-    
+
     <!-- Test: persistence -->
     <dependency>
       <groupId>org.jbpm</groupId>

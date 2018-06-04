@@ -3,7 +3,7 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm</artifactId>
-    <version>7.5.0.Final-Center-5</version>
+    <version>7.7.0.Final-Center-2</version>
   </parent>
 
   <artifactId>jbpm-runtime-manager</artifactId>
@@ -86,7 +86,7 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
-    
+
     <dependency>
       <groupId>com.sun.xml.bind</groupId>
       <artifactId>jaxb-impl</artifactId>
@@ -160,6 +160,11 @@
       <scope>test</scope>
     </dependency>
     <dependency>
+      <groupId>org.jboss.spec.javax.jms</groupId>
+      <artifactId>jboss-jms-api_2.0_spec</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.drools</groupId>
       <artifactId>drools-decisiontables</artifactId>
       <scope>test</scope>
@@ -177,8 +182,8 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.kie</groupId>
-      <artifactId>kie-test-util</artifactId>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
       <scope>test</scope>
     </dependency>
 
@@ -338,6 +343,7 @@
               org.jbpm.process.instance.timer,
               org.jbpm.services.task,
               org.jbpm.services.task.impl,
+              org.jbpm.services.task.impl.command,
               org.jbpm.services.task.audit;resolution:=optional,
               org.jbpm.services.task.identity,
               org.jbpm.services.task.lifecycle.listeners,

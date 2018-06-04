@@ -15,6 +15,7 @@
  */
 package org.jbpm.process.workitem.core.util;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,10 @@ public class WidProcessorTest {
                     "                @WidParameter(name=\"sampleParam\"),\n" +
                     "                @WidParameter(name=\"sampleParamTwo\")\n" +
                     "        },\n" +
+                    "        parameterValues={\n" +
+                    "                @WidParameterValues(parameterName=\"sampleParam\", values=\"a,b,c,d,e\"),\n" +
+                    "                @WidParameterValues(parameterName=\"sampleParamTwo\", values=\"1,2,3,4,5\")\n" +
+                    "        },\n" +
                     "        mavenDepends={\n" +
                     "                @WidMavenDepends(group=\"org.jboss\", artifact=\"myworitem\", version=\"1.0\")\n" +
                     "        })\n" +
@@ -66,6 +71,10 @@ public class WidProcessorTest {
                     "        parameters = {\n" +
                     "                @WidParameter(name = \"sampleParamThree\"),\n" +
                     "                @WidParameter(name = \"sampleParamFour\")\n" +
+                    "        },\n" +
+                    "        parameterValues={\n" +
+                    "                @WidParameterValues(parameterName=\"sampleParamThree\", values=\"a,b,c,d,e\"),\n" +
+                    "                @WidParameterValues(parameterName=\"sampleParamFour\", values=\"1,2,3,4,5\")\n" +
                     "        },\n" +
                     "        mavenDepends = {\n" +
                     "                @WidMavenDepends(group = \"org.jboss\", artifact = \"myworitem\", version = \"2.0\"),\n" +
@@ -88,6 +97,10 @@ public class WidProcessorTest {
                     "        parameters = {\n" +
                     "                @WidParameter(name = \"sampleParam\"),\n" +
                     "                @WidParameter(name = \"sampleParamTwo\")\n" +
+                    "        },\n" +
+                    "        parameterValues={\n" +
+                    "                @WidParameterValues(parameterName=\"sampleParam\", values=\"a,b,c,d,e\"),\n" +
+                    "                @WidParameterValues(parameterName=\"sampleParamTwo\", values=\"1,2,3,4,5\")\n" +
                     "        },\n" +
                     "        mavenDepends = {\n" +
                     "                @WidMavenDepends(group = \"org.jboss\", artifact = \"myworitem\", version = \"1.0\")\n" +
@@ -140,6 +153,18 @@ public class WidProcessorTest {
         assertEquals("StringDataType",
                      widParameters[1].type());
 
+        WidParameterValues[] widParameterValues = widInfo.parameterValues();
+        assertEquals(2,
+                     widParameterValues.length);
+        assertEquals("sampleParam",
+                     widParameterValues[0].parameterName());
+        assertEquals("a,b,c,d,e",
+                     widParameterValues[0].values());
+        assertEquals("sampleParamTwo",
+                     widParameterValues[1].parameterName());
+        assertEquals("1,2,3,4,5",
+                     widParameterValues[1].values());
+
         WidMavenDepends[] widMavenDepends = widInfo.mavenDepends();
         assertEquals(1,
                      widMavenDepends.length);
@@ -149,43 +174,6 @@ public class WidProcessorTest {
                      widMavenDepends[0].artifact());
         assertEquals("1.0",
                      widMavenDepends[0].version());
-    }
-
-
-    @Test
-    public void testGeneratedWidAndIndexFiles() throws Exception {
-        Map<String, List<Wid>> processingResults = new HashMap<>();
-
-        widProcessor.setProcessingResults(processingResults);
-        widProcessor.setResetResults(false);
-
-        Compiler compiler = compileWithGenerator();
-        compiler.compile(source1);
-
-        assertNotNull(processingResults);
-        assertEquals(1,
-                     processingResults.keySet().size());
-
-        List<Wid> widInfoList = processingResults.get("org.jbpm.process.workitem.core.util.MyTestClass");
-        assertNotNull(widInfoList);
-        assertEquals(1,
-                     widInfoList.size());
-
-        Map<String, WidInfo> wrappedResults = new HashMap<>();
-        wrappedResults.put("widinfo", new WidInfo(widInfoList));
-
-        try {
-            widProcessor.getTemplateData(widProcessor.WID_ST_TEMPLATE,
-                                         wrappedResults);
-        } catch(Exception e) {
-            fail("Error building wid template: " + e.getMessage());
-        }
-        try {
-            widProcessor.getTemplateData(widProcessor.INDEX_ST_TEMPLATE, wrappedResults);
-        } catch(Exception e) {
-            fail("Error building index template: " + e.getMessage());
-        }
-
     }
 
     @Test
@@ -226,6 +214,9 @@ public class WidProcessorTest {
         // make sure parameters from interface and class got put together
         assertEquals(4,
                      widInfo.getParameters().size());
+        // make sure parameter values from interface and class got put together
+        assertEquals(4,
+                     widInfo.getParameterValues().size());
         // make sure one of the maven depends was overwritten by the class @Wid
         assertNotNull(widInfo.getMavenDepends());
         assertEquals(2,
@@ -235,7 +226,35 @@ public class WidProcessorTest {
                      widInfo.getMavenDepends().get("org.jboss.myworitem").getVersion());
     }
 
+    @Test
+    public void testGenerationWithProcessingOptions() throws Exception {
+        Map<String, List<Wid>> processingResults = new HashMap<>();
+
+        widProcessor.setProcessingResults(processingResults);
+        widProcessor.setResetResults(false);
+
+        List<String> processorOptions = Arrays.asList("-AwidName=testwid",
+                                                      "-AgenerateTemplates=true",
+                                                      "-AtemplateResources=testwid.wid:dummytemplate.st,testwid.json:dummytemplate.st,index.html:dummytemplate.st");
+
+        Compiler compiler = compileWithGenerator(processorOptions);
+        compiler.compile(source1);
+
+        assertNotNull(processingResults);
+        assertEquals(1,
+                     processingResults.keySet().size());
+
+        List<Wid> widInfoList = processingResults.get("org.jbpm.process.workitem.core.util.MyTestClass");
+        assertNotNull(widInfoList);
+        assertEquals(1,
+                     widInfoList.size());
+    }
+
     private Compiler compileWithGenerator() {
         return javac().withProcessors(widProcessor);
+    }
+
+    private Compiler compileWithGenerator(List<String> options) {
+        return javac().withProcessors(widProcessor).withOptions(options);
     }
 }

@@ -161,7 +161,7 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
             KieBase kbase = kieContainer.getKieBase(kbaseName);
             Map<String, ProcessDescriptor> processDescriptors = new HashMap<String, ProcessDescriptor>();
             for (org.kie.api.definition.process.Process process : kbase.getProcesses()) {
-                processDescriptors.put(process.getId(), (ProcessDescriptor) process.getMetaData().get("ProcessDescriptor"));
+                processDescriptors.put(process.getId(), ((ProcessDescriptor) process.getMetaData().get("ProcessDescriptor")).clone());
             }
 
             // TODO: add forms data?
@@ -301,6 +301,9 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
 		if (executorService != null) {
 		    builder.addEnvironmentEntry("ExecutorService", executorService);
 		}
+		if (identityProvider != null) {
+            builder.addEnvironmentEntry(EnvironmentName.IDENTITY_PROVIDER, identityProvider);
+        }
 		// populate all assets with roles for this deployment unit
 		List<String> requiredRoles = descriptor.getRequiredRoles(DeploymentDescriptor.TYPE_VIEW);
 		if (requiredRoles != null && !requiredRoles.isEmpty()) {

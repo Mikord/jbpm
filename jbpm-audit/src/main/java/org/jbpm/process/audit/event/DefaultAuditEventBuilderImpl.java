@@ -16,8 +16,6 @@
 
 package org.jbpm.process.audit.event;
 
-import java.util.Date;
-
 import org.jbpm.process.audit.NodeInstanceLog;
 import org.jbpm.process.audit.ProcessInstanceLog;
 import org.jbpm.process.audit.VariableInstanceLog;
@@ -49,6 +47,8 @@ public class DefaultAuditEventBuilderImpl implements AuditEventBuilder {
         log.setStatus(ProcessInstance.STATE_ACTIVE);
         log.setProcessInstanceDescription( pi.getDescription() );
         log.setProcessType(((WorkflowProcess)pi.getProcess()).getProcessType());
+        log.setSlaCompliance(pi.getSlaCompliance());
+        log.setSlaDueDate(pi.getSlaDueDate());
         // store correlation key in its external form
         CorrelationKey correlationKey = (CorrelationKey) pi.getMetaData().get("CorrelationKey");
         if (correlationKey != null) {
@@ -73,9 +73,10 @@ public class DefaultAuditEventBuilderImpl implements AuditEventBuilder {
         }
         logEvent.setOutcome(pi.getOutcome());
         logEvent.setStatus(pi.getState());
-        logEvent.setEnd(new Date());
+        logEvent.setEnd(pce.getEventDate());
         logEvent.setDuration(logEvent.getEnd().getTime() - logEvent.getStart().getTime());
         logEvent.setProcessInstanceDescription( pi.getDescription() );
+        logEvent.setSlaCompliance(pi.getSlaCompliance());
         return logEvent;
     }
 
@@ -109,6 +110,9 @@ public class DefaultAuditEventBuilderImpl implements AuditEventBuilder {
         log.setExternalId(""+((KieSession) pnte.getKieRuntime()).getIdentifier());
         log.setNodeType(nodeType);
         log.setNodeContainerId(nodeContainerId);
+        log.setDate(pnte.getEventDate());
+        log.setSlaCompliance(nodeInstance.getSlaCompliance());
+        log.setSlaDueDate(nodeInstance.getSlaDueDate());
         return log;
     }
         
@@ -169,6 +173,9 @@ public class DefaultAuditEventBuilderImpl implements AuditEventBuilder {
         logEvent.setExternalId(""+((KieSession) pnle.getKieRuntime()).getIdentifier());
         logEvent.setNodeType(nodeType);
         logEvent.setNodeContainerId(nodeContainerId);
+        logEvent.setDate(pnle.getEventDate());
+        logEvent.setSlaCompliance(nodeInstance.getSlaCompliance());
+        logEvent.setSlaDueDate(nodeInstance.getSlaDueDate());
         return logEvent;
     }
 

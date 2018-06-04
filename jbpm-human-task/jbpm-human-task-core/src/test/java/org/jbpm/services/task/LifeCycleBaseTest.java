@@ -33,7 +33,6 @@ import java.util.Map;
 import org.assertj.core.api.Fail;
 import org.jbpm.services.task.events.DefaultTaskEventListener;
 import org.jbpm.services.task.exception.PermissionDeniedException;
-import org.jbpm.services.task.impl.TaskContentRegistry;
 import org.jbpm.services.task.impl.factories.TaskFactory;
 import org.jbpm.services.task.impl.model.xml.JaxbContent;
 import org.jbpm.services.task.utils.ContentMarshallerHelper;
@@ -49,7 +48,6 @@ import org.kie.api.task.model.Status;
 import org.kie.api.task.model.Task;
 import org.kie.api.task.model.TaskSummary;
 import org.kie.api.task.model.User;
-import org.kie.internal.task.api.ContentMarshallerContext;
 import org.kie.internal.task.api.EventService;
 import org.kie.internal.task.api.TaskModelProvider;
 import org.kie.internal.task.api.model.AccessType;
@@ -2412,7 +2410,9 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
             @Override
             public void beforeTaskStartedEvent(TaskEvent event) {
-                assertNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskInputVariables().containsKey("input")); 
                 assertNull(event.getTask().getTaskData().getTaskOutputVariables());
                 
                 event.getTaskContext().loadTaskVariables(event.getTask());
@@ -2472,10 +2472,6 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
             @Override
             public void afterTaskStartedEvent(TaskEvent event) {
-                assertNull(event.getTask().getTaskData().getTaskInputVariables());
-                assertNull(event.getTask().getTaskData().getTaskOutputVariables());
-                
-                event.getTaskContext().loadTaskVariables(event.getTask());
                 
                 assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
                 assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
