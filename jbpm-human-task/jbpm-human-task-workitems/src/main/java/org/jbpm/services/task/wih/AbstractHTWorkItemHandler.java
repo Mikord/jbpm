@@ -57,7 +57,7 @@ import org.slf4j.LoggerFactory;
 public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractHTWorkItemHandler.class);
-    
+
     protected static final String ADMIN_USER = System.getProperty("org.jbpm.ht.admin.user", "Administrator");
     
     protected OnErrorAction action = OnErrorAction.LOG;
@@ -66,7 +66,7 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
     }
 
     public AbstractHTWorkItemHandler( OnErrorAction action) {
-        
+
         this.action = action;
     }
 
@@ -78,12 +78,12 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
         InternalTask task = (InternalTask) TaskModelProvider.getFactory().newTask();
         String taskName = (String) workItem.getParameter("NodeName");
         CaseData caseFile = null;
-        
+
         String locale = (String) workItem.getParameter("Locale");
         if (locale == null) {
             locale = "en-UK";
         }
-        
+
         if (taskName != null) {
             List<I18NText> names = new ArrayList<I18NText>();
             I18NText text = TaskModelProvider.getFactory().newI18NText();
@@ -95,11 +95,11 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
         task.setName(taskName);
         // this should be replaced by FormName filled by designer
         // TaskName shouldn't be trimmed if we are planning to use that for the task lists
-        String formName = (String) workItem.getParameter("TaskName"); 
+        String formName = (String) workItem.getParameter("TaskName");
         if(formName != null){
             task.setFormName(formName);
         }
-        
+
         String comment = (String) workItem.getParameter("Comment");
         if (comment == null) {
             comment = "";
@@ -116,18 +116,18 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
         ((InternalI18NText) descText).setText(description);
         descriptions.add(descText);
         task.setDescriptions(descriptions);
-        
+
         task.setDescription(description);
-        
+
         List<I18NText> subjects = new ArrayList<I18NText>();
         I18NText subjectText = TaskModelProvider.getFactory().newI18NText();
         ((InternalI18NText) subjectText).setLanguage(locale);
         ((InternalI18NText) subjectText).setText(comment);
         subjects.add(subjectText);
         task.setSubjects(subjects);
-        
+
         task.setSubject(comment);
-        
+
         String priorityString = (String) workItem.getParameter("Priority");
         int priority = 0;
         if (priorityString != null) {
@@ -138,8 +138,8 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
             }
         }
         task.setPriority(priority);
-        
-        InternalTaskData taskData = (InternalTaskData) TaskModelProvider.getFactory().newTaskData();        
+
+        InternalTaskData taskData = (InternalTaskData) TaskModelProvider.getFactory().newTaskData();
         taskData.setWorkItemId(workItem.getId());
         taskData.setProcessInstanceId(workItem.getProcessInstanceId());
         if (session != null) {
@@ -163,18 +163,18 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
         if (parentId != null) {
             taskData.setParentId(parentId);
         }
-        
+
         String createdBy = (String) workItem.getParameter("CreatedBy");
         if (createdBy != null && createdBy.trim().length() > 0) {
         	User user = TaskModelProvider.getFactory().newUser();
         	((InternalOrganizationalEntity) user).setId(createdBy);
-            taskData.setCreatedBy(user);            
+            taskData.setCreatedBy(user);
         }
         String dueDateString = (String) workItem.getParameter("DueDate");
         Date date = null;
         if(dueDateString != null && !dueDateString.isEmpty()){
             if(DateTimeUtils.isPeriod(dueDateString)){
-                Long longDateValue = DateTimeUtils.parseDateAsDuration(dueDateString.substring(1));
+                Long longDateValue = DateTimeUtils.parseDuration(dueDateString);
                 date = new Date(System.currentTimeMillis() + longDateValue);
             }else{
                 date = new Date(DateTimeUtils.parseDateTime(dueDateString));
@@ -183,13 +183,13 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
         if(date != null){
             taskData.setExpirationTime(date);
         }
-        
+
         PeopleAssignmentHelper peopleAssignmentHelper = new PeopleAssignmentHelper(caseFile);
         peopleAssignmentHelper.handlePeopleAssignments(workItem, task, taskData);
-        
+
         PeopleAssignments peopleAssignments = task.getPeopleAssignments();
         List<OrganizationalEntity> businessAdministrators = peopleAssignments.getBusinessAdministrators();
-        
+
         taskData.initialize();
         task.setTaskData(taskData);
         task.setDeadlines(HumanTaskHandlerHelper.setDeadlines(workItem.getParameters(), businessAdministrators, session.getEnvironment()));
@@ -211,7 +211,7 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
         }
         return content;
     }
-    
+
     protected Map<String, Object> createTaskDataBasedOnWorkItemParams(KieSession session, WorkItem workItem) {
         Map<String, Object> data = new HashMap<String, Object>();
         Object contentObject = workItem.getParameter("Content");
@@ -238,7 +238,7 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
         return false;
     }
 
-    
+
     public abstract void executeWorkItem(WorkItem workItem, WorkItemManager manager);
 
     public abstract void abortWorkItem(WorkItem workItem, WorkItemManager manager);
