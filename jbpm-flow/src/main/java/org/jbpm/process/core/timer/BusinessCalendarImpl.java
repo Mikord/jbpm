@@ -1,23 +1,28 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.process.core.timer;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -26,14 +31,9 @@ import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.drools.core.time.TimeUtils;
-import org.joda.time.DateTime;
-import org.joda.time.Duration;
-import org.joda.time.Period;
-import org.joda.time.format.ISODateTimeFormat;
-import org.joda.time.format.ISOPeriodFormat;
+import org.jbpm.util.PatternConstants;
 import org.kie.api.time.SessionClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,12 +42,12 @@ import org.slf4j.LoggerFactory;
  * Default implementation of BusinessCalendar interface that is configured with properties.
  * Following are supported properties:
  * <ul>
- *  <li>business.hours.per.week - specifies number of working days per week (default 5)</li>
+ *  <li>business.days.per.week - specifies number of working days per week (default 5)</li>
  *  <li>business.hours.per.day - specifies number of working hours per day (default 8)</li>
  *  <li>business.start.hour - specifies starting hour of work day (default 9AM)</li>
  *  <li>business.end.hour - specifies ending hour of work day (default 5PM)</li>
  *  <li>business.holidays - specifies holidays (see format section for details on how to configure it)</li>
- *  <li>business.holiday.date.format - specifies holiday date format used (default yyyy-DD-mm)</li>
+ *  <li>business.holiday.date.format - specifies holiday date format used (default yyyy-MM-dd)</li>
  *  <li>business.weekend.days - specifies days of the weekend (default Saturday and Sunday)</li>
  *  <li>business.cal.timezone - specifies time zone to be used (if not given uses default of the system it runs on)</li>
  * </ul>
@@ -85,7 +85,6 @@ public class BusinessCalendarImpl implements BusinessCalendar {
     private List<Integer> weekendDays= new ArrayList<Integer>();
     private SessionClock clock;
     
-    private static final Pattern SIMPLE  = Pattern.compile( "([+-])?\\s*((\\d+)[Ww])?\\s*((\\d+)[Dd])?\\s*((\\d+)[Hh])?\\s*((\\d+)[Mm])?\\s*((\\d+)[Ss])?" );
     private static final int     SIM_WEEK = 3;
     private static final int     SIM_DAY = 5;
     private static final int     SIM_HOU = 7;
@@ -93,7 +92,7 @@ public class BusinessCalendarImpl implements BusinessCalendar {
     private static final int     SIM_SEC = 11;
 
     
-    public static final String DAYS_PER_WEEK = "business.hours.per.week";
+    public static final String DAYS_PER_WEEK = "business.days.per.week";
     public static final String HOURS_PER_DAY = "business.hours.per.day";
     public static final String START_HOUR = "business.start.hour";
     public static final String END_HOUR = "business.end.hour";
@@ -157,52 +156,50 @@ public class BusinessCalendarImpl implements BusinessCalendar {
     }
     
     protected String adoptISOFormat(String timeExpression) {
-    	
-    	try {
-    		Period p = null;
-    		if (DateTimeUtils.isPeriod(timeExpression)) {
-    			p = ISOPeriodFormat.standard().parsePeriod(timeExpression);
-    		} else {
-    			DateTime dt = ISODateTimeFormat.dateTimeParser().parseDateTime(timeExpression);
-                Duration duration = new Duration(System.currentTimeMillis(), dt.getMillis());
-                
-                p = duration.toPeriod();
-    		}
-	        int days = p.getDays();
-	        int hours = p.getHours();
-	        int minutes = p.getMinutes();
-	        int seconds = p.getSeconds();
-	        int milis = p.getMillis();
-	        
-	        StringBuffer time = new StringBuffer();
-	        if (days > 0) {
-	        	time.append(days+"d");
-	        }
-	        if (hours > 0) {
-	        	time.append(hours+"h");
-	        }
-	        if (minutes > 0) {
-	        	time.append(minutes+"m");
-	        }
-	        if (seconds > 0) {
-	        	time.append(seconds+"s");
-	        }
-	        if (milis > 0) {
-	        	time.append(milis+"ms");
-	        }
-	        
-	        return time.toString();
-    	} catch (Exception e) {
-    		return timeExpression;
-    	}
+
+        try {
+            Duration p = null;
+            if (DateTimeUtils.isPeriod(timeExpression)) {
+                p = Duration.parse(timeExpression);
+            } else if (DateTimeUtils.isNumeric(timeExpression)) {
+                p = Duration.of(Long.valueOf(timeExpression), ChronoUnit.MILLIS);
+            } else {
+                OffsetDateTime dateTime = OffsetDateTime.parse(timeExpression, DateTimeFormatter.ISO_DATE_TIME);
+                p = Duration.between(OffsetDateTime.now(), dateTime);
+            }
+
+            long days = p.toDays();
+            long hours = p.toHours() % 24;
+            long minutes = p.toMinutes() % 60;
+            long seconds = p.getSeconds() % 60;
+            long milis = p.toMillis() % 1000;
+
+            StringBuffer time = new StringBuffer();
+            if (days > 0) {
+                time.append(days + "d");
+            }
+            if (hours > 0) {
+                time.append(hours + "h");
+            }
+            if (minutes > 0) {
+                time.append(minutes + "m");
+            }
+            if (seconds > 0) {
+                time.append(seconds + "s");
+            }
+            if (milis > 0) {
+                time.append(milis + "ms");
+            }
+
+            return time.toString();
+        } catch (Exception e) {
+            return timeExpression;
+        }
     }
     
     public long calculateBusinessTimeAsDuration(String timeExpression) {
     	timeExpression = adoptISOFormat(timeExpression);
-        if (businessCalendarConfiguration == null) {
-            return TimeUtils.parseTimeString(timeExpression);
-        }
-        
+
         Date calculatedDate = calculateBusinessTimeAsDate(timeExpression);
         
         return (calculatedDate.getTime() - getCurrentTime());
@@ -210,11 +207,7 @@ public class BusinessCalendarImpl implements BusinessCalendar {
     
     public Date calculateBusinessTimeAsDate(String timeExpression) {
     	timeExpression = adoptISOFormat(timeExpression);
-    	if (businessCalendarConfiguration == null) {
-            return new Date(TimeUtils.parseTimeString(getCurrentTime() + timeExpression));
-        }
-        
-        
+
         String trimmed = timeExpression.trim();
         int weeks = 0;
         int days = 0;
@@ -223,7 +216,7 @@ public class BusinessCalendarImpl implements BusinessCalendar {
         int sec = 0;
         
         if( trimmed.length() > 0 ) {
-            Matcher mat = SIMPLE.matcher( trimmed );
+            Matcher mat = PatternConstants.SIMPLE_TIME_DATE_MATCHER.matcher(trimmed );
             if ( mat.matches() ) {
                 weeks = (mat.group( SIM_WEEK ) != null) ? Integer.parseInt( mat.group( SIM_WEEK ) ) : 0;
                 days = (mat.group( SIM_DAY ) != null) ? Integer.parseInt( mat.group( SIM_DAY ) ) : 0;

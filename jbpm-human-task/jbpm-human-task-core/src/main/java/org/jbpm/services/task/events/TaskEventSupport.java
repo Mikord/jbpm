@@ -1,25 +1,29 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.services.task.events;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import org.drools.core.event.AbstractEventSupport;
 import org.kie.api.task.TaskLifeCycleEventListener;
+import org.kie.api.task.TaskLifeCycleEventListener.AssignmentType;
+import org.kie.api.task.model.OrganizationalEntity;
 import org.kie.api.task.model.Task;
 import org.kie.internal.task.api.TaskContext;
 
@@ -28,8 +32,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskActivated(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskActivatedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskActivatedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -37,8 +43,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskClaimed(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskClaimedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskClaimedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -46,8 +54,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskSkipped(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskSkippedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskSkippedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -55,8 +65,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskStarted(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskStartedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskStartedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -64,8 +76,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskStopped(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskStoppedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskStoppedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -73,8 +87,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskCompleted(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskCompletedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskCompletedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -82,8 +98,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskFailed(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskFailedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskFailedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -91,8 +109,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskAdded(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskAddedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskAddedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -100,8 +120,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskExited(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskExitedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskExitedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -109,8 +131,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskReleased(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskReleasedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskReleasedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -118,8 +142,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskResumed(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskResumedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskResumedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -127,8 +153,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskSuspended(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskSuspendedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskSuspendedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -136,8 +164,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskForwarded(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskForwardedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskForwardedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -145,8 +175,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskDelegated(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskDelegatedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskDelegatedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -154,8 +186,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskNominated(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().beforeTaskNominatedEvent(new TaskEventImpl(task, context));
+                iter.next().beforeTaskNominatedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -163,11 +197,12 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskUpdated(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
             	TaskLifeCycleEventListener listener = iter.next();
-            	if (listener instanceof org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener) {
-            		((org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener)listener).beforeTaskUpdatedEvent(new TaskEventImpl(task, context));
-            	}
+        		listener.beforeTaskUpdatedEvent(event);
+            	
             } while (iter.hasNext());
         }
     }
@@ -175,11 +210,11 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskReassigned(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                TaskLifeCycleEventListener listener = iter.next();
-                if (listener instanceof org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener) {
-                    ((org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener)listener).beforeTaskReassignedEvent(new TaskEventImpl(task, context));
-                }
+                TaskLifeCycleEventListener listener = iter.next();                
+                listener.beforeTaskReassignedEvent(event);                
             } while (iter.hasNext());
         }
     }
@@ -187,11 +222,60 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireBeforeTaskNotified(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
                 TaskLifeCycleEventListener listener = iter.next();
-                if (listener instanceof org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener) {
-                    ((org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener)listener).beforeTaskNominatedEvent(new TaskEventImpl(task, context));
-                }
+                listener.beforeTaskNominatedEvent(event);
+            } while (iter.hasNext());
+        }
+    }
+    
+    public void fireBeforeTaskInputVariablesChanged(final Task task, TaskContext context, Map<String, Object> variables) {
+        final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
+        if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
+            do{
+                TaskLifeCycleEventListener listener = iter.next();
+                listener.beforeTaskInputVariableChangedEvent(event, variables);                
+            } while (iter.hasNext());
+        }
+    }
+    
+    
+    public void fireBeforeTaskOutputVariablesChanged(final Task task, TaskContext context, Map<String, Object> variables) {
+        final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
+        if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
+            do{
+                TaskLifeCycleEventListener listener = iter.next();
+                listener.beforeTaskOutputVariableChangedEvent(event, variables);                
+            } while (iter.hasNext());
+        }
+    }
+    
+    public void fireBeforeTaskAssignmentsAddedEvent(final Task task, TaskContext context, AssignmentType type, List<OrganizationalEntity> entities) {
+        final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
+        if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
+            do{
+                TaskLifeCycleEventListener listener = iter.next();
+                listener.beforeTaskAssignmentsAddedEvent(event, type, entities);                
+            } while (iter.hasNext());
+        }
+    }
+    
+    public void fireBeforeTaskAssignmentsRemovedEvent(final Task task, TaskContext context, AssignmentType type, List<OrganizationalEntity> entities) {
+        final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
+        if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
+            do{
+                TaskLifeCycleEventListener listener = iter.next();
+                listener.beforeTaskAssignmentsRemovedEvent(event, type, entities);                
             } while (iter.hasNext());
         }
     }
@@ -202,8 +286,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskActivated(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskActivatedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskActivatedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -211,8 +297,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskClaimed(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskClaimedEvent(new TaskEventImpl(task, context));;
+                iter.next().afterTaskClaimedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -220,8 +308,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskSkipped(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskSkippedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskSkippedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -229,8 +319,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskStarted(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskStartedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskStartedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -238,8 +330,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskStopped(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskStoppedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskStoppedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -247,8 +341,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskCompleted(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskCompletedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskCompletedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -256,8 +352,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskFailed(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskFailedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskFailedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -265,8 +363,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskAdded(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskAddedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskAddedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -274,8 +374,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskExited(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskExitedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskExitedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -283,8 +385,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskReleased(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskReleasedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskReleasedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -292,8 +396,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskResumed(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskResumedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskResumedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -301,8 +407,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskSuspended(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskSuspendedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskSuspendedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -310,8 +418,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskForwarded(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskForwardedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskForwardedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -319,8 +429,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskDelegated(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskDelegatedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskDelegatedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -328,8 +440,10 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskNominated(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
-                iter.next().afterTaskNominatedEvent(new TaskEventImpl(task, context));
+                iter.next().afterTaskNominatedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -337,11 +451,11 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskUpdated(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
             	TaskLifeCycleEventListener listener = iter.next();
-            	if (listener instanceof org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener) {
-            		((org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener)listener).afterTaskUpdatedEvent(new TaskEventImpl(task, context));
-            	}
+            	listener.afterTaskUpdatedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -349,11 +463,11 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskReassigned(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
                 TaskLifeCycleEventListener listener = iter.next();
-                if (listener instanceof org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener) {
-                    ((org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener)listener).afterTaskReassignedEvent(new TaskEventImpl(task, context));
-                }
+                listener.afterTaskReassignedEvent(event);
             } while (iter.hasNext());
         }
     }
@@ -361,11 +475,11 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskNotified(final Task task, TaskContext context) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
                 TaskLifeCycleEventListener listener = iter.next();
-                if (listener instanceof org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener) {
-                    ((org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener)listener).afterTaskNotificationEvent(new TaskEventImpl(task, context));
-                }
+                listener.afterTaskNotificationEvent(event);                
             } while (iter.hasNext());
         }
     }
@@ -373,11 +487,11 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskInputVariablesChanged(final Task task, TaskContext context, Map<String, Object> variables) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
                 TaskLifeCycleEventListener listener = iter.next();
-                if (listener instanceof org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener) {
-                    ((org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener)listener).afterTaskInputVariableChangedEvent(new TaskEventImpl(task, context), variables);
-                }
+                listener.afterTaskInputVariableChangedEvent(event, variables);                
             } while (iter.hasNext());
         }
     }
@@ -386,11 +500,35 @@ public class TaskEventSupport extends AbstractEventSupport<TaskLifeCycleEventLis
     public void fireAfterTaskOutputVariablesChanged(final Task task, TaskContext context, Map<String, Object> variables) {
         final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
         if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
             do{
                 TaskLifeCycleEventListener listener = iter.next();
-                if (listener instanceof org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener) {
-                    ((org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener)listener).afterTaskOutputVariableChangedEvent(new TaskEventImpl(task, context), variables);
-                }
+                listener.afterTaskOutputVariableChangedEvent(event, variables);                
+            } while (iter.hasNext());
+        }
+    }
+    
+    public void fireAfterTaskAssignmentsAddedEvent(final Task task, TaskContext context, AssignmentType type, List<OrganizationalEntity> entities) {
+        final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
+        if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
+            do{
+                TaskLifeCycleEventListener listener = iter.next();
+                listener.afterTaskAssignmentsAddedEvent(event, type, entities);                
+            } while (iter.hasNext());
+        }
+    }
+    
+    public void fireAfterTaskAssignmentsRemovedEvent(final Task task, TaskContext context, AssignmentType type, List<OrganizationalEntity> entities) {
+        final Iterator<TaskLifeCycleEventListener> iter = getEventListenersIterator();
+        if (iter.hasNext()) {
+            final TaskEventImpl event = new TaskEventImpl(task, context);
+            
+            do{
+                TaskLifeCycleEventListener listener = iter.next();
+                listener.afterTaskAssignmentsRemovedEvent(event, type, entities);                
             } while (iter.hasNext());
         }
     }

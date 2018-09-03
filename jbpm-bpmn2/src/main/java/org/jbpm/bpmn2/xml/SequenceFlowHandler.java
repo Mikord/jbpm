@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -126,27 +126,24 @@ public class SequenceFlowHandler extends BaseAbstractHandler implements Handler 
 				String expression = xmlNode.getTextContent();
 				org.w3c.dom.Node languageNode = xmlNode.getAttributes()
 						.getNamedItem("language");
-				if (languageNode != null) {
-					String language = languageNode.getNodeValue();
-					if (XmlBPMNProcessDumper.JAVA_LANGUAGE.equals(language)) {
-						sequenceFlow.setLanguage("java");
-					} else if (XmlBPMNProcessDumper.MVEL_LANGUAGE
-							.equals(language)) {
-						sequenceFlow.setLanguage("mvel");
-					} else if (XmlBPMNProcessDumper.RULE_LANGUAGE
-							.equals(language)) {
-						sequenceFlow.setType("rule");
-					} else if (XmlBPMNProcessDumper.XPATH_LANGUAGE
-							.equals(language)) {
-						sequenceFlow.setLanguage("XPath");
-					} else if (XmlBPMNProcessDumper.JAVASCRIPT_LANGUAGE
-                            .equals(language)) {
+                if (languageNode != null) {
+                    String language = languageNode.getNodeValue();
+                    if (XmlBPMNProcessDumper.JAVA_LANGUAGE.equals(language)) {
+                        sequenceFlow.setLanguage("java");
+                    } else if (XmlBPMNProcessDumper.MVEL_LANGUAGE.equals(language)) {
+                        sequenceFlow.setLanguage("mvel");
+                    } else if (XmlBPMNProcessDumper.RULE_LANGUAGE.equals(language)) {
+                        sequenceFlow.setType("rule");
+                    } else if (XmlBPMNProcessDumper.XPATH_LANGUAGE.equals(language)) {
+                        sequenceFlow.setLanguage("XPath");
+                    } else if (XmlBPMNProcessDumper.JAVASCRIPT_LANGUAGE.equals(language)) {
                         sequenceFlow.setLanguage("JavaScript");
+                    } else if (XmlBPMNProcessDumper.FEEL_LANGUAGE.equals(language)) {
+                        sequenceFlow.setLanguage("FEEL");
                     } else {
-						throw new IllegalArgumentException("Unknown language "
-								+ language);
-					}
-				}
+                        throw new IllegalArgumentException("Unknown language " + language);
+                    }
+                }
 				sequenceFlow.setExpression(expression);
 			}
 			xmlNode = xmlNode.getNextSibling();

@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,8 +21,11 @@ import static org.junit.Assert.assertEquals;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang3.mutable.MutableLong;
 import org.drools.core.definitions.InternalKnowledgePackage;
 import org.drools.core.definitions.impl.KnowledgePackageImpl;
+import org.drools.core.impl.InternalKnowledgeBase;
+import org.drools.core.impl.KnowledgeBaseFactory;
 import org.jbpm.process.core.event.EventFilter;
 import org.jbpm.process.core.event.EventTypeFilter;
 import org.jbpm.process.instance.impl.Action;
@@ -38,6 +41,8 @@ import org.jbpm.workflow.core.node.EventNode;
 import org.jbpm.workflow.core.node.EventTrigger;
 import org.jbpm.workflow.core.node.StartNode;
 import org.junit.Test;
+import org.kie.api.definition.KiePackage;
+import org.kie.api.event.process.DefaultProcessEventListener;
 import org.kie.api.event.process.ProcessCompletedEvent;
 import org.kie.api.event.process.ProcessEvent;
 import org.kie.api.event.process.ProcessEventListener;
@@ -45,13 +50,9 @@ import org.kie.api.event.process.ProcessNodeLeftEvent;
 import org.kie.api.event.process.ProcessNodeTriggeredEvent;
 import org.kie.api.event.process.ProcessStartedEvent;
 import org.kie.api.event.process.ProcessVariableChangedEvent;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessContext;
 import org.kie.api.runtime.process.ProcessInstance;
-import org.kie.internal.KnowledgeBase;
-import org.kie.internal.KnowledgeBaseFactory;
-import org.kie.internal.definition.KnowledgePackage;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ProcessEventSupportTest extends AbstractBaseTest {
@@ -62,7 +63,7 @@ public class ProcessEventSupportTest extends AbstractBaseTest {
 
 	@Test
     public void testProcessEventListener() throws Exception {
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+        InternalKnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
 
         // create a simple package with one process to test the events
         final InternalKnowledgePackage pkg = new KnowledgePackageImpl( "org.drools.test" );
@@ -101,11 +102,11 @@ public class ProcessEventSupportTest extends AbstractBaseTest {
         );
         
         pkg.addProcess(process);
-        List<KnowledgePackage> pkgs = new ArrayList<KnowledgePackage>();
+        List<KiePackage> pkgs = new ArrayList<KiePackage>();
         pkgs.add( pkg );
-        kbase.addKnowledgePackages( pkgs );
+        kbase.addPackages( pkgs );
         
-        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+        KieSession session = kbase.newKieSession();
         final List<ProcessEvent> processEventList = new ArrayList<ProcessEvent>();
         final ProcessEventListener processEventListener = new ProcessEventListener() {
 
@@ -175,7 +176,7 @@ public class ProcessEventSupportTest extends AbstractBaseTest {
     
 	@Test
     public void testProcessEventListenerWithEvent() throws Exception {
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+        InternalKnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
 
         // create a simple package with one process to test the events
         final InternalKnowledgePackage pkg = new KnowledgePackageImpl( "org.drools.test" );
@@ -229,11 +230,11 @@ public class ProcessEventSupportTest extends AbstractBaseTest {
         );
         
         pkg.addProcess(process);
-        List<KnowledgePackage> pkgs = new ArrayList<KnowledgePackage>();
+        List<KiePackage> pkgs = new ArrayList<KiePackage>();
         pkgs.add( pkg );
-        kbase.addKnowledgePackages( pkgs );
+        kbase.addPackages( pkgs );
         
-        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+        KieSession session = kbase.newKieSession();
         final List<ProcessEvent> processEventList = new ArrayList<ProcessEvent>();
         final ProcessEventListener processEventListener = new ProcessEventListener() {
 
@@ -313,7 +314,7 @@ public class ProcessEventSupportTest extends AbstractBaseTest {
     
     @Test
     public void testProcessEventListenerWithEndEvent() throws Exception {
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+        InternalKnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
 
         // create a simple package with one process to test the events
         final InternalKnowledgePackage pkg = new KnowledgePackageImpl( "org.drools.test" );
@@ -353,11 +354,11 @@ public class ProcessEventSupportTest extends AbstractBaseTest {
         );
         
         pkg.addProcess(process);
-        List<KnowledgePackage> pkgs = new ArrayList<KnowledgePackage>();
+        List<KiePackage> pkgs = new ArrayList<KiePackage>();
         pkgs.add( pkg );
-        kbase.addKnowledgePackages( pkgs );
+        kbase.addPackages( pkgs );
         
-        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+        KieSession session = kbase.newKieSession();
         final List<ProcessEvent> processEventList = new ArrayList<ProcessEvent>();
         final ProcessEventListener processEventListener = new ProcessEventListener() {
 
@@ -425,7 +426,7 @@ public class ProcessEventSupportTest extends AbstractBaseTest {
     
     @Test
     public void testProcessEventListenerWithStartEvent() throws Exception {
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+        InternalKnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
 
         // create a simple package with one process to test the events
         final InternalKnowledgePackage pkg = new KnowledgePackageImpl( "org.drools.test" );
@@ -469,11 +470,11 @@ public class ProcessEventSupportTest extends AbstractBaseTest {
         );
         
         pkg.addProcess(process);
-        List<KnowledgePackage> pkgs = new ArrayList<KnowledgePackage>();
+        List<KiePackage> pkgs = new ArrayList<KiePackage>();
         pkgs.add( pkg );
-        kbase.addKnowledgePackages( pkgs );
+        kbase.addPackages( pkgs );
         
-        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+        KieSession session = kbase.newKieSession();
         final List<ProcessEvent> processEventList = new ArrayList<ProcessEvent>();
         final ProcessEventListener processEventListener = new ProcessEventListener() {
 
@@ -542,4 +543,50 @@ public class ProcessEventSupportTest extends AbstractBaseTest {
         assertEquals( "org.drools.core.process.event", ((ProcessStartedEvent) processEventList.get(15)).getProcessInstance().getProcessId());
     }
 
+	@Test
+    public void testDefaultParentProcessIdValueInProcessEventListener() throws Exception {
+        InternalKnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+
+        // create a simple package with one process to test the events
+        RuleFlowProcess process = new RuleFlowProcess();
+        process.setId("org.drools.core.process.event");
+        process.setName("Event Process");
+        
+        StartNode startNode = new StartNode();
+        startNode.setName("Start");
+        startNode.setId(1);
+        process.addNode(startNode);
+
+        EndNode endNode = new EndNode();
+        endNode.setName("End");
+        endNode.setId(3);
+        process.addNode(endNode);
+
+        new ConnectionImpl(
+            startNode, Node.CONNECTION_DEFAULT_TYPE,
+            endNode, Node.CONNECTION_DEFAULT_TYPE
+        );
+
+        final InternalKnowledgePackage pkg = new KnowledgePackageImpl( "org.drools.test" );
+        pkg.addProcess(process);
+        List<KiePackage> pkgs = new ArrayList<KiePackage>();
+        pkgs.add( pkg );
+        kbase.addPackages( pkgs );
+
+        KieSession session = kbase.newKieSession();
+        final MutableLong parentProcessId = new MutableLong(0L);
+        final ProcessEventListener processEventListener = new DefaultProcessEventListener() {
+
+            public void afterProcessStarted(ProcessStartedEvent event) {
+                parentProcessId.setValue(event.getProcessInstance().getParentProcessInstanceId());
+            }
+
+        };
+        session.addEventListener( processEventListener );
+
+        // execute the process
+        session.startProcess("org.drools.core.process.event");
+        assertEquals(parentProcessId.longValue(), -1L);
+
+    }
 }

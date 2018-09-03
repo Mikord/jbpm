@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,8 +34,9 @@ import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.task.TaskService;
 import org.kie.api.task.model.Content;
 import org.kie.api.task.model.TaskSummary;
-import org.kie.internal.event.KnowledgeRuntimeEventManager;
 import org.kie.internal.logger.KnowledgeRuntimeLoggerFactory;
+
+import static org.junit.Assert.*;
 
 public class LocalTaskServiceTest extends JbpmTestCase {
 
@@ -119,7 +120,7 @@ public class LocalTaskServiceTest extends JbpmTestCase {
     @Test 
     public void groupTaskQueryTest() throws Exception {
 
-        KnowledgeRuntimeLoggerFactory.newConsoleLogger((KnowledgeRuntimeEventManager) kieSession);
+        KnowledgeRuntimeLoggerFactory.newConsoleLogger(kieSession);
  
         logger.info("### Starting process ###");
         Map<String, Object> parameters = new HashMap<String, Object>();
@@ -127,11 +128,11 @@ public class LocalTaskServiceTest extends JbpmTestCase {
         ProcessInstance process = kieSession.startProcess(EVALUTION_ID, parameters);
 
         //The process is in the first Human Task waiting for its completion
-        Assert.assertEquals(ProcessInstance.STATE_ACTIVE, process.getState());
+        assertEquals(ProcessInstance.STATE_ACTIVE, process.getState());
 
         //gets salaboy's tasks
         List<TaskSummary> salaboysTasks = taskService.getTasksAssignedAsPotentialOwner("salaboy", "en-UK");
-        Assert.assertEquals(1, salaboysTasks.size());
+        assertEquals(1, salaboysTasks.size());
 
 
         taskService.start(salaboysTasks.get(0).getId(), "salaboy");
@@ -140,12 +141,12 @@ public class LocalTaskServiceTest extends JbpmTestCase {
 
         List<TaskSummary> pmsTasks = taskService.getTasksAssignedAsPotentialOwner("john", "en-UK");
 
-        Assert.assertEquals(1, pmsTasks.size());
+        assertEquals(1, pmsTasks.size());
 
 
         List<TaskSummary> hrsTasks = taskService.getTasksAssignedAsPotentialOwner("mary", "en-UK");
 
-        Assert.assertEquals(1, hrsTasks.size());
+        assertEquals(1, hrsTasks.size());
 
     }
 

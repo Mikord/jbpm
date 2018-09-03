@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,6 +26,7 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jbpm.kie.services.test.QueryServiceImplTest;
 import org.jbpm.kie.services.test.TestIdentityProvider;
+import org.jbpm.kie.services.test.objects.TestUserGroupCallbackImpl;
 import org.jbpm.services.api.DefinitionService;
 import org.jbpm.services.api.DeploymentService;
 import org.jbpm.services.api.ProcessService;
@@ -38,6 +39,8 @@ import org.junit.After;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static java.util.Collections.emptyList;
 
 @RunWith(Arquillian.class)
 public class QueryServiceCDIImplTest extends QueryServiceImplTest {
@@ -112,6 +115,7 @@ public class QueryServiceCDIImplTest extends QueryServiceImplTest {
                 .addClass("org.jbpm.services.cdi.test.util.CDITestHelperNoTaskService")
                 .addClass("org.jbpm.services.cdi.test.util.CountDownDeploymentListenerCDIImpl")
                 .addClass("org.jbpm.kie.services.test.objects.CoundDownDeploymentListener")
+                .addClass("org.jbpm.kie.services.test.objects.TestUserGroupCallbackImpl")
                 .addAsResource("jndi.properties", "jndi.properties")
                 .addAsManifestResource("META-INF/persistence.xml", ArchivePaths.create("persistence.xml"))
                 .addAsManifestResource("META-INF/beans.xml", ArchivePaths.create("beans.xml"));
@@ -134,35 +138,30 @@ public class QueryServiceCDIImplTest extends QueryServiceImplTest {
     @Inject 
     @Override
     public void setDeploymentService(DeploymentService deploymentService) {
-        
         super.setDeploymentService(deploymentService);
     }
 
     @Inject
     @Override
     public void setBpmn2Service(DefinitionService bpmn2Service) {
-        
         super.setBpmn2Service(bpmn2Service);
     }
 
     @Inject
     @Override
     public void setRuntimeDataService(RuntimeDataService runtimeDataService) {
-        
         super.setRuntimeDataService(runtimeDataService);
     }
 
     @Inject
     @Override
     public void setProcessService(ProcessService processService) {
-        
         super.setProcessService(processService);
     }
 
     @Inject
     @Override
     public void setUserTaskService(UserTaskService userTaskService) {
-        
         super.setUserTaskService(userTaskService);
     }
 
@@ -172,11 +171,16 @@ public class QueryServiceCDIImplTest extends QueryServiceImplTest {
         super.setQueryService(queryService);
     }
     
-    
-    @Inject   
+    @Inject
     @Override
     public void setIdentityProvider(TestIdentityProvider identityProvider) {
         super.setIdentityProvider(identityProvider);
+    }
+
+    @Inject
+    @Override
+    public void setUserGroupCallback(TestUserGroupCallbackImpl userGroupCallback) {
+        super.setUserGroupCallback(userGroupCallback);
     }
 
     @After
@@ -189,5 +193,9 @@ public class QueryServiceCDIImplTest extends QueryServiceImplTest {
         deleted += commandService.execute(new UpdateStringCommand("delete from  TaskEventImpl te"));
         deleted += commandService.execute(new UpdateStringCommand("delete from  TaskVariableImpl te"));
         logger.debug("Deleted " + deleted);
+        
+        identityProvider.setRoles(emptyList());
+        identityProvider.setName("testUser");
+        userGroupCallback.setUserGroups("testUser", emptyList());
     }
 }

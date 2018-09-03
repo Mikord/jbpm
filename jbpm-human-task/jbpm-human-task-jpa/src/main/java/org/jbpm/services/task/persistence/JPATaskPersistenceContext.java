@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.services.task.persistence;
 
@@ -43,6 +44,8 @@ import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 
 import org.drools.core.util.StringUtils;
+import org.jbpm.persistence.api.integration.EventManagerProvider;
+import org.jbpm.persistence.api.integration.model.TaskInstanceView;
 import org.jbpm.query.jpa.data.QueryWhere;
 import org.jbpm.services.task.impl.model.AttachmentImpl;
 import org.jbpm.services.task.impl.model.CommentImpl;
@@ -65,7 +68,10 @@ import org.kie.api.task.model.Task;
 import org.kie.api.task.model.TaskSummary;
 import org.kie.api.task.model.User;
 import org.kie.internal.task.api.TaskPersistenceContext;
+import org.kie.internal.task.api.model.ContentData;
 import org.kie.internal.task.api.model.Deadline;
+import org.kie.internal.task.api.model.FaultData;
+import org.kie.internal.task.api.model.InternalTaskData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,7 +115,7 @@ public class JPATaskPersistenceContext implements TaskPersistenceContext {
 		check();
 		Task task = null;
 		if( this.pessimisticLocking ) {
-			task = this.em.find( TaskImpl.class, taskId, LockModeType.PESSIMISTIC_FORCE_INCREMENT );
+			return this.em.find( TaskImpl.class, taskId, LockModeType.PESSIMISTIC_FORCE_INCREMENT );
         }
 		task = this.em.find( TaskImpl.class, taskId );
 		return task;
@@ -123,20 +129,27 @@ public class JPATaskPersistenceContext implements TaskPersistenceContext {
         	this.em.flush();
             return this.em.find(TaskImpl.class, task.getId(), LockModeType.PESSIMISTIC_FORCE_INCREMENT );
         }
+        EventManagerProvider.getInstance().get().create(new TaskInstanceView(task));
         return task;
 	}
 
 	@Override
 	public Task updateTask(Task task) {
 		check();
-		return this.em.merge(task);
+		Task updated = this.em.merge(task);
+		
+		EventManagerProvider.getInstance().get().update(new TaskInstanceView(task));
+		
+		return updated;
 	}
 
 	@Override
 	public Task removeTask(Task task) {
 		check();
 		em.remove( task );
-
+		
+		EventManagerProvider.getInstance().get().delete(new TaskInstanceView(task));
+		
 		return task;
 	}
 
@@ -290,6 +303,37 @@ public class JPATaskPersistenceContext implements TaskPersistenceContext {
 		em.remove( content );
 		return content;
 	}
+	
+	@Override
+	public Task setDocumentToTask(Content content, ContentData contentData, Task task) {
+		Long id = 0L;
+		if (content != null) {
+			id = content.getId();
+		}
+		((InternalTaskData) task.getTaskData()).setDocument(id, contentData);
+		return task;
+	}
+	
+	@Override
+	public Task setFaultToTask(Content content, FaultData faultData, Task task) {
+		Long id = 0L;
+		if (content != null) {
+			id = content.getId();
+		}
+		((InternalTaskData) task.getTaskData()).setFault(id, faultData);
+		return task;
+	}
+	
+	@Override
+	public Task setOutputToTask(Content content, ContentData contentData,
+			Task task) {
+		Long id = 0L;
+		if (content != null) {
+			id = content.getId();
+		}
+		((InternalTaskData) task.getTaskData()).setOutput(id, contentData);
+		return task;
+	}
 
 	@Override
 	public Attachment findAttachment(Long attachmentId) {
@@ -323,6 +367,24 @@ public class JPATaskPersistenceContext implements TaskPersistenceContext {
 		em.remove( attachment );
 		return attachment;
 	}
+	
+	@Override
+	public Attachment removeAttachmentFromTask(Task task, long attachmentId) {
+		Attachment removed = ((InternalTaskData) task.getTaskData()).removeAttachment(attachmentId);
+		
+		EventManagerProvider.getInstance().get().update(new TaskInstanceView(task));
+		
+		return removed;
+	}
+	
+	@Override
+	public Attachment addAttachmentToTask(Attachment attachment, Task task) {
+		((InternalTaskData) task.getTaskData()).addAttachment(attachment);
+		
+		EventManagerProvider.getInstance().get().update(new TaskInstanceView(task));
+		
+		return attachment;
+	}
 
 	@Override
 	public Comment findComment(Long commentId) {
@@ -354,6 +416,24 @@ public class JPATaskPersistenceContext implements TaskPersistenceContext {
 	public Comment removeComment(Comment comment) {
 		check();
 		em.remove( comment );
+		return comment;
+	}
+	
+	@Override
+	public Comment removeCommentFromTask(Comment comment, Task task) {
+		((InternalTaskData) task.getTaskData()).removeComment(comment.getId());
+		
+		EventManagerProvider.getInstance().get().update(new TaskInstanceView(task));
+		
+		return comment;
+	}
+	
+	@Override
+	public Comment addCommentToTask(Comment comment, Task task) {
+		((InternalTaskData) task.getTaskData()).addComment(comment);
+		
+		EventManagerProvider.getInstance().get().update(new TaskInstanceView(task));
+		
 		return comment;
 	}
 
@@ -479,6 +559,17 @@ public class JPATaskPersistenceContext implements TaskPersistenceContext {
 		return query.executeUpdate();
 	}
 
+	@Override
+	public int executeUpdate(String queryName, Map<String, Object> params) {
+		check();
+		Query query = this.em.createNamedQuery(queryName);
+		if (params != null) {
+			for (Map.Entry<String, Object> paramEntry : params.entrySet()) {
+				query.setParameter(paramEntry.getKey(), paramEntry.getValue());
+			}
+		}
+		return query.executeUpdate();
+	}
 
 
 	@Override

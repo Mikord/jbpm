@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,16 +22,17 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.drools.compiler.compiler.xml.XmlDumper;
 import org.drools.compiler.rule.builder.dialect.java.JavaDialect;
-import org.drools.core.process.core.datatype.DataType;
-import org.drools.core.process.core.datatype.impl.type.BooleanDataType;
-import org.drools.core.process.core.datatype.impl.type.FloatDataType;
-import org.drools.core.process.core.datatype.impl.type.IntegerDataType;
-import org.drools.core.process.core.datatype.impl.type.ObjectDataType;
-import org.drools.core.process.core.datatype.impl.type.StringDataType;
+import org.jbpm.process.core.datatype.DataType;
+import org.jbpm.process.core.datatype.impl.type.BooleanDataType;
+import org.jbpm.process.core.datatype.impl.type.FloatDataType;
+import org.jbpm.process.core.datatype.impl.type.IntegerDataType;
+import org.jbpm.process.core.datatype.impl.type.ObjectDataType;
+import org.jbpm.process.core.datatype.impl.type.StringDataType;
 import org.drools.core.xml.BaseAbstractHandler;
 import org.drools.core.xml.ExtensibleXmlParser;
 import org.drools.core.xml.Handler;
@@ -41,6 +42,7 @@ import org.jbpm.bpmn2.core.Error;
 import org.jbpm.bpmn2.core.ItemDefinition;
 import org.jbpm.bpmn2.core.Lane;
 import org.jbpm.bpmn2.core.SequenceFlow;
+import org.jbpm.bpmn2.core.Signal;
 import org.jbpm.compiler.xml.ProcessBuildData;
 import org.jbpm.process.core.context.variable.Variable;
 import org.jbpm.ruleflow.core.RuleFlowProcess;
@@ -144,7 +146,7 @@ public abstract class AbstractNodeHandler extends BaseAbstractHandler implements
         return node;
     }
 
-    protected void handleNode(final Node node, final Element element, final String uri, 
+    protected void handleNode(final Node node, final Element element, final String uri,
                               final String localName, final ExtensibleXmlParser parser)
     	throws SAXException {
         final String x = element.getAttribute("x");
@@ -184,9 +186,9 @@ public abstract class AbstractNodeHandler extends BaseAbstractHandler implements
     public abstract void writeNode(final Node node, final StringBuilder xmlDump,
     		                       final int metaDataType);
 
-    protected void writeNode(final String name, final Node node, 
+    protected void writeNode(final String name, final Node node,
     		                 final StringBuilder xmlDump, int metaDataType) {
-    	xmlDump.append("    <" + name + " "); 
+    	xmlDump.append("    <" + name + " ");
         xmlDump.append("id=\"" + XmlBPMNProcessDumper.getUniqueNodeId(node) + "\" ");
         if (node.getName() != null) {
             xmlDump.append("name=\"" + XmlBPMNProcessDumper.replaceIllegalCharsAttribute(node.getName()) + "\" ");
@@ -319,7 +321,7 @@ public abstract class AbstractNodeHandler extends BaseAbstractHandler implements
             }
             String consequence = consequenceAction.getConsequence();
             if (consequence != null) {
-                xmlDump.append(">" + EOL + 
+                xmlDump.append(">" + EOL +
                     "          <tns:script>" + XmlDumper.replaceIllegalChars(consequence.trim()) + "</tns:script>" + EOL);
                 xmlDump.append("        </tns:" + type + "-script>" + EOL);
             } else {
@@ -470,7 +472,7 @@ public abstract class AbstractNodeHandler extends BaseAbstractHandler implements
         return dataType;
     }
 
-    protected String getErrorIdForErrorCode(String errorCode, Node node) { 
+    protected String getErrorIdForErrorCode(String errorCode, Node node) {
         org.kie.api.definition.process.NodeContainer parent = node.getNodeContainer();
         while( ! (parent instanceof RuleFlowProcess) && parent instanceof Node ) {
             parent = ((Node) parent).getNodeContainer();
@@ -480,7 +482,7 @@ public abstract class AbstractNodeHandler extends BaseAbstractHandler implements
         }
         List<Error> errors = ((Definitions) ((RuleFlowProcess) parent).getMetaData("Definitions")).getErrors();
         Error error = null;
-        for( Error listError : errors ) { 
+        for( Error listError : errors ) {
             if( errorCode.equals(listError.getErrorCode()) ) {
                 error = listError;
                 break;
@@ -496,9 +498,9 @@ public abstract class AbstractNodeHandler extends BaseAbstractHandler implements
     }
 
     protected void handleThrowCompensationEventNode(final Node node, final Element element,
-            final String uri, final String localName, final ExtensibleXmlParser parser) { 
+            final String uri, final String localName, final ExtensibleXmlParser parser) {
         org.w3c.dom.Node xmlNode = element.getFirstChild();
-        assert node instanceof ActionNode || node instanceof EndNode 
+        assert node instanceof ActionNode || node instanceof EndNode
              : "Node is neither an ActionNode nor an EndNode but a " + node.getClass().getSimpleName();
         while (xmlNode != null) {
             if ("compensateEventDefinition".equals(xmlNode.getNodeName())) {
@@ -509,11 +511,11 @@ public abstract class AbstractNodeHandler extends BaseAbstractHandler implements
                 node.setMetaData("compensation-activityRef", activityRef);
 
                 /**
-                 * waitForCompletion: 
-                 * BPMN 2.0 Spec, p. 304: 
-                 * "By default, compensation is triggered synchronously, that is the compensation throw event 
-                 *  waits for the completion of the triggered compensation handler. 
-                 *  Alternatively, compensation can be triggered without waiting for its completion, 
+                 * waitForCompletion:
+                 * BPMN 2.0 Spec, p. 304:
+                 * "By default, compensation is triggered synchronously, that is the compensation throw event
+                 *  waits for the completion of the triggered compensation handler.
+                 *  Alternatively, compensation can be triggered without waiting for its completion,
                  *  by setting the throw compensation event's waitForCompletion attribute to false."
                  */
                 String nodeId = (String) node.getMetaData().get("UniqueId");
@@ -555,9 +557,9 @@ public abstract class AbstractNodeHandler extends BaseAbstractHandler implements
             signalExpression = RUNTIME_MANAGER_SIGNAL_EVENT + "org.jbpm.process.instance.impl.util.VariableUtil.resolveVariable(\""+ signalName + "\", kcontext.getNodeInstance()), " + (variable == null ? "null" : variable) + ");";
         } else if ("external".equalsIgnoreCase(scope)) {
             signalExpression = "org.drools.core.process.instance.impl.WorkItemImpl workItem = new org.drools.core.process.instance.impl.WorkItemImpl();" + EOL +
-            "workItem.setName(\"External Send Task\");" + EOL + 
+            "workItem.setName(\"External Send Task\");" + EOL +
             "workItem.setNodeInstanceId(kcontext.getNodeInstance().getId());" + EOL +
-            "workItem.setProcessInstanceId(kcontext.getProcessInstance().getId());" + EOL + 
+            "workItem.setProcessInstanceId(kcontext.getProcessInstance().getId());" + EOL +
             "workItem.setNodeId(kcontext.getNodeInstance().getNodeId());" + EOL +
             "workItem.setDeploymentId((String) kcontext.getKnowledgeRuntime().getEnvironment().get(\"deploymentId\"));" + EOL +
             "workItem.setParameter(\"Signal\", org.jbpm.process.instance.impl.util.VariableUtil.resolveVariable(\""+ signalName + "\", kcontext.getNodeInstance()));" + EOL +
@@ -571,5 +573,31 @@ public abstract class AbstractNodeHandler extends BaseAbstractHandler implements
         }
 
         return signalExpression;
+    }
+
+    private static final String SIGNAL_NAMES = "signalNames";
+
+    protected String checkSignalAndConvertToRealSignalNam(ExtensibleXmlParser parser, String signalName) {
+        ProcessBuildData buildData = ((ProcessBuildData) parser.getData());
+
+        Set<String> signalNames = (Set<String>) buildData.getMetaData(SIGNAL_NAMES);
+        if( signalNames == null ) {
+           signalNames = new HashSet<>();
+           buildData.setMetaData(SIGNAL_NAMES, signalNames);
+        }
+        signalNames.add(signalName);
+
+        Map<String, Signal> signals = (Map<String, Signal>) buildData.getMetaData("Signals");
+        if (signals != null ) {
+            if( signals.containsKey(signalName)) {
+                Signal signal = signals.get(signalName);
+                signalName = signal.getName();
+                if (signalName == null) {
+                    throw new IllegalArgumentException("Signal definition must have a name attribute");
+                }
+            }
+        }
+
+        return signalName;
     }
 }

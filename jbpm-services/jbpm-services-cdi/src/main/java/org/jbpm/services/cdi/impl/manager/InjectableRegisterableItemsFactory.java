@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.inject.Any;
 import javax.enterprise.inject.Instance;
@@ -33,13 +32,12 @@ import javax.enterprise.inject.spi.BeanManager;
 import javax.inject.Inject;
 
 import org.drools.compiler.kie.builder.impl.KieContainerImpl;
-import org.drools.compiler.kie.util.CDIHelper;
+import org.drools.compiler.kie.util.InjectionHelper;
 import org.drools.core.util.StringUtils;
 import org.jbpm.process.audit.AbstractAuditLogger;
 import org.jbpm.process.audit.AuditLoggerFactory;
 import org.jbpm.process.audit.JPAWorkingMemoryDbLogger;
 import org.jbpm.process.audit.event.AuditEventBuilder;
-import org.jbpm.process.instance.event.listeners.TriggerRulesEventListener;
 import org.jbpm.runtime.manager.api.qualifiers.Agenda;
 import org.jbpm.runtime.manager.api.qualifiers.Process;
 import org.jbpm.runtime.manager.api.qualifiers.Task;
@@ -51,13 +49,13 @@ import org.kie.api.builder.model.KieSessionModel;
 import org.kie.api.event.process.ProcessEventListener;
 import org.kie.api.event.rule.AgendaEventListener;
 import org.kie.api.event.rule.RuleRuntimeEventListener;
+import org.kie.api.executor.ExecutorService;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.manager.RegisterableItemsFactory;
 import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.WorkItemHandler;
 import org.kie.api.task.TaskLifeCycleEventListener;
-import org.kie.api.executor.ExecutorService;
 import org.kie.internal.runtime.conf.AuditMode;
 import org.kie.internal.runtime.conf.DeploymentDescriptor;
 import org.kie.internal.runtime.manager.EventListenerProducer;
@@ -159,10 +157,10 @@ public class InjectableRegisterableItemsFactory extends DefaultRegisterableItems
             }
             try {
 
-                CDIHelper.wireListnersAndWIHs(ksessionModel, runtime.getKieSession(), parameters);
+                InjectionHelper.wireSessionComponents(ksessionModel, runtime.getKieSession(), parameters);
             } catch (Throwable e) {
                 // use fallback mechanism
-                CDIHelper.wireListnersAndWIHs(ksessionModel, runtime.getKieSession());
+                InjectionHelper.wireSessionComponents(ksessionModel, runtime.getKieSession());
             }
         }
         try {
@@ -222,7 +220,6 @@ public class InjectableRegisterableItemsFactory extends DefaultRegisterableItems
     @Override
     public List<AgendaEventListener> getAgendaEventListeners(RuntimeEngine runtime) {
         List<AgendaEventListener> defaultListeners = new ArrayList<AgendaEventListener>();
-        defaultListeners.add(new TriggerRulesEventListener(runtime.getKieSession()));
         try {
             for (EventListenerProducer<AgendaEventListener> producer : agendaListenerProducer) {
                 defaultListeners.addAll(producer.getEventListeners(((RuntimeEngineImpl)runtime).getManager().getIdentifier(), getParametersMap(runtime)));

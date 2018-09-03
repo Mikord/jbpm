@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +22,13 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
+import org.drools.core.command.impl.RegistryContext;
+import org.drools.core.common.InternalKnowledgeRuntime;
+import org.drools.core.runtime.process.InternalProcessRuntime;
+import org.drools.persistence.api.TransactionManager;
+import org.jbpm.process.instance.ProcessRuntimeImpl;
 import org.jbpm.services.task.impl.TaskContentRegistry;
+import org.kie.api.command.ExecutableCommand;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.Context;
 import org.kie.api.runtime.manager.RuntimeEngine;
@@ -77,33 +83,89 @@ public class SingletonRuntimeManager extends AbstractRuntimeManager {
     }
     
     public void init() {
-
+        
         // TODO should we proxy/wrap the ksession so we capture dispose.destroy method calls?
         String location = getLocation();
         Long knownSessionId = getPersistedSessionId(location, identifier);
-        InternalTaskService internalTaskService = (InternalTaskService) taskServiceFactory.newTaskService();
+        InternalTaskService internalTaskService = newTaskService(taskServiceFactory);
         
-        
-        if (knownSessionId > 0) {
-            try {
-                this.singleton = new SynchronizedRuntimeImpl(factory.findKieSessionById(knownSessionId), internalTaskService);
-            } catch (RuntimeException e) {
-                // in case session with known id was found
-            }
-        } 
-        
-        if (this.singleton == null) {
-            
-            this.singleton = new SynchronizedRuntimeImpl(factory.newKieSession(), internalTaskService);            
-            persistSessionId(location, identifier, singleton.getKieSession().getIdentifier());
+        boolean owner = false;
+        TransactionManager tm = null;
+        if (environment.usePersistence()) {
+            tm = getTransactionManagerInternal(environment.getEnvironment());
+            owner = tm.begin();
         }
-        ((RuntimeEngineImpl) singleton).setManager(this);
-        TaskContentRegistry.get().addMarshallerContext(getIdentifier(), 
-    			new ContentMarshallerContext(environment.getEnvironment(), environment.getClassLoader()));
-        configureRuntimeOnTaskService(internalTaskService, singleton);
-        registerItems(this.singleton);
-        attachManager(this.singleton);
-        this.registry.register(this);
+        try {
+            if (knownSessionId > 0) {
+                try {
+                    this.singleton = new SynchronizedRuntimeImpl(factory.findKieSessionById(knownSessionId), internalTaskService);
+                } catch (RuntimeException e) {
+                    // in case session with known id was found
+                }
+            } 
+            
+            if (this.singleton == null) {
+                
+                this.singleton = new SynchronizedRuntimeImpl(factory.newKieSession(), internalTaskService);            
+                persistSessionId(location, identifier, singleton.getKieSession().getIdentifier());
+            }
+            ((RuntimeEngineImpl) singleton).setManager(this);
+            TaskContentRegistry.get().addMarshallerContext(getIdentifier(), 
+        			new ContentMarshallerContext(environment.getEnvironment(), environment.getClassLoader()));
+            configureRuntimeOnTaskService(internalTaskService, singleton);
+            registerItems(this.singleton);
+            attachManager(this.singleton);
+            this.registry.register(this);
+            if (tm != null) {
+                tm.commit(owner);
+            }
+        } catch (Exception e) {
+            if (tm != null) {
+                tm.rollback(owner);
+            }
+            throw new RuntimeException("Exception while initializing runtime manager " + this.identifier, e);
+        }
+    }
+    
+    @Override
+    public void activate() {
+        super.activate();
+        this.singleton.getKieSession().execute(new ExecutableCommand<Void>() {
+
+            private static final long serialVersionUID = 4698203316007668876L;
+
+            @Override
+            public Void execute(org.kie.api.runtime.Context context) {
+                KieSession ksession = ((RegistryContext) context).lookup( KieSession.class );
+                ksession.getEnvironment().set("Active", true);
+                
+                InternalProcessRuntime processRuntime = ((InternalKnowledgeRuntime) ksession).getProcessRuntime();
+                ((ProcessRuntimeImpl) processRuntime).initProcessEventListeners();
+                ((ProcessRuntimeImpl) processRuntime).initStartTimers();
+                return null;
+            }
+        });
+        
+    }
+
+    @Override
+    public void deactivate() {
+        super.deactivate();
+        this.singleton.getKieSession().execute(new ExecutableCommand<Void>() {
+
+            private static final long serialVersionUID = 8099201526203340191L;
+
+            @Override
+            public Void execute(org.kie.api.runtime.Context context) {
+                KieSession ksession = ((RegistryContext) context).lookup( KieSession.class );
+                ksession.getEnvironment().set("Active", false);
+                
+                InternalProcessRuntime processRuntime = ((InternalKnowledgeRuntime) ksession).getProcessRuntime();
+                ((ProcessRuntimeImpl) processRuntime).removeProcessEventListeners();
+                return null;
+            }
+        });
+        
     }
 
     @SuppressWarnings("rawtypes")

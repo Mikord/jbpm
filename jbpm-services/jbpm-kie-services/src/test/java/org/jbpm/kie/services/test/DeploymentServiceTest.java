@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,14 +15,6 @@
  */
 
 package org.jbpm.kie.services.test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -47,11 +39,14 @@ import org.kie.api.builder.ReleaseId;
 import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.ProcessInstance;
-import org.kie.api.task.model.TaskSummary;
 import org.kie.api.runtime.query.QueryContext;
+import org.kie.api.task.model.TaskSummary;
 import org.kie.internal.runtime.manager.InternalRuntimeManager;
 import org.kie.internal.runtime.manager.context.EmptyContext;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
+
+import static org.junit.Assert.*;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 public class DeploymentServiceTest extends AbstractKieServicesBaseTest {
 
@@ -79,7 +74,7 @@ public class DeploymentServiceTest extends AbstractKieServicesBaseTest {
         } catch (Exception e) {
 
         }
-        MavenRepository repository = getMavenRepository();
+        KieMavenRepository repository = getKieMavenRepository();
         repository.deployArtifact(releaseId, kJar1, pom);
 
         ReleaseId releaseIdSupport = ks.newReleaseId(GROUP_ID, "support", VERSION);
@@ -99,7 +94,7 @@ public class DeploymentServiceTest extends AbstractKieServicesBaseTest {
 
         repository.deployArtifact(releaseIdSupport, kJar2, pom2);
 
-        ReleaseId releaseId3 = ks.newReleaseId(GROUP_ID, ARTIFACT_ID, "1.1.0-SNAPSHOT");
+        ReleaseId releaseId3 = ks.newReleaseId(GROUP_ID, ARTIFACT_ID, "1.1.0");
         processes.add("repo/rules/RuleWIthDeclaredType.drl");
 
         InternalKieModule kJar3 = createKieJar(ks, releaseId3, processes);
@@ -112,7 +107,7 @@ public class DeploymentServiceTest extends AbstractKieServicesBaseTest {
         } catch (Exception e) {
 
         }
-        repository = getMavenRepository();
+        repository = getKieMavenRepository();
         repository.deployArtifact(releaseId3, kJar3, pom3);
     }
 
@@ -255,7 +250,7 @@ public class DeploymentServiceTest extends AbstractKieServicesBaseTest {
         assertNotNull(deploymentService);
 
         DeploymentUnit deploymentUnit = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, VERSION);
-        DeploymentUnit deploymentUnit3 = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, "1.1.0-SNAPSHOT");
+        DeploymentUnit deploymentUnit3 = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, "1.1.0");
 
         deploymentService.deploy(deploymentUnit);
         units.add(deploymentUnit);
@@ -348,7 +343,7 @@ public class DeploymentServiceTest extends AbstractKieServicesBaseTest {
 
         assertNotNull(deploymentService);
 
-        DeploymentUnit deploymentUnit3 = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, "1.1.0-SNAPSHOT");
+        DeploymentUnit deploymentUnit3 = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, "1.1.0");
 
         deploymentService.deploy(deploymentUnit3);
         units.add(deploymentUnit3);

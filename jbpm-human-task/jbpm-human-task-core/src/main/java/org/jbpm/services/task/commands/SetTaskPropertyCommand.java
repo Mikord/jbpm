@@ -1,36 +1,36 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.services.task.commands;
 
-import java.util.Date;
-import java.util.List;
+import org.jbpm.services.task.impl.model.xml.JaxbFaultData;
+import org.jbpm.services.task.impl.model.xml.JaxbI18NText;
+import org.kie.api.runtime.Context;
+import org.kie.api.task.model.I18NText;
+import org.kie.internal.task.api.TaskInstanceService;
+import org.kie.internal.task.api.model.FaultData;
+import org.kie.internal.task.api.model.SubTasksStrategy;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlSchemaType;
-
-import org.jbpm.services.task.impl.model.xml.JaxbFaultData;
-import org.jbpm.services.task.impl.model.xml.JaxbI18NText;
-import org.kie.api.task.model.I18NText;
-import org.kie.internal.command.Context;
-import org.kie.internal.task.api.TaskInstanceService;
-import org.kie.internal.task.api.model.FaultData;
-import org.kie.internal.task.api.model.SubTasksStrategy;
+import java.util.Date;
+import java.util.List;
 
 @XmlRootElement(name="set-task-property-command")
 @XmlAccessorType(XmlAccessType.NONE)
@@ -259,11 +259,11 @@ public class SetTaskPropertyCommand extends UserGroupCallbackTaskCommand<Void> {
         
         switch (property) {
 		case FAULT_PROPERTY:
-			doCallbackUserOperation(userId, context);
+			doCallbackUserOperation(userId, context, true);
 			service.setFault(taskId, userId, faultData);
 			break;
 		case OUTPUT_PROPERTY:
-			doCallbackUserOperation(userId, context);
+			doCallbackUserOperation(userId, context, true);
 			service.setOutput(taskId, userId, output);
 			break;
 		case PRIORITY_PROPERTY:

@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package org.jbpm.test.functional.jobexec;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
 import javax.naming.InitialContext;
 import javax.transaction.UserTransaction;
@@ -25,13 +26,17 @@ import javax.transaction.UserTransaction;
 import org.assertj.core.api.Assertions;
 import org.jbpm.executor.impl.ExecutorServiceImpl;
 import org.jbpm.executor.impl.wih.AsyncWorkItemHandler;
+import org.jbpm.persistence.util.PersistenceUtil;
 import org.jbpm.test.JbpmAsyncJobTestCase;
 import org.jbpm.test.listener.CountDownAsyncJobListener;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.Test;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.process.WorkItemManager;
 import org.kie.api.runtime.query.QueryContext;
+
+import static org.junit.Assert.*;
 
 public class AsyncTaskTransactionTest extends JbpmAsyncJobTestCase {
 
@@ -50,14 +55,20 @@ public class AsyncTaskTransactionTest extends JbpmAsyncJobTestCase {
         ((ExecutorServiceImpl) getExecutorService()).addAsyncJobListener(countDownListener);
         KieSession ksession = registerAsyncHandler(createKSession(ASYNC_EXECUTOR_2, ASYNC_DATA_EXECUTOR));
 
+        ProcessInstance pi;
         UserTransaction ut = getUserTransaction();
-        ut.begin();
+        try {
+            ut.begin();
 
-        Map<String, Object> pm = new HashMap<String, Object>();
-        pm.put("_command", USER_COMMAND);
-        ProcessInstance pi = ksession.startProcess(ASYNC_EXECUTOR_2_ID, pm);
+            Map<String, Object> pm = new HashMap<String, Object>();
+            pm.put("_command", USER_COMMAND);
+            pi = ksession.startProcess(ASYNC_EXECUTOR_2_ID, pm);
 
-        ut.commit();
+            ut.commit();
+        } catch (Exception ex) {
+            ut.rollback();
+            throw ex;
+        }
 
         assertProcessInstanceCompleted(pi.getId());
 
@@ -69,18 +80,20 @@ public class AsyncTaskTransactionTest extends JbpmAsyncJobTestCase {
     public void testJobRollbackInAsyncExec() throws Exception {
         KieSession ksession = registerAsyncHandler(createKSession(ASYNC_EXECUTOR_2, ASYNC_DATA_EXECUTOR));
 
+        long processId;
         UserTransaction ut = getUserTransaction();
-        ut.begin();
+        try {
+            ut.begin();
 
-        Map<String, Object> pm = new HashMap<String, Object>();
-        pm.put("_command", USER_COMMAND);
-        ProcessInstance pi = ksession.startProcess(ASYNC_EXECUTOR_2_ID, pm);
+            Map<String, Object> pm = new HashMap<String, Object>();
+            pm.put("_command", USER_COMMAND);
+            ProcessInstance pi = ksession.startProcess(ASYNC_EXECUTOR_2_ID, pm);
+            processId = pi.getId();
+        } finally {
+            ut.rollback();
+        }
 
-        assertProcessInstanceCompleted(pi.getId());
-
-        ut.rollback();
-
-        assertProcessInstanceNeverRun(pi.getId());
+        assertProcessInstanceNeverRun(processId);
         Assertions.assertThat(getExecutorService().getCompletedRequests(new QueryContext())).hasSize(0);
     }
 
@@ -90,14 +103,21 @@ public class AsyncTaskTransactionTest extends JbpmAsyncJobTestCase {
         ((ExecutorServiceImpl) getExecutorService()).addAsyncJobListener(countDownListener);
         KieSession ksession = registerAsyncHandler(createKSession(ASYNC_DATA_EXECUTOR));
 
+        ProcessInstance pi;
         UserTransaction ut = getUserTransaction();
-        ut.begin();
+        try {
+            ut.begin();
 
-        Map<String, Object> pm = new HashMap<String, Object>();
-        pm.put("command", USER_COMMAND);
-        ProcessInstance pi = ksession.startProcess(ASYNC_DATA_EXECUTOR_ID, pm);
-        // the JobExecutor will act on the job only after commit
-        ut.commit();
+            Map<String, Object> pm = new HashMap<String, Object>();
+            pm.put("command", USER_COMMAND);
+            pm.put("delayAsync", "2s");
+            pi = ksession.startProcess(ASYNC_DATA_EXECUTOR_ID, pm);
+            // the JobExecutor will act on the job only after commit
+            ut.commit();
+        } catch (Exception ex) {
+            ut.rollback();
+            throw ex;
+        }
 
         countDownListener.waitTillCompleted();
         ProcessInstance processInstance = ksession.getProcessInstance(pi.getId());
@@ -110,15 +130,19 @@ public class AsyncTaskTransactionTest extends JbpmAsyncJobTestCase {
         KieSession ksession = registerAsyncHandler(createKSession(ASYNC_DATA_EXECUTOR));
 
         UserTransaction ut = getUserTransaction();
-        ut.begin();
+        long processId;
+        try {
+            ut.begin();
 
-        Map<String, Object> pm = new HashMap<String, Object>();
-        pm.put("_command", USER_FAILING_COMMAND);
-        ProcessInstance pi = ksession.startProcess(ASYNC_DATA_EXECUTOR_ID, pm);
+            Map<String, Object> pm = new HashMap<String, Object>();
+            pm.put("_command", USER_FAILING_COMMAND);
+            ProcessInstance pi = ksession.startProcess(ASYNC_DATA_EXECUTOR_ID, pm);
+            processId = pi.getId();
+        } finally {
+            ut.rollback();
+        }
 
-        ut.rollback();
-
-        assertProcessInstanceNeverRun(pi.getId());
+        assertProcessInstanceNeverRun(processId);
     }
 
     private UserTransaction getUserTransaction() throws Exception {
@@ -132,4 +156,20 @@ public class AsyncTaskTransactionTest extends JbpmAsyncJobTestCase {
         return ksession;
     }
 
+    @Override
+    protected PoolingDataSource setupPoolingDataSource() {        
+        
+        Properties dsProps = PersistenceUtil.getDatasourceProperties();
+        String jdbcUrl = dsProps.getProperty("url");
+        String driverClass = dsProps.getProperty("driverClassName");        
+
+        // Setup the datasource
+        PoolingDataSource ds1 = PersistenceUtil.setupPoolingDataSource(dsProps, "jdbc/jbpm-ds", false);
+        if (driverClass.startsWith("org.h2")) {
+            ds1.getDriverProperties().setProperty("url", jdbcUrl);
+        }
+        ds1.getDriverProperties().setProperty("POOL_CONNECTIONS", "false");
+        ds1.init();
+        return ds1;
+    }
 }

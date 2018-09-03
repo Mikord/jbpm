@@ -7,13 +7,19 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm</artifactId>
-    <version>7.0.0-SNAPSHOT</version>
+    <version>7.11.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>jbpm-audit</artifactId>
   <packaging>bundle</packaging>
 
   <name>jBPM :: Audit</name>
+
+  <properties>
+    <java.module.name>org.jbpm.process.audit</java.module.name>
+
+    <maven.jdbc.url>jdbc:h2:mem:bamTest;MVCC=TRUE</maven.jdbc.url>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -29,12 +35,20 @@
       <artifactId>drools-persistence-jpa</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.drools</groupId>
+      <artifactId>drools-persistence-api</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.jbpm</groupId>
       <artifactId>jbpm-query-jpa</artifactId>
     </dependency>
     <dependency>
       <groupId>org.hibernate.javax.persistence</groupId>
-      <artifactId>hibernate-jpa-2.0-api</artifactId>
+      <artifactId>hibernate-jpa-2.1-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-commons</artifactId>
     </dependency>
     <dependency>
       <groupId>org.kie</groupId>
@@ -50,7 +64,17 @@
     </dependency>
     <dependency>
       <groupId>org.jboss.spec.javax.jms</groupId>
-      <artifactId>jboss-jms-api_1.1_spec</artifactId>
+      <artifactId>jboss-jms-api_2.0_spec</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jboss.spec.javax.xml.bind</groupId>
+      <artifactId>jboss-jaxb-api_2.2_spec</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jboss.spec.javax.annotation</groupId>
+      <artifactId>jboss-annotations-api_1.2_spec</artifactId>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -69,7 +93,32 @@
     <!-- TEST -->
     <dependency>
       <groupId>org.jbpm</groupId>
+      <artifactId>jbpm-test-util</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jbpm</groupId>
       <artifactId>jbpm-flow-builder</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-impl</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>javax.activation</groupId>
+      <artifactId>activation</artifactId>
       <scope>test</scope>
     </dependency>
     
@@ -101,8 +150,8 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.codehaus.btm</groupId>
-      <artifactId>btm</artifactId>
+      <groupId>org.jboss.narayana.jta</groupId>
+      <artifactId>narayana-jta</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -115,35 +164,20 @@
     <!-- Test: jms -->
     <dependency>
       <groupId>org.hornetq</groupId>
-      <artifactId>hornetq-server</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>io.netty</groupId>
-          <artifactId>netty</artifactId>
-        </exclusion>
-      </exclusions>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.hornetq</groupId>
-      <artifactId>hornetq-jms-client</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>io.netty</groupId>
-          <artifactId>netty</artifactId>
-        </exclusion>
-      </exclusions>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.hornetq</groupId>
       <artifactId>hornetq-jms-server</artifactId>
       <scope>test</scope>
+      <exclusions>
+        <!-- Not needed for tests. It also introduces circular dependency on hornetq-journal and hornetq-commons which
+             confuses the enforcer-ban-duplicated-classes rule. -->
+        <exclusion>
+          <groupId>org.jboss.jbossts.jts</groupId>
+          <artifactId>jbossjts-jacorb</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.jboss.spec.javax.transaction</groupId>
+          <artifactId>jboss-transaction-api_1.1_spec</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     
     <!-- Test: logging -->
@@ -156,14 +190,14 @@
   
   <build>
     <testResources>
-        <testResource>
-            <directory>src/test/resources</directory>
-            <filtering>false</filtering>
-        </testResource>
-        <testResource>
-            <directory>src/test/filtered-resources</directory>
-            <filtering>true</filtering>
-        </testResource>
+      <testResource>
+        <directory>src/test/resources</directory>
+        <filtering>false</filtering>
+      </testResource>
+      <testResource>
+        <directory>src/test/filtered-resources</directory>
+        <filtering>true</filtering>
+      </testResource>
     </testResources>
 
     <plugins>
@@ -172,7 +206,7 @@
               otherwise we get tests failing because of leftover db's -->
         <artifactId>maven-clean-plugin</artifactId>
         <configuration>
-         <filesets>
+          <filesets>
             <fileset>
               <directory>${basedir}</directory>
               <includes>
@@ -180,7 +214,7 @@
                 <include>*.db</include>
               </includes>
             </fileset>
-         </filesets>
+          </filesets>
         </configuration>
       </plugin>
 
@@ -189,14 +223,12 @@
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
-            <Bundle-SymbolicName>org.jbpm.process.audit</Bundle-SymbolicName>
             <Import-Package>
               !org.jbpm.process.audit,
               javassist.util.proxy;resolution:=optional,
               org.hibernate.proxy;resolution:=optional,
               *
             </Import-Package>
-            <Private-Package/>
             <Export-Package>
               org.jbpm.process.audit*
             </Export-Package>
@@ -212,7 +244,7 @@
           </annotationProcessors>
         </configuration>
       </plugin>
-      
+
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
@@ -233,11 +265,5 @@
       </plugin>
     </plugins>
   </build>
-
-  
-
-  <properties>
-    <maven.jdbc.url>jdbc:h2:mem:bamTest;MVCC=TRUE</maven.jdbc.url>
-  </properties>
 
 </project>

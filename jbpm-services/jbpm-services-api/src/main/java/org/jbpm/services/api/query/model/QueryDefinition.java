@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package org.jbpm.services.api.query.model;
 
+import java.util.Map;
 
 /**
  * Definition of a query that can be registered in the query service
@@ -29,6 +30,9 @@ public interface QueryDefinition {
         BA_TASK,
         PO_TASK,
         JOBS,
+        FILTERED_PROCESS,
+        FILTERED_BA_TASK,
+        FILTERED_PO_TASK,
         CUSTOM;
     }
 
@@ -75,4 +79,9 @@ public interface QueryDefinition {
      * @return
      */
     Target getTarget();
+    
+    /**
+     * Returns resolved columns types once the query was successfully registered.
+     */
+    Map<String, String> getColumns();
 }

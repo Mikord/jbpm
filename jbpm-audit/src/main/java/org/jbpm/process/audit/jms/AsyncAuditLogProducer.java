@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.process.audit.jms;
 
@@ -41,6 +42,8 @@ import org.slf4j.LoggerFactory;
 
 import com.thoughtworks.xstream.XStream;
 
+import static org.kie.soup.commons.xstream.XStreamUtils.createXStream;
+
 /**
  * Asynchronous log producer that puts audit log events into JMS queue.
  * It expects to have following objects available before it is fully operational:
@@ -67,17 +70,27 @@ public class AsyncAuditLogProducer extends AbstractAuditLogger {
     private ConnectionFactory connectionFactory;    
     private Queue queue;
     private boolean transacted = true;
+    private XStream xstream;
     
     private ProcessIndexerManager indexManager = ProcessIndexerManager.get();
 
     public AsyncAuditLogProducer() {
-        
+        initXStream();
     }
     
     public AsyncAuditLogProducer(KieSession session, boolean transacted) {
         super(session);
         this.transacted = transacted;
         session.addEventListener(this);
+        initXStream();
+    }
+
+    private void initXStream() {
+        if(xstream==null) {
+            xstream = createXStream();
+            String[] voidDeny = {"void.class", "Void.class"};
+            xstream.denyTypes(voidDeny);
+        }
     }
 
     public ConnectionFactory getConnectionFactory() {
@@ -168,8 +181,7 @@ public class AsyncAuditLogProducer extends AbstractAuditLogger {
         try {
             queueConnection = connectionFactory.createConnection();
             queueSession = queueConnection.createSession(transacted, Session.AUTO_ACKNOWLEDGE);
-           
-            XStream xstream = new XStream();
+
             String eventXml = xstream.toXML(messageContent);
             TextMessage message = queueSession.createTextMessage(eventXml);
             message.setIntProperty("EventType", eventType);

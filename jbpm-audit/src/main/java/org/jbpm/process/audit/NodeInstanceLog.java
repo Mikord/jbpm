@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,13 +24,18 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Index;
 import javax.persistence.SequenceGenerator;
+import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
 import org.jbpm.process.audit.event.AuditEvent;
 
 @Entity
+@Table(name = "NodeInstanceLog", indexes = {@Index(name = "IDX_NInstLog_pInstId", columnList = "processInstanceId"),
+                                        @Index(name = "IDX_NInstLog_nodeType", columnList = "nodeType"),
+                                        @Index(name = "IDX_NInstLog_pId", columnList = "processId")})
 @SequenceGenerator(name="nodeInstanceLogIdSeq", sequenceName="NODE_INST_LOG_ID_SEQ", allocationSize=1)
 public class NodeInstanceLog implements Serializable, AuditEvent, org.kie.api.runtime.manager.audit.NodeInstanceLog {
    
@@ -57,6 +62,16 @@ public class NodeInstanceLog implements Serializable, AuditEvent, org.kie.api.ru
     private String connection;
     
     private String externalId;
+    
+    private Long referenceId;    
+    private String nodeContainerId;
+    
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "sla_due_date")
+    private Date slaDueDate;
+    
+    @Column(nullable=true)
+    private Integer slaCompliance;
     
     public NodeInstanceLog() {
     }
@@ -162,6 +177,10 @@ public class NodeInstanceLog implements Serializable, AuditEvent, org.kie.api.ru
                 + ((connection == null) ? 0 : connection.hashCode());
 		result = prime * result
                 + ((externalId == null) ? 0 : externalId.hashCode());
+		result = prime * result
+                + ((referenceId == null) ? 0 : referenceId.hashCode());
+        result = prime * result
+                + ((nodeContainerId == null) ? 0 : nodeContainerId.hashCode());
 		return result;
 	}
 
@@ -224,6 +243,19 @@ public class NodeInstanceLog implements Serializable, AuditEvent, org.kie.api.ru
                 return false;
         } else if (!externalId.equals(other.externalId))
             return false;
+		
+		if (referenceId == null) {
+            if (other.referenceId != null)
+                return false;
+        } else if (!referenceId.equals(other.referenceId))
+            return false;
+        
+        if (nodeContainerId == null) {
+            if (other.nodeContainerId != null)
+                return false;
+        } else if (!nodeContainerId.equals(other.nodeContainerId))
+            return false;
+		
 		return true;
 	}
 
@@ -257,6 +289,38 @@ public class NodeInstanceLog implements Serializable, AuditEvent, org.kie.api.ru
 
     public void setNodeType(String nodeType) {
         this.nodeType = nodeType;
+    }
+    
+    public Long getReferenceId() {
+        return referenceId;
+    }
+    
+    public void setReferenceId(Long referenceId) {
+        this.referenceId = referenceId;
+    }
+    
+    public String getNodeContainerId() {
+        return nodeContainerId;
+    }
+    
+    public void setNodeContainerId(String nodeContainerId) {
+        this.nodeContainerId = nodeContainerId;
+    }
+    
+    public Date getSlaDueDate() {
+        return slaDueDate;
+    }
+   
+    public void setSlaDueDate(Date slaDueDate) {
+        this.slaDueDate = slaDueDate;
+    }
+    
+    public Integer getSlaCompliance() {
+        return slaCompliance;
+    }
+    
+    public void setSlaCompliance(Integer slaCompliance) {
+        this.slaCompliance = slaCompliance;
     }
   	
 }

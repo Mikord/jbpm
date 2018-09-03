@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +24,9 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Index;
 import javax.persistence.SequenceGenerator;
+import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
@@ -33,6 +35,20 @@ import org.jbpm.process.audit.event.AuditEventBuilder;
 import org.kie.api.runtime.KieRuntime;
 
 @Entity
+@Table(name = "ProcessInstanceLog", indexes = {@Index(name = "IDX_PInstLog_duration", columnList = "duration"),
+                                        @Index(name = "IDX_PInstLog_end_date", columnList = "end_date"),
+                                        @Index(name = "IDX_PInstLog_extId", columnList = "externalId"),
+                                        @Index(name = "IDX_PInstLog_user_identity", columnList = "user_identity"),
+                                        @Index(name = "IDX_PInstLog_outcome", columnList = "outcome"),
+                                        @Index(name = "IDX_PInstLog_parentPInstId", columnList = "parentProcessInstanceId"),
+                                        @Index(name = "IDX_PInstLog_pId", columnList = "processId"),
+                                        @Index(name = "IDX_PInstLog_pInsteDescr", columnList = "processInstanceDescription"),
+                                        @Index(name = "IDX_PInstLog_pInstId", columnList = "processInstanceId"),
+                                        @Index(name = "IDX_PInstLog_pName", columnList = "processName"),
+                                        @Index(name = "IDX_PInstLog_pVersion", columnList = "processVersion"),
+                                        @Index(name = "IDX_PInstLog_start_date", columnList = "start_date"),
+                                        @Index(name = "IDX_PInstLog_status", columnList = "status"),
+                                        @Index(name = "IDX_PInstLog_correlation", columnList = "correlationKey")})
 @SequenceGenerator(name="processInstanceLogIdSeq", sequenceName="PROC_INST_LOG_ID_SEQ", allocationSize=1)
 public class ProcessInstanceLog implements Serializable, AuditEvent, org.kie.api.runtime.manager.audit.ProcessInstanceLog {
     
@@ -73,7 +89,10 @@ public class ProcessInstanceLog implements Serializable, AuditEvent, org.kie.api
     private String processName;
     
     private String correlationKey;
-   
+    
+    @Column(nullable=true)
+    private Integer processType;
+      
     /**
      * Dependening on the {@link AuditEventBuilder} implementation, 
      * this can be<ul>
@@ -84,6 +103,13 @@ public class ProcessInstanceLog implements Serializable, AuditEvent, org.kie.api
     private String externalId;
     
     private String processInstanceDescription;
+        
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "sla_due_date")
+    private Date slaDueDate;
+    
+    @Column(nullable=true)
+    private Integer slaCompliance;
     
     public ProcessInstanceLog() {
     }
@@ -323,5 +349,29 @@ public class ProcessInstanceLog implements Serializable, AuditEvent, org.kie.api
 	public void setCorrelationKey(String correlationKey) {
 		this.correlationKey = correlationKey;
 	}
+
+    public Integer getProcessType() {
+        return processType;
+    }
+    
+    public void setProcessType(Integer processType) {
+        this.processType = processType;
+    }
+    
+    public Date getSlaDueDate() {
+        return slaDueDate;
+    }
+    
+    public void setSlaDueDate(Date slaDueDate) {
+        this.slaDueDate = slaDueDate;
+    }
+    
+    public Integer getSlaCompliance() {
+        return slaCompliance;
+    }
+    
+    public void setSlaCompliance(Integer slaCompliance) {
+        this.slaCompliance = slaCompliance;
+    }
 
 }

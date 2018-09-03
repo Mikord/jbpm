@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.jbpm.kie.services.api.AttributesAware;
+import org.jbpm.kie.services.impl.KModuleDeploymentUnit;
 import org.jbpm.services.api.model.DeploymentUnit;
 import org.jbpm.shared.services.impl.TransactionalCommandService;
 import org.jbpm.shared.services.impl.commands.MergeObjectCommand;
@@ -34,6 +35,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.thoughtworks.xstream.XStream;
+
+import static org.kie.soup.commons.xstream.XStreamUtils.createXStream;
 
 public class DeploymentStore {
 	
@@ -45,12 +48,14 @@ public class DeploymentStore {
 	
 	private static final Logger logger = LoggerFactory.getLogger(DeploymentStore.class);
 
-	private final XStream xstream = new XStream();
+	private final XStream xstream = createXStream();
 	
 	
 	private TransactionalCommandService commandService;
 	
 	public DeploymentStore() {
+		String[] voidDeny = {"void.class", "Void.class"};
+		xstream.denyTypes(voidDeny);
 	    this.xstream.registerConverter(new TransientObjectConverter());
 	}
 	
@@ -75,6 +80,12 @@ public class DeploymentStore {
         	if (sync == null || sync.equalsIgnoreCase("true")) {
 	        	DeploymentUnit unit = (DeploymentUnit) xstream.fromXML(entry.getDeploymentUnit());
 	        	
+	        	if (entry.getState() == STATE_DEACTIVATED) {
+	        	    ((KModuleDeploymentUnit)unit).setActive(false);
+	        	} else if(entry.getState() == STATE_ACTIVATED) {
+	        		((KModuleDeploymentUnit)unit).setActive(true);
+	        	}
+	        	
 	        	activeDeployments.add(unit);
         	}
         }
@@ -96,7 +107,8 @@ public class DeploymentStore {
         	// add to the deployable list only sync flag is set to true or does not exists (default)
         	if (sync == null || sync.equalsIgnoreCase("true")) {
 	        	DeploymentUnit unit = (DeploymentUnit) xstream.fromXML(entry.getDeploymentUnit());
-	        	
+	        	((KModuleDeploymentUnit)unit).setActive(false);
+                
 	        	activeDeployments.add(unit);
         	}
         }
@@ -125,7 +137,8 @@ public class DeploymentStore {
 	        	} else if (entry.getState() == STATE_ACTIVATED) {
 	        		activated.add(unit);
 	        	} else if (entry.getState() == STATE_DEACTIVATED) {
-	        		deactivated.add(unit);
+	        	    ((KModuleDeploymentUnit)unit).setActive(false);
+	        	    deactivated.add(unit);	        		
 	        	} else {
 	        		logger.warn("Unknown state of deployment store entry {} for {} will be ignored", entry.getId(), entry);
 	        	}

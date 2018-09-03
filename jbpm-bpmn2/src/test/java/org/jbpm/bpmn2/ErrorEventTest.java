@@ -1,17 +1,18 @@
 /*
-Copyright 2013 Red Hat, Inc. and/or its affiliates.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.*/
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package org.jbpm.bpmn2;
 
@@ -26,7 +27,9 @@ import org.jbpm.bpmn2.handler.ServiceTaskHandler;
 import org.jbpm.bpmn2.handler.SignallingTaskHandlerDecorator;
 import org.jbpm.bpmn2.objects.ExceptionOnPurposeHandler;
 import org.jbpm.bpmn2.objects.MyError;
+import org.jbpm.bpmn2.objects.Person;
 import org.jbpm.bpmn2.objects.TestWorkItemHandler;
+import org.jbpm.process.instance.event.listeners.RuleAwareProcessEventLister;
 import org.jbpm.process.instance.impl.demo.DoNothingWorkItemHandler;
 import org.jbpm.process.instance.impl.demo.SystemOutWorkItemHandler;
 import org.jbpm.workflow.instance.WorkflowProcessInstance;
@@ -49,6 +52,8 @@ import org.kie.api.runtime.process.WorkItemHandler;
 import org.kie.api.runtime.process.WorkItemManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.Assert.*;
 
 @RunWith(Parameterized.class)
 public class ErrorEventTest extends JbpmBpmn2TestCase {
@@ -295,6 +300,47 @@ public class ErrorEventTest extends JbpmBpmn2TestCase {
         assertProcessInstanceFinished(processInstance, ksession);
         assertNodeTriggered(processInstance.getId(), "start", "split", "User Task", "Service task error attached", "end0",
                 "Script Task", "error2");
+
+        assertNotNodeTriggered(processInstance.getId(), "end");
+    }
+
+    @Test
+    public void testErrorBoundaryEventOnBusinessRuleTask() throws Exception {
+        KieBase kbase = createKnowledgeBaseWithoutDumper("BPMN2-ErrorBoundaryEventOnBusinessRuleTask.bpmn2",
+                "BPMN2-ErrorBoundaryEventOnBusinessRuleTask.drl");
+        ksession = createKnowledgeSession(kbase);
+        ksession.addEventListener(new RuleAwareProcessEventLister());
+        ProcessInstance processInstance = ksession.startProcess("BPMN2-ErrorBoundaryEventOnBusinessRuleTask");
+
+        assertProcessInstanceFinished(processInstance, ksession);
+        assertNodeTriggered(processInstance.getId(), "start", "business rule task error attached", "error1");
+    }
+
+    @Test
+    public void testMultiErrorBoundaryEventsOnBusinessRuleTask() throws Exception {
+        KieBase kbase = createKnowledgeBaseWithoutDumper("BPMN2-MultiErrorBoundaryEventsOnBusinessRuleTask.bpmn2",
+                "BPMN2-MultiErrorBoundaryEventsOnBusinessRuleTask.drl");
+        ksession = createKnowledgeSession(kbase);
+        ksession.addEventListener(new RuleAwareProcessEventLister());
+
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("person", new Person());
+        ProcessInstance processInstance = ksession.startProcess("BPMN2-MultiErrorBoundaryEventeOnBusinessRuleTask", params);
+
+        assertProcessInstanceFinished(processInstance, ksession);
+        assertNodeTriggered(processInstance.getId(), "start", "business rule task error attached",
+                "NPE Script Task", "error1");
+
+        ksession.dispose();
+
+        ksession = createKnowledgeSession(kbase);
+        ksession.addEventListener(new RuleAwareProcessEventLister());
+        params = new HashMap<String, Object>();
+        params.put("person", new Person("unsupported"));
+        ProcessInstance processInstance2 = ksession.startProcess("BPMN2-MultiErrorBoundaryEventeOnBusinessRuleTask", params);
+        assertProcessInstanceFinished(processInstance2, ksession);
+        assertNodeTriggered(processInstance2.getId(), "start", "business rule task error attached",
+                "UOE Script Task", "error2");
     }
     
     @Test

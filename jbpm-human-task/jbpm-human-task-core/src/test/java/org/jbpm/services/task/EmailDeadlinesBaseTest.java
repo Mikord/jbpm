@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,10 +16,6 @@
 package org.jbpm.services.task;
 
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.ArrayList;
@@ -27,14 +23,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import javax.mail.Address;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMessage.RecipientType;
 
 import org.jbpm.services.task.impl.factories.TaskFactory;
-import org.jbpm.services.task.util.CountDownTaskEventListener;
+import org.jbpm.test.listener.task.CountDownTaskEventListener;
 import org.jbpm.services.task.utils.ContentMarshallerHelper;
 import org.junit.Test;
 import org.kie.api.task.model.OrganizationalEntity;
@@ -55,6 +50,8 @@ import org.slf4j.LoggerFactory;
 import org.subethamail.wiser.Wiser;
 import org.subethamail.wiser.WiserMessage;
 
+import static org.junit.Assert.*;
+
 
 /**
  * All users are defined as part of userinfo.propeties file that is utilized by PropertyUserInfoImpl
@@ -67,8 +64,7 @@ public abstract class EmailDeadlinesBaseTest extends HumanTaskServicesBaseTest {
     private Wiser wiser;
 
     public void setup() {
-        final ChainedProperties props =
-                new ChainedProperties( "email.conf", ClassLoaderUtil.getClassLoader( null, getClass(), false ));
+        final ChainedProperties props = ChainedProperties.getChainedProperties( "email.conf", ClassLoaderUtil.getClassLoader( null, getClass(), false ));
 
         wiser = new Wiser();
         wiser.setHostname(props.getProperty( "mail.smtp.host", "localhost" ));

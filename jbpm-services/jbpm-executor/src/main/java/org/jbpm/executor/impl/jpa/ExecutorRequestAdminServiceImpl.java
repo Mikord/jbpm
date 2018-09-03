@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,14 +19,16 @@ package org.jbpm.executor.impl.jpa;
 import java.util.Date;
 import java.util.List;
 
-import org.drools.core.command.CommandService;
-import org.drools.core.command.impl.GenericCommand;
 import org.jbpm.executor.RequeueAware;
 import org.jbpm.executor.entities.ErrorInfo;
 import org.jbpm.executor.entities.RequestInfo;
+import org.jbpm.executor.impl.ExecutorImpl;
+import org.kie.api.command.ExecutableCommand;
+import org.kie.api.executor.Executor;
 import org.kie.api.executor.ExecutorAdminService;
 import org.kie.api.executor.STATUS;
-import org.kie.internal.command.Context;
+import org.kie.api.runtime.CommandExecutor;
+import org.kie.api.runtime.Context;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,14 +39,18 @@ import org.slf4j.LoggerFactory;
  */
 public class ExecutorRequestAdminServiceImpl implements ExecutorAdminService, RequeueAware  {
 
-    
-    private CommandService commandService;
+    private Executor executor;
+    private CommandExecutor commandService;
    
     public ExecutorRequestAdminServiceImpl() {
     }
 
-    public void setCommandService(CommandService commandService) {
+    public void setCommandService(CommandExecutor commandService ) {
         this.commandService = commandService;
+    }
+    
+    public void setExecutor(Executor executor) {
+        this.executor = executor;
     }
 
     /**
@@ -82,7 +88,7 @@ public class ExecutorRequestAdminServiceImpl implements ExecutorAdminService, Re
 		commandService.execute(new RequeueRunningJobCommand(requestId));
 	}
 	
-	private class RequeueRunningJobsCommand implements GenericCommand<Void> {
+	private class RequeueRunningJobsCommand implements ExecutableCommand<Void> {
 
 		private Logger logger = LoggerFactory.getLogger(RequeueRunningJobsCommand.class);
 		private static final long serialVersionUID = 8670412133363766161L;
@@ -104,10 +110,12 @@ public class ExecutorRequestAdminServiceImpl implements ExecutorAdminService, Re
 				
 				for (RequestInfo request : requests) {
 					if (request != null && maxRunningTimeExceeded(request.getTime())) {
-						logger.info("Requeing request as the time exceeded for its running state id : {}, key : {}, start time : {}, max time {}",
+						logger.debug("Requeing request as the time exceeded for its running state id : {}, key : {}, start time : {}, max time {}",
 								request.getId(), request.getKey(), request.getTime(), new Date(upperLimitTime));
 		                request.setStatus(STATUS.QUEUED);
 		                ctx.merge(request);
+		                
+		                ((ExecutorImpl) executor).scheduleExecutionViaSync(request, request.getTime());
 		            }
 				}
 	    	} catch (Exception e) {
@@ -126,7 +134,7 @@ public class ExecutorRequestAdminServiceImpl implements ExecutorAdminService, Re
 		
 	}
 	
-	private class RequeueRunningJobCommand implements GenericCommand<Void> {
+	private class RequeueRunningJobCommand implements ExecutableCommand<Void> {
 
 		private Logger logger = LoggerFactory.getLogger(RequeueRunningJobCommand.class);
 		private static final long serialVersionUID = 8670412133363766161L;
@@ -147,9 +155,11 @@ public class ExecutorRequestAdminServiceImpl implements ExecutorAdminService, Re
 								
 				if (request != null && request.getStatus() != STATUS.CANCELLED
 						&& request.getStatus() != STATUS.DONE) {
-					logger.info("Requeing request with id : {}, key : {}, start time : {}", request.getId(), request.getKey(), request.getTime());
+					logger.debug("Requeing request with id : {}, key : {}, start time : {}", request.getId(), request.getKey(), request.getTime());
 	                request.setStatus(STATUS.QUEUED);
 	                ctx.merge(request);
+	                
+	                ((ExecutorImpl) executor).scheduleExecutionViaSync(request, request.getTime());
 	            } else {
 	            	throw new IllegalArgumentException("Retrying completed or cancelled job is not allowed (job id " + requestId +")");
 	            }

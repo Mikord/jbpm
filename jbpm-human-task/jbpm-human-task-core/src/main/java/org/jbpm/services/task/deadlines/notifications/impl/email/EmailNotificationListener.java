@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -65,7 +65,7 @@ public class EmailNotificationListener implements NotificationListener {
     
     @Override
     public void onNotification(NotificationEvent event, UserInfo userInfo) {
-        
+        logger.debug("User info implementation {} and mail session {}", userInfo, mailSession);
         if (userInfo == null || mailSession == null) {
             logger.info("Missing mail session or userinfo - skipping email notification listener processing");
             return;
@@ -114,11 +114,12 @@ public class EmailNotificationListener implements NotificationListener {
                     for (User user : entry.getValue()) {
     
                         String emailAddress = userInfo.getEmailForEntity(user);
-                        if (emailAddress != null && !toAddresses.contains(emailAddress)) {                        	
-                        	msg.addRecipients( Message.RecipientType.TO, InternetAddress.parse( emailAddress, false));
-                        	toAddresses.add(emailAddress);
+                        if (emailAddress != null) {                        	
+                        	if (toAddresses.add(emailAddress)) {
+                        	    msg.addRecipients( Message.RecipientType.TO, InternetAddress.parse( emailAddress, false));
+                        	}
                         } else {
-                        	logger.warn("Email address not found for user {}", user.getId());
+                        	logger.warn("Email address not found for user '{}'", user.getId());
                         }
                     }
                     
@@ -183,7 +184,7 @@ public class EmailNotificationListener implements NotificationListener {
                     
                     msg.setSubject( subject );
                     
-                    msg.setHeader( "X-Mailer", "jbpm huamn task service" );
+                    msg.setHeader( "X-Mailer", "jbpm human task service" );
                     msg.setSentDate( new Date() );
 
                     Transport.send(msg);

@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -82,13 +82,15 @@ public class SessionIsolationTest extends JbpmTestCase {
         RuntimeEngine runtime2 = getRuntimeEngine(ProcessInstanceIdContext.get());
 
         KieSession ksession1 = runtime1.getKieSession();
+        ksession1.getEnvironment().set("org.jbpm.rule.task.waitstate", true);
         KieSession ksession2 = runtime2.getKieSession();
+        ksession2.getEnvironment().set("org.jbpm.rule.task.waitstate", true);
 
         Assertions.assertThat(ksession1).isNotEqualTo(ksession2);
 
         ProcessInstance pi1 = ksession1.startProcess(RULE_TASK_ID);
         ProcessInstance pi2 = ksession2.startProcess(RULE_TASK_ID);
-
+        
         assertProcessInstanceActive(pi1.getId(), ksession1);
         assertProcessInstanceActive(pi2.getId(), ksession2);
 

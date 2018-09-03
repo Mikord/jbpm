@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,6 +40,9 @@ public class ProcessInstanceDesc implements org.jbpm.services.api.model.ProcessI
 
     private Long parentId;
     
+    private Date slaDueDate;
+    private Integer slaCompliance;
+    
     private List<org.jbpm.services.api.model.UserTaskInstanceDesc> activeTasks;
 
     public ProcessInstanceDesc() {
@@ -48,11 +51,13 @@ public class ProcessInstanceDesc implements org.jbpm.services.api.model.ProcessI
 
     public ProcessInstanceDesc(long id, String processId, String processName, String processVersion,
                                int state, String deploymentId, Date dataTimeStamp, String initiator,
-                               String processInstanceDescription, String correlationKey, Long parentId) {
+                               String processInstanceDescription, String correlationKey, Long parentId,
+                               Date slaDueDate, Integer slaCompliance) {
         this(id,processId,processName, processVersion,state, deploymentId, dataTimeStamp, initiator,
                 processInstanceDescription, correlationKey);
         this.parentId = parentId;
-
+        this.slaDueDate = slaDueDate;
+        this.slaCompliance = slaCompliance;
 
     }
     
@@ -75,7 +80,16 @@ public class ProcessInstanceDesc implements org.jbpm.services.api.model.ProcessI
        this.dataTimeStamp = dataTimeStamp;
        this.initiator = initiator;
        this.correlationKey = correlationKey==null?"":correlationKey;
-   }
+    }
+    
+    public ProcessInstanceDesc(long id, String processId, String processName, String processVersion,
+                               int state, String deploymentId, Date dataTimeStamp, String initiator,
+                               String processInstanceDescription, String correlationKey, Long parentId) {
+        this(id,processId,processName, processVersion,state, deploymentId, dataTimeStamp, initiator,
+                processInstanceDescription, correlationKey);
+        this.parentId = parentId;
+
+    }
     
     public String getProcessId() {
         return processId;
@@ -151,6 +165,22 @@ public class ProcessInstanceDesc implements org.jbpm.services.api.model.ProcessI
 
     public void setParentId(Long parentId) {
         this.parentId = parentId;
+    }
+    
+    public Date getSlaDueDate() {
+        return slaDueDate;
+    }
+    
+    public void setSlaDueDate(Date slaDueDate) {
+        this.slaDueDate = slaDueDate;
+    }
+    
+    public Integer getSlaCompliance() {
+        return slaCompliance;
+    }
+    
+    public void setSlaCompliance(Integer slaCompliance) {
+        this.slaCompliance = slaCompliance;
     }
 
     @Override

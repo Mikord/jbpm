@@ -1,34 +1,37 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.jbpm.services.task.wih;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.drools.core.ClassObjectFilter;
 import org.drools.core.process.instance.impl.WorkItemImpl;
 import org.jbpm.process.core.timer.DateTimeUtils;
+import org.jbpm.services.task.impl.util.HumanTaskHandlerHelper;
 import org.jbpm.services.task.utils.ContentMarshallerHelper;
 import org.jbpm.services.task.utils.OnErrorAction;
-import org.jbpm.services.task.wih.util.HumanTaskHandlerHelper;
 import org.jbpm.services.task.wih.util.PeopleAssignmentHelper;
 import org.kie.api.runtime.Environment;
 import org.kie.api.runtime.KieSession;
+import org.kie.api.runtime.process.CaseData;
 import org.kie.api.runtime.process.WorkItem;
 import org.kie.api.runtime.process.WorkItemHandler;
 import org.kie.api.runtime.process.WorkItemManager;
@@ -55,6 +58,8 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractHTWorkItemHandler.class);
     
+    protected static final String ADMIN_USER = System.getProperty("org.jbpm.ht.admin.user", "Administrator");
+    
     protected OnErrorAction action = OnErrorAction.LOG;
 
     public AbstractHTWorkItemHandler() {
@@ -72,6 +77,7 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
     protected Task createTaskBasedOnWorkItemParams(KieSession session, WorkItem workItem) {
         InternalTask task = (InternalTask) TaskModelProvider.getFactory().newTask();
         String taskName = (String) workItem.getParameter("NodeName");
+        CaseData caseFile = null;
         
         String locale = (String) workItem.getParameter("Locale");
         if (locale == null) {
@@ -133,19 +139,23 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
         }
         task.setPriority(priority);
         
-        
-        
-        
         InternalTaskData taskData = (InternalTaskData) TaskModelProvider.getFactory().newTaskData();        
         taskData.setWorkItemId(workItem.getId());
         taskData.setProcessInstanceId(workItem.getProcessInstanceId());
-        if (session != null && session.getProcessInstance(workItem.getProcessInstanceId()) != null) {
-            taskData.setProcessId(session.getProcessInstance(workItem.getProcessInstanceId()).getProcess().getId());
-            String deploymentId = ((WorkItemImpl) workItem).getDeploymentId();
-            taskData.setDeploymentId(deploymentId);            
-        }
-        if (session != null && (session instanceof KieSession)) {
-            taskData.setProcessSessionId(((KieSession) session).getIdentifier());
+        if (session != null) {
+            if (session.getProcessInstance(workItem.getProcessInstanceId()) != null) {
+                taskData.setProcessId(session.getProcessInstance(workItem.getProcessInstanceId()).getProcess().getId());
+                String deploymentId = ((WorkItemImpl) workItem).getDeploymentId();
+                taskData.setDeploymentId(deploymentId);            
+            }
+            if (session instanceof KieSession) {
+                taskData.setProcessSessionId(((KieSession) session).getIdentifier());
+            }
+            @SuppressWarnings("unchecked")
+            Collection<CaseData> caseFiles = (Collection<CaseData>) session.getObjects(new ClassObjectFilter(CaseData.class));
+            if (caseFiles != null && caseFiles.size() == 1) {
+                caseFile = caseFiles.iterator().next();
+            }
         }
         taskData.setSkipable(!"false".equals(workItem.getParameter("Skippable")));
         //Sub Task Data
@@ -174,7 +184,7 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
             taskData.setExpirationTime(date);
         }
         
-        PeopleAssignmentHelper peopleAssignmentHelper = new PeopleAssignmentHelper();
+        PeopleAssignmentHelper peopleAssignmentHelper = new PeopleAssignmentHelper(caseFile);
         peopleAssignmentHelper.handlePeopleAssignments(workItem, task, taskData);
         
         PeopleAssignments peopleAssignments = task.getPeopleAssignments();
@@ -182,7 +192,7 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
         
         taskData.initialize();
         task.setTaskData(taskData);
-        task.setDeadlines(HumanTaskHandlerHelper.setDeadlines(workItem, businessAdministrators, session.getEnvironment()));
+        task.setDeadlines(HumanTaskHandlerHelper.setDeadlines(workItem.getParameters(), businessAdministrators, session.getEnvironment()));
         return task;
     }
 
@@ -214,12 +224,17 @@ public abstract class AbstractHTWorkItemHandler implements WorkItemHandler {
         return data;
     }
     
-    protected boolean isAutoClaim(WorkItem workItem, Task task) {
-        String swimlaneUser = (String) workItem.getParameter("SwimlaneActorId");
-        if (swimlaneUser != null  && !"".equals(swimlaneUser) && task.getTaskData().getStatus() == Status.Ready) {
-            return true;
-        }
+    protected boolean isAutoClaim(KieSession session, WorkItem workItem, Task task) {
+        String autoclaim = (String) session.getEnvironment().get("Autoclaim");
         
+        if(autoclaim != null && !Boolean.parseBoolean(autoclaim.trim())) {
+            return false; 
+        } else {
+             String swimlaneUser = (String) workItem.getParameter("SwimlaneActorId");
+             if (swimlaneUser != null  && !"".equals(swimlaneUser) && task.getTaskData().getStatus() == Status.Ready) {
+                 return true;
+             }
+        }
         return false;
     }
 

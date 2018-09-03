@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,8 +18,10 @@ package org.jbpm.workflow.instance.node;
 
 import java.util.Collection;
 
+import org.drools.core.common.InternalKnowledgeRuntime;
 import org.jbpm.process.core.context.exception.ExceptionScope;
 import org.jbpm.process.core.context.variable.VariableScope;
+import org.jbpm.process.instance.InternalProcessRuntime;
 import org.jbpm.process.instance.ProcessInstance;
 import org.jbpm.process.instance.context.exception.ExceptionScopeInstance;
 import org.jbpm.process.instance.context.variable.VariableScopeInstance;
@@ -73,6 +75,16 @@ public class FaultNodeInstance extends NodeInstanceImpl {
         if (exceptionScopeInstance != null) {
             if (!exceptionHandled) {
                 handleException(faultName, exceptionScopeInstance);
+            }
+            ((NodeInstanceContainer) getNodeInstanceContainer()).nodeInstanceCompleted(this, null);
+            boolean hidden = false;
+            if (getNode().getMetaData().get("hidden") != null) {
+                hidden = true;
+            }
+            if (!hidden) {
+                InternalKnowledgeRuntime kruntime = getProcessInstance().getKnowledgeRuntime();
+                ((InternalProcessRuntime) kruntime.getProcessRuntime())
+                    .getProcessEventSupport().fireAfterNodeLeft(this, kruntime);
             }
         } else {
 

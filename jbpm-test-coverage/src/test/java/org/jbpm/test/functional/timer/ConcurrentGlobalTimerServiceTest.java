@@ -1,41 +1,28 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.test.functional.timer;
 
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
-import javax.naming.InitialContext;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.OptimisticLockException;
-import javax.persistence.Persistence;
-import javax.transaction.UserTransaction;
-
+import org.drools.core.command.SingleSessionCommandService;
 import org.drools.core.command.impl.CommandBasedStatefulKnowledgeSession;
-import org.drools.persistence.SingleSessionCommandService;
 import org.hibernate.StaleObjectStateException;
 import org.jbpm.process.core.timer.GlobalSchedulerService;
 import org.jbpm.process.core.timer.impl.ThreadPoolSchedulerService;
 import org.jbpm.services.task.exception.PermissionDeniedException;
 import org.jbpm.services.task.identity.JBossUserGroupCallbackImpl;
-import org.joda.time.DateTime;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -62,6 +49,20 @@ import org.kie.internal.task.api.UserGroupCallback;
 import org.kie.internal.task.api.model.InternalOrganizationalEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.naming.InitialContext;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.OptimisticLockException;
+import javax.persistence.Persistence;
+import javax.transaction.UserTransaction;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+import static org.junit.Assert.*;
 
 public class ConcurrentGlobalTimerServiceTest extends TimerBaseTest {
     
@@ -174,18 +175,21 @@ public class ConcurrentGlobalTimerServiceTest extends TimerBaseTest {
 	
 	private void testStartProcess(RuntimeEngine runtime) throws Exception {
 		
-		synchronized((SingleSessionCommandService) ((CommandBasedStatefulKnowledgeSession) runtime.getKieSession()).getCommandService()) {
+		synchronized((SingleSessionCommandService) ((CommandBasedStatefulKnowledgeSession) runtime.getKieSession()).getRunner()) {
 			UserTransaction ut = (UserTransaction) new InitialContext().lookup( "java:comp/UserTransaction" );
-			ut.begin();
-			logger.debug("Starting process on ksession {}", runtime.getKieSession().getIdentifier());
-			Map<String, Object> params = new HashMap<String, Object>();
-			DateTime now = new DateTime();
-		    now.plus(1000);
+            try {
+                ut.begin();
+                logger.debug("Starting process on ksession {}", runtime.getKieSession().getIdentifier());
+                Map<String, Object> params = new HashMap<String, Object>();
 
-			params.put("x", "R2/" + wait + "/PT1S");
-			ProcessInstance processInstance = runtime.getKieSession().startProcess("IntermediateCatchEvent", params);
-			logger.debug("Started process instance {} on ksession {}", processInstance.getId(), runtime.getKieSession().getIdentifier());			
-			ut.commit();
+                params.put("x", "R2/PT1S");
+                ProcessInstance processInstance = runtime.getKieSession().startProcess("IntermediateCatchEvent", params);
+                logger.debug("Started process instance {} on ksession {}", processInstance.getId(), runtime.getKieSession().getIdentifier());
+                ut.commit();
+            } catch (Exception ex) {
+                ut.rollback();
+                throw ex;
+            }
 		}
 		
 		

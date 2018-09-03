@@ -1,20 +1,22 @@
 /*
-Copyright 2013 Red Hat, Inc. and/or its affiliates.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.*/
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package org.jbpm.bpmn2;
 
+import static org.junit.Assert.*;
 import static org.kie.api.runtime.EnvironmentName.ENTITY_MANAGER_FACTORY;
 import static org.kie.api.runtime.EnvironmentName.OBJECT_MARSHALLING_STRATEGIES;
 import static org.kie.api.runtime.EnvironmentName.TRANSACTION_MANAGER;
@@ -46,6 +48,7 @@ import org.drools.core.audit.event.LogEvent;
 import org.drools.core.audit.event.RuleFlowLogEvent;
 import org.drools.core.audit.event.RuleFlowNodeLogEvent;
 import org.drools.core.impl.EnvironmentFactory;
+import org.drools.core.impl.KnowledgeBaseFactory;
 import org.drools.core.util.DroolsStreamUtils;
 import org.drools.core.util.MVELSafeHelper;
 import org.h2.tools.DeleteDbFiles;
@@ -70,6 +73,7 @@ import org.jbpm.process.instance.event.DefaultSignalManagerFactory;
 import org.jbpm.process.instance.impl.DefaultProcessInstanceManagerFactory;
 import org.jbpm.ruleflow.core.RuleFlowProcess;
 import org.jbpm.test.util.AbstractBaseTest;
+import org.jbpm.test.util.PoolingDataSource;
 import org.jbpm.workflow.instance.impl.WorkflowProcessInstanceImpl;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -79,6 +83,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.TestRule;
 import org.junit.rules.TestWatcher;
+import org.junit.rules.Timeout;
 import org.junit.runner.Description;
 import org.kie.api.KieBase;
 import org.kie.api.KieServices;
@@ -99,7 +104,6 @@ import org.kie.api.runtime.process.NodeInstance;
 import org.kie.api.runtime.process.NodeInstanceContainer;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.process.WorkflowProcessInstance;
-import org.kie.internal.KnowledgeBaseFactory;
 import org.kie.internal.builder.KnowledgeBuilderConfiguration;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
 import org.kie.internal.io.ResourceFactory;
@@ -111,9 +115,6 @@ import org.mvel2.ParserContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.SAXException;
-
-import bitronix.tm.TransactionManagerServices;
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 
 /**
  * Base test case for the jbpm-bpmn2 module.
@@ -129,11 +130,11 @@ public abstract class JbpmBpmn2TestCase extends AbstractBaseTest {
     public static final boolean LOCKING = Boolean.valueOf(System.getProperty("org.jbpm.test.locking", "false"));
 
     private static boolean setupDataSource = false;
-    private boolean sessionPersistence = false;
-    private boolean pessimisticLocking = false;
+    protected boolean sessionPersistence = false;
+    protected boolean pessimisticLocking = false;
     private static H2Server server = new H2Server();
     
-    private WorkingMemoryInMemoryLogger logger;
+    protected WorkingMemoryInMemoryLogger logger;
     protected AuditLogService logService;
 
     protected static EntityManagerFactory emf;
@@ -141,6 +142,10 @@ public abstract class JbpmBpmn2TestCase extends AbstractBaseTest {
 
     private RequireLocking testReqLocking;
     private RequirePersistence testReqPersistence;
+
+    @Rule
+    public Timeout globalTimeout = Timeout.seconds(30);
+
     @Rule
     public TestRule watcher = new TestWatcher() {
         protected void starting(Description description) {
@@ -241,7 +246,7 @@ public abstract class JbpmBpmn2TestCase extends AbstractBaseTest {
             Assume.assumeTrue(false);
         }
     }
-   
+
     @After
     public void clear() {
         clearHistory();
@@ -254,8 +259,8 @@ public abstract class JbpmBpmn2TestCase extends AbstractBaseTest {
             String runningTransactionStatus = null;
 
             // Clean up possible transactions
-            Transaction tx = TransactionManagerServices.getTransactionManager()
-                    .getCurrentTransaction();
+            Transaction tx = com.arjuna.ats.jta.TransactionManager.transactionManager()
+                    .getTransaction();
             if (tx != null) {
                 int testTxState = tx.getStatus();
                 if (testTxState != Status.STATUS_NO_TRANSACTION
@@ -495,9 +500,9 @@ public abstract class JbpmBpmn2TestCase extends AbstractBaseTest {
             }
             KieSessionConfiguration config = ksession.getSessionConfiguration();
             config.setOption(ForceEagerActivationOption.YES);
+            ksession.dispose();
             StatefulKnowledgeSession result = JPAKnowledgeService.loadStatefulKnowledgeSession(id, kbase, config, env);
             AuditLoggerFactory.newInstance(Type.JPA, result, null);
-            ksession.dispose();
             return result;
         } else {
             return ksession;
@@ -516,7 +521,7 @@ public abstract class JbpmBpmn2TestCase extends AbstractBaseTest {
         Environment env = EnvironmentFactory.newEnvironment();
         env.set(ENTITY_MANAGER_FACTORY, emf);
         env.set(TRANSACTION_MANAGER,
-                TransactionManagerServices.getTransactionManager());
+                com.arjuna.ats.jta.TransactionManager.transactionManager());
         if (sessionPersistence) {
             ObjectMarshallingStrategy[] strategies = (ObjectMarshallingStrategy[]) env.get(OBJECT_MARSHALLING_STRATEGIES);        
             
@@ -732,15 +737,28 @@ public abstract class JbpmBpmn2TestCase extends AbstractBaseTest {
     protected void clearHistory() {
         if (sessionPersistence) {
             try {
-                logService.clear();
+                if (logService != null) {
+                    logService.clear();
+                }
             } catch(Exception e) {
-                
+                log.error("History could not be deleted.", e);
             }
         } else {
             if (logger != null) {
                 logger.clear();
             }
         }
+    }
+    
+    protected void abortProcessInstances(KieSession ksession) {
+        if (sessionPersistence) {
+            try {
+                logService.findActiveProcessInstances().forEach(pi -> ksession.abortProcessInstance(pi.getId()));
+                
+            } catch(Exception e) {
+                
+            }
+        } 
     }
 
     public void assertProcessVarExists(ProcessInstance process,

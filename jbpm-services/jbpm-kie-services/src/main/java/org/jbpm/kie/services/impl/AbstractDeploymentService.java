@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,7 @@ package org.jbpm.kie.services.impl;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +30,7 @@ import javax.persistence.EntityManagerFactory;
 import org.jbpm.kie.services.api.DeploymentIdResolver;
 import org.jbpm.kie.services.impl.audit.ServicesAwareAuditEventBuilder;
 import org.jbpm.kie.services.impl.security.IdentityRolesSecurityManager;
+import org.jbpm.persistence.api.integration.EventManagerProvider;
 import org.jbpm.process.audit.event.AuditEventBuilder;
 import org.jbpm.runtime.manager.impl.AbstractRuntimeManager;
 import org.jbpm.runtime.manager.impl.SimpleRuntimeEnvironment;
@@ -46,8 +47,8 @@ import org.kie.api.runtime.manager.RuntimeEnvironment;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.manager.RuntimeManagerFactory;
 import org.kie.api.runtime.process.ProcessInstance;
-import org.kie.internal.identity.IdentityProvider;
 import org.kie.api.runtime.query.QueryContext;
+import org.kie.internal.identity.IdentityProvider;
 import org.kie.internal.runtime.conf.DeploymentDescriptor;
 import org.kie.internal.runtime.manager.InternalRuntimeManager;
 import org.slf4j.Logger;
@@ -62,7 +63,7 @@ public abstract class AbstractDeploymentService implements DeploymentService, Li
     protected EntityManagerFactory emf;    
     protected IdentityProvider identityProvider;
     
-    protected Set<DeploymentEventListener> listeners = new HashSet<DeploymentEventListener>();
+    protected Set<DeploymentEventListener> listeners = new LinkedHashSet<DeploymentEventListener>();
     
     
     @Override
@@ -102,17 +103,17 @@ public abstract class AbstractDeploymentService implements DeploymentService, Li
     	}
     }
     
-    public void notifyOnActivate(DeploymentUnit unit, DeployedUnit deployedUnit){
-    	DeploymentEvent event = new DeploymentEvent(unit.getIdentifier(), deployedUnit);
+    public void notifyOnActivate(DeploymentUnit unit, DeployedUnit deployedUnit){               
+        DeploymentEvent event = new DeploymentEvent(unit.getIdentifier(), deployedUnit);
     	for (DeploymentEventListener listener : listeners) {
     		listener.onActivate(event);
     	}    
     }
     public void notifyOnDeactivate(DeploymentUnit unit, DeployedUnit deployedUnit){
-    	DeploymentEvent event = new DeploymentEvent(unit.getIdentifier(), deployedUnit);
+        DeploymentEvent event = new DeploymentEvent(unit.getIdentifier(), deployedUnit);
     	for (DeploymentEventListener listener : listeners) {
     		listener.onDeactivate(event);
-    	}
+    	}    	
     }
     
     public void commonDeploy(DeploymentUnit unit, DeployedUnitImpl deployedUnit, RuntimeEnvironment environemnt, KieContainer kieContainer) {
@@ -127,6 +128,7 @@ public abstract class AbstractDeploymentService implements DeploymentService, Li
             RuntimeManager manager = null;
             deploymentsMap.put(unit.getIdentifier(), deployedUnit);
             ((SimpleRuntimeEnvironment) environemnt).addToEnvironment("IdentityProvider", identityProvider);
+            ((SimpleRuntimeEnvironment) environemnt).addToEnvironment("Active", deployedUnit.isActive());
             try {
                 switch (unit.getStrategy()) {
             
@@ -140,9 +142,17 @@ public abstract class AbstractDeploymentService implements DeploymentService, Li
                     case PER_PROCESS_INSTANCE:
                         manager = managerFactory.newPerProcessInstanceRuntimeManager(environemnt, unit.getIdentifier());
                         break;
+                    case PER_CASE:
+                        manager = managerFactory.newPerCaseRuntimeManager(environemnt, unit.getIdentifier());
+                        break;
                     default:
                         throw new IllegalArgumentException("Invalid strategy " + unit.getStrategy());
-                }   
+                }  
+                
+                if (!deployedUnit.isActive()) {
+                    ((InternalRuntimeManager)manager).deactivate();
+                }                
+                
                 ((InternalRuntimeManager)manager).setKieContainer(kieContainer);
                 deployedUnit.setRuntimeManager(manager);
                 DeploymentDescriptor descriptor = ((InternalRuntimeManager)manager).getDeploymentDescriptor();
@@ -277,6 +287,9 @@ public abstract class AbstractDeploymentService implements DeploymentService, Li
     					deployed.getDeploymentUnit().getIdentifier(), e.getMessage());
     		}
     	}
+    	deploymentsMap.clear();
+    	
+    	EventManagerProvider.getInstance().get().close();
     }
 	
 }

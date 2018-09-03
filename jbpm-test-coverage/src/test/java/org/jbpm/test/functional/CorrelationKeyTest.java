@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -151,4 +151,15 @@ public class CorrelationKeyTest extends JbpmTestCase {
         Assertions.assertThat(variables.get(0).getValue()).isEqualTo(VARIABLE_VALUE);
     }
 
+    @Test
+    public void testMultiValuedKeyUniqueButInclusive() {
+        // JBPM-5897
+        CorrelationKey key1 = keyFactory.newCorrelationKey(Arrays.asList("ABC", "DEF", "DEF"));
+        ProcessInstance processInstance = ksession.startProcess(PROCESS, key1, null);
+        assertProcessInstanceActive(processInstance.getId());
+
+        CorrelationKey key2 = keyFactory.newCorrelationKey(Arrays.asList("ABC", "DEF", "GHI"));
+        ProcessInstance processInstance2 = ksession.startProcess(PROCESS, key2, null);
+        assertProcessInstanceActive(processInstance2.getId());
+    }
 }

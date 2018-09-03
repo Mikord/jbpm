@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,6 @@ package org.jbpm.test.functional.task;
 import java.util.List;
 
 import org.assertj.core.api.Assertions;
-import org.jbpm.runtime.manager.impl.task.SynchronizedTaskService;
 import org.jbpm.test.JbpmTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,7 +51,7 @@ public class TaskSubjectAndDescriptionTest extends JbpmTestCase {
         createRuntimeManager(HUMAN_TASK, HUMAN_TASK2);
         RuntimeEngine runtimeEngine = getRuntimeEngine();
         kieSession = runtimeEngine.getKieSession();
-        taskService = (SynchronizedTaskService) runtimeEngine.getTaskService();
+        taskService = runtimeEngine.getTaskService();
     }
 
     @Test
@@ -65,7 +64,7 @@ public class TaskSubjectAndDescriptionTest extends JbpmTestCase {
         Task t = taskService.getTaskById(task.getId());
 
         Assertions.assertThat(task.getDescription()).isEqualTo("This is description of the human task.");
-        Assertions.assertThat(task.getSubject()).isNullOrEmpty();
+        Assertions.assertThat(task.getSubject()).isEqualTo(EXPECTED_SUBJECT);
         Assertions.assertThat(t.getSubject()).isEqualTo(EXPECTED_SUBJECT);
         
         taskService.start(task.getId(), "john");
@@ -86,7 +85,7 @@ public class TaskSubjectAndDescriptionTest extends JbpmTestCase {
         Task t = taskService.getTaskById(task.getId());
 
         Assertions.assertThat(task.getDescription()).isEqualTo(EXPECTED_SUBJECT);
-        Assertions.assertThat(task.getSubject()).isNullOrEmpty();
+        Assertions.assertThat(task.getSubject()).isEqualTo(EXPECTED_SUBJECT);
         Assertions.assertThat(t.getSubject()).isEqualTo(EXPECTED_SUBJECT);
         
         taskService.start(task.getId(), "john");

@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,12 +18,14 @@ package org.jbpm.executor.impl;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.jbpm.executor.AsynchronousJobListener;
 import org.jbpm.executor.ExecutorNotStartedException;
 import org.jbpm.executor.ExecutorServiceFactory;
 import org.jbpm.executor.RequeueAware;
+import org.jbpm.executor.impl.event.ExecutorEventSupportImpl;
 import org.jbpm.executor.impl.event.ExecutorEventSupport;
 import org.kie.api.executor.CommandContext;
 import org.kie.api.executor.ErrorInfo;
@@ -52,7 +54,7 @@ public class ExecutorServiceImpl implements ExecutorService, RequeueAware {
     
     private ExecutorAdminService adminService;
     
-    private ExecutorEventSupport eventSupport = new ExecutorEventSupport();
+    private ExecutorEventSupport eventSupport = new ExecutorEventSupportImpl();
     
     public ExecutorServiceImpl(){
     	
@@ -317,5 +319,31 @@ public class ExecutorServiceImpl implements ExecutorService, RequeueAware {
     
     public List<AsynchronousJobListener> getAsyncJobListeners() {
         return this.eventSupport.getEventListeners();
+    }
+
+    @Override
+    public List<RequestInfo> getRequestsByBusinessKey(String businessKey, List<STATUS> statuses, QueryContext queryContext) {
+        return queryService.getRequestsByBusinessKey(businessKey, statuses, queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getRequestsByCommand(String command, List<STATUS> statuses, QueryContext queryContext) {
+        return queryService.getRequestsByCommand(command, statuses, queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getRequestsByDeployment(String deploymentId, List<STATUS> statuses, QueryContext queryContext) {
+        return queryService.getRequestsByDeployment(deploymentId, statuses, queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getRequestsByProcessInstance(Long processInstanceId, List<STATUS> statuses, QueryContext queryContext) {
+        return queryService.getRequestsByProcessInstance(processInstanceId, statuses, queryContext);
+    }
+
+    @Override
+    public void updateRequestData(Long requestId, Map<String, Object> data) {
+        executor.updateRequestData(requestId, data);
+        
     }
 }

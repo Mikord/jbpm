@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,12 +28,15 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.jbpm.process.instance.ProcessInstance;
+import org.jbpm.workflow.core.node.ActionNode;
 import org.jbpm.workflow.core.node.AsyncEventNode;
 import org.jbpm.workflow.core.node.CompositeNode;
+import org.jbpm.workflow.core.node.EndNode;
 import org.jbpm.workflow.core.node.EventNode;
 import org.jbpm.workflow.core.node.EventNodeInterface;
 import org.jbpm.workflow.core.node.EventSubProcessNode;
 import org.jbpm.workflow.core.node.StartNode;
+import org.jbpm.workflow.core.node.StateBasedNode;
 import org.jbpm.workflow.instance.NodeInstance;
 import org.jbpm.workflow.instance.NodeInstanceContainer;
 import org.jbpm.workflow.instance.WorkflowProcessInstance;
@@ -180,8 +183,12 @@ public class CompositeNodeInstance extends StateBasedNodeInstance implements Nod
     }
 
     public void addNodeInstance(final NodeInstance nodeInstance) {
-        long id = singleNodeInstanceCounter.incrementAndGet();
-        ((NodeInstanceImpl) nodeInstance).setId(id);
+        if (nodeInstance.getId() == -1) {
+            // assign new id only if it does not exist as it might already be set by marshalling 
+            // it's important to keep same ids of node instances as they might be references e.g. exclusive group
+            long id = singleNodeInstanceCounter.incrementAndGet();  
+            ((NodeInstanceImpl) nodeInstance).setId(id);
+        }
         this.nodeInstances.add(nodeInstance);
     }
 
@@ -255,7 +262,7 @@ public class CompositeNodeInstance extends StateBasedNodeInstance implements Nod
         // async continuation handling
         if (node instanceof AsyncEventNode) {
             actualNode = ((AsyncEventNode) node).getActualNode();
-        } else if (Boolean.parseBoolean((String)node.getMetaData().get("customAsync"))) {
+        } else if (useAsync(node)) {
             actualNode = new AsyncEventNode(node);
         }
 
@@ -385,8 +392,8 @@ public class CompositeNodeInstance extends StateBasedNodeInstance implements Nod
 	            return;
 	        }
 	    }
-	    if (nodeInstance instanceof EndNodeInstance || nodeInstance instanceof EventSubProcessNodeInstance ) {
-            if (((org.jbpm.workflow.core.WorkflowProcess) getProcessInstance().getProcess()).isAutoComplete()) {
+	    if (nodeInstance instanceof FaultNodeInstance || nodeInstance instanceof EndNodeInstance || nodeInstance instanceof EventSubProcessNodeInstance ) {
+            if (getCompositeNode().isAutoComplete()) {
                 if (nodeInstances.isEmpty()) {
                     triggerCompleted(
                         org.jbpm.workflow.core.Node.CONNECTION_DEFAULT_TYPE);
@@ -421,6 +428,17 @@ public class CompositeNodeInstance extends StateBasedNodeInstance implements Nod
         return iterationLevels;
     }
 
-
+    protected boolean useAsync(final Node node) {
+        if (!(node instanceof EventSubProcessNode) && (node instanceof ActionNode || node instanceof StateBasedNode || node instanceof EndNode)) {  
+            boolean asyncMode = Boolean.parseBoolean((String)node.getMetaData().get("customAsync"));
+            if (asyncMode) {
+                return asyncMode;
+            }
+            
+            return Boolean.parseBoolean((String)getProcessInstance().getKnowledgeRuntime().getEnvironment().get("AsyncMode"));
+        }
+        
+        return false;
+    }
 
 }

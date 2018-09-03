@@ -1,22 +1,24 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.services.task.impl.model.xml;
 
 import static org.jbpm.services.task.impl.model.xml.AbstractJaxbTaskObject.convertListFromInterfaceToJaxbImpl;
-import static org.jbpm.services.task.impl.model.xml.AbstractJaxbTaskObject.*;
+import static org.jbpm.services.task.impl.model.xml.AbstractJaxbTaskObject.unsupported;
+import static org.jbpm.services.task.impl.model.xml.AbstractJaxbTaskObject.whenNull;
 
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -31,8 +33,6 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlSchemaType;
 
-import org.codehaus.jackson.annotate.JsonAutoDetect;
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.jbpm.services.task.commands.AddTaskCommand;
 import org.kie.api.task.model.Attachment;
 import org.kie.api.task.model.Comment;
@@ -54,9 +54,12 @@ import org.kie.internal.task.api.model.InternalTask;
 import org.kie.internal.task.api.model.InternalTaskData;
 import org.kie.internal.task.api.model.SubTasksStrategy;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @XmlRootElement(name="task")
 @XmlAccessorType(XmlAccessType.FIELD)
-@JsonIgnoreProperties({"archived","deadlines"})
+@JsonIgnoreProperties({"deadlines"})
 @JsonAutoDetect(getterVisibility=JsonAutoDetect.Visibility.NONE, setterVisibility=JsonAutoDetect.Visibility.NONE, fieldVisibility=JsonAutoDetect.Visibility.ANY)
 public class JaxbTask implements InternalTask {
 
@@ -131,6 +134,8 @@ public class JaxbTask implements InternalTask {
         }
         this.id = task.getId();
         this.priority = task.getPriority();
+        this.version = task.getVersion();
+        this.archived = task.isArchived();
         this.subTasksStrategy = ((InternalTask) task).getSubTaskStrategy();
         this.peopleAssignments = new JaxbPeopleAssignments(task.getPeopleAssignments());
 
@@ -347,17 +352,17 @@ public class JaxbTask implements InternalTask {
     }
 
     @Override
-    public void setId(long id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
     @Override
-    public int getPriority() {
+    public Integer getPriority() {
         return whenNull(priority, 0);
     }
 
     @Override
-    public void setPriority(int priority) {
+    public void setPriority(Integer priority) {
         this.priority = priority;
     }
 
@@ -463,12 +468,12 @@ public class JaxbTask implements InternalTask {
     }
 
     public void setVersion(Integer version) {
-        unsupported(Void.class);
+    	this.version = version;
     }
 
     @Override
-    public int getVersion() {
-        return unsupported(int.class);
+    public Integer getVersion() {
+    	return version;
     }
 
     @Override

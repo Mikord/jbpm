@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,9 +22,11 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Index;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
 import javax.persistence.SequenceGenerator;
+import javax.persistence.Table;
 import javax.persistence.Version;
 
 /**
@@ -37,6 +39,9 @@ import javax.persistence.Version;
  * This entity must be included in the persistence.xml when the "Per Process Instance" strategy is used.
  */
 @Entity
+@Table(name = "ContextMappingInfo", indexes = {@Index(name = "IDX_CMI_Context", columnList = "CONTEXT_ID"),
+                                        @Index(name = "IDX_CMI_KSession", columnList = "KSESSION_ID"),
+                                        @Index(name = "IDX_CMI_Owner", columnList = "OWNER_ID")})
 @SequenceGenerator(name="contextMappingInfoIdSeq", sequenceName="CONTEXT_MAPPING_INFO_ID_SEQ")
 @NamedQueries(value=
     {@NamedQuery(name="FindContextMapingByContextId", 

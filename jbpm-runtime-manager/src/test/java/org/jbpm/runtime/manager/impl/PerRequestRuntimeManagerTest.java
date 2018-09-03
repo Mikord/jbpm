@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.runtime.manager.impl;
 
@@ -34,6 +35,7 @@ import javax.transaction.UserTransaction;
 import org.jbpm.runtime.manager.util.TestUtil;
 import org.jbpm.services.task.identity.JBossUserGroupCallbackImpl;
 import org.jbpm.test.util.AbstractBaseTest;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -57,10 +59,9 @@ import org.kie.api.task.UserGroupCallback;
 import org.kie.api.task.model.Task;
 import org.kie.api.task.model.TaskSummary;
 import org.kie.internal.io.ResourceFactory;
+import org.kie.internal.runtime.manager.InternalRuntimeManager;
 import org.kie.internal.runtime.manager.context.EmptyContext;
 import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 
 public class PerRequestRuntimeManagerTest extends AbstractBaseTest {
 
@@ -502,19 +503,104 @@ public class PerRequestRuntimeManagerTest extends AbstractBaseTest {
         Long taskId = taskList.get(0).getId();
         Task task = taskService2.getTaskById(taskId);
         assertEquals("id-1", task.getTaskData().getDeploymentId());
-
-        taskService2.start(taskId, "john");
-
         try {
+            taskService2.start(taskId, "john");
+        
             taskService2.complete(taskId, "john", null);
         } catch (NullPointerException npe) {
             fail("NullPointerException is thrown");
-        } catch (RuntimeException re) {
-            // RuntimeException with a better message
-            assertEquals("No RuntimeManager registered with identifier: id-1", re.getMessage());
+        } catch (IllegalStateException re) {
+            assertEquals("Task instance " + task.getId() + " is owned by another deployment expected " +
+                        task.getTaskData().getDeploymentId() + " found id-2" , re.getMessage());
         }
 
         manager2.disposeRuntimeEngine(runtime2);
         manager2.close();
+    }
+    
+    @Test
+    public void testMultiplePerRequestManagerFromSingleThread() {
+        RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get()
+                .newDefaultBuilder()
+                .userGroupCallback(userGroupCallback)
+                .addAsset(ResourceFactory.newClassPathResource("BPMN2-IntermediateCatchEventSignalWithRef.bpmn2"), ResourceType.BPMN2)
+                .get();
+        
+        manager = RuntimeManagerFactory.Factory.get().newPerRequestRuntimeManager(environment, "first");        
+        assertNotNull(manager);
+        
+        RuntimeEnvironment environment2 = RuntimeEnvironmentBuilder.Factory.get()
+                .newDefaultBuilder()
+                .userGroupCallback(userGroupCallback)
+                .addAsset(ResourceFactory.newClassPathResource("BPMN2-UserTask.bpmn2"), ResourceType.BPMN2)
+                .get();
+        
+        RuntimeManager manager2 = RuntimeManagerFactory.Factory.get().newPerRequestRuntimeManager(environment2, "second");        
+        assertNotNull(manager2);
+        // start first process instance with first manager
+        RuntimeEngine runtime1 = manager.getRuntimeEngine(EmptyContext.get());
+        KieSession ksession1 = runtime1.getKieSession();
+        assertNotNull(ksession1);                 
+        ProcessInstance processInstance = ksession1.startProcess("IntermediateCatchEventWithRef");
+        assertEquals(ProcessInstance.STATE_ACTIVE, processInstance.getState());
+        
+        // start another process instance of the same process just owned by another manager
+        RuntimeEngine runtime2 = manager2.getRuntimeEngine(EmptyContext.get());
+        KieSession ksession2 = runtime2.getKieSession();
+        assertNotNull(ksession2);         
+        ProcessInstance processInstance2 = ksession2.startProcess("UserTask");
+        assertEquals(ProcessInstance.STATE_ACTIVE, processInstance2.getState());
+        
+        manager.disposeRuntimeEngine(runtime1);
+        manager.disposeRuntimeEngine(runtime2);
+        
+        // close manager which will close session maintained by the manager
+        manager.close();
+        manager2.close();
+    }
+    
+    @Test
+    public void testSignalEventWithDeactivate() {
+        RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get()
+                .newDefaultBuilder()
+                .userGroupCallback(userGroupCallback)
+                .addAsset(ResourceFactory.newClassPathResource("events/start-on-event.bpmn"), ResourceType.BPMN2)
+                .get();
+        
+        manager = RuntimeManagerFactory.Factory.get().newPerRequestRuntimeManager(environment);        
+        assertNotNull(manager);
+        
+        RuntimeEngine runtime1 = manager.getRuntimeEngine(EmptyContext.get());
+        KieSession ksession1 = runtime1.getKieSession();
+          
+        ksession1.signalEvent("SampleEvent", null);        
+        
+        
+        List<? extends ProcessInstanceLog> logs = runtime1.getAuditService().findProcessInstances();
+        assertEquals(1, logs.size());
+        manager.disposeRuntimeEngine(runtime1);
+        
+        ((InternalRuntimeManager) manager).deactivate();
+        
+        runtime1 = manager.getRuntimeEngine(EmptyContext.get());
+        ksession1 = runtime1.getKieSession();
+        
+        ksession1.signalEvent("SampleEvent", null); 
+        
+        logs = runtime1.getAuditService().findProcessInstances();
+        assertEquals(1, logs.size());
+        manager.disposeRuntimeEngine(runtime1);
+        
+        ((InternalRuntimeManager) manager).activate();
+        
+        runtime1 = manager.getRuntimeEngine(EmptyContext.get());
+        ksession1 = runtime1.getKieSession();
+        
+        ksession1.signalEvent("SampleEvent", null); 
+        
+        logs = runtime1.getAuditService().findProcessInstances();
+        assertEquals(2, logs.size());
+        manager.disposeRuntimeEngine(runtime1);
+        
     }
 }

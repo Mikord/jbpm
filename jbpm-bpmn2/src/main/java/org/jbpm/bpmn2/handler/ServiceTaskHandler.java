@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,6 +31,16 @@ public class ServiceTaskHandler implements WorkItemHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(ServiceTaskHandler.class);
     
+    private String resultVarName;
+    
+    public ServiceTaskHandler() {
+        this("Result");
+    }
+    
+    public ServiceTaskHandler(String resultVarName) {
+        this.resultVarName = resultVarName;
+    }
+
     public void executeWorkItem(WorkItem workItem, WorkItemManager manager) {
         String service = (String) workItem.getParameter("Interface");
         String interfaceImplementationRef = (String) workItem.getParameter("interfaceImplementationRef"); 
@@ -67,7 +77,7 @@ public class ServiceTaskHandler implements WorkItemHandler {
             Method method = c.getMethod(operation, classes);
             Object result = method.invoke(instance, params);
             Map<String, Object> results = new HashMap<String, Object>();
-            results.put("Result", result);
+            results.put(resultVarName, result);
             manager.completeWorkItem(workItem.getId(), results);
         } catch (ClassNotFoundException cnfe) {
             handleException(cnfe, service, interfaceImplementationRef, operation, parameterType, parameter);

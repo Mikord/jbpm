@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,6 +32,7 @@ import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
 
 import static org.jbpm.test.tools.IterableListenerAssert.*;
+import static org.junit.Assert.*;
 
 public class SubprocessesTest extends JbpmTestCase {
 
@@ -58,7 +59,7 @@ public class SubprocessesTest extends JbpmTestCase {
     private static final String HELLO_WORLD_PROCESS = "org/jbpm/test/functional/common/HelloWorldProcess1.bpmn";
     private static final String HELLO_WORLD_PROCESS_ID = "org.jbpm.test.functional.common.HelloWorldProcess1";
 
-    private static final boolean JAVA8 = System.getProperty("java.version").contains("1.8");
+    private static final boolean JAVA8_9 = System.getProperty("java.version").contains("1.8") || System.getProperty("java.version").startsWith("9.");
 
     private KieSession ksession;
 
@@ -121,7 +122,7 @@ public class SubprocessesTest extends JbpmTestCase {
         assertTriggered(process, "parameter mapping");
 
         // subprocess is started
-        if (JAVA8) {
+        if (JAVA8_9) {
             assertChangedVariable(process, "variable", null, "parameters");
             assertChangedVariable(process, "undefined", null, "parameters");
         } else {
@@ -171,7 +172,7 @@ public class SubprocessesTest extends JbpmTestCase {
         assertTriggered(process, "parameter mapping");
 
         // subprocess is started
-        if (JAVA8) {
+        if (JAVA8_9) {
             assertChangedVariable(process, "variable", null, "parameters");
             assertChangedVariable(process, "undefined", null, "parameters");
         } else {
@@ -600,7 +601,7 @@ public class SubprocessesTest extends JbpmTestCase {
         assertTriggered(process, "parameter mapping");
 
         // subprocess is started
-        if (JAVA8) {
+        if (JAVA8_9) {
             assertChangedVariable(process, "variable", null, "parameters");
             assertChangedVariable(process, "undefined", null, "parameters");
         } else {

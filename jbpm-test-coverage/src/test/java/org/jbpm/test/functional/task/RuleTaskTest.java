@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,11 @@
  */
 
 package org.jbpm.test.functional.task;
+
+import static org.jbpm.test.tools.IterableListenerAssert.assertNextNode;
+import static org.jbpm.test.tools.IterableListenerAssert.assertProcessCompleted;
+import static org.jbpm.test.tools.IterableListenerAssert.assertProcessStarted;
+import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,8 +36,6 @@ import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.process.WorkflowProcessInstance;
 import org.kie.internal.command.CommandFactory;
 import qa.tools.ikeeper.annotation.BZ;
-
-import static org.jbpm.test.tools.IterableListenerAssert.*;
 
 /**
  * Business rules task test. testing execution of rules with specified rule-flow group.
@@ -96,8 +99,8 @@ public class RuleTaskTest extends JbpmTestCase {
         List<String> executedRules = new ArrayList<String>();
         List<Command<?>> commands = new ArrayList<Command<?>>();
         commands.add(CommandFactory.newSetGlobal("executed", executedRules));
-        commands.add(CommandFactory.newStartProcess(RULE_TASK_ID));
         commands.add(CommandFactory.newInsert(6));
+        commands.add(CommandFactory.newStartProcess(RULE_TASK_ID));
         commands.add(CommandFactory.newFireAllRules());
 
         IterableProcessEventListener listener = new IterableProcessEventListener();
@@ -125,6 +128,7 @@ public class RuleTaskTest extends JbpmTestCase {
         res.put(RULE_TASK_2, ResourceType.BPMN2);
         res.put(RULE_TASK_2_DRL, ResourceType.DRL);
         KieSession ksession = createKSession(res);
+        ksession.getEnvironment().set("org.jbpm.rule.task.waitstate", true);
 
         ProcessInstance pi = ksession.startProcess(RULE_TASK_2_ID, null);
         assertNotNull(pi);

@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.services.ejb.timer;
 
@@ -37,6 +38,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 
 public class EjbSchedulerService implements GlobalSchedulerService {
+    
+    private static final Boolean TRANSACTIONAL = Boolean.parseBoolean(System.getProperty("org.jbpm.ejb.timer.tx", "false"));
 
 	private AtomicLong idCounter = new AtomicLong();
 	private TimerService globalTimerService;
@@ -51,11 +54,15 @@ public class EjbSchedulerService implements GlobalSchedulerService {
 		String jobName = getJobName(ctx, id);
 		EjbGlobalJobHandle jobHandle = new EjbGlobalJobHandle(id, jobName, ((GlobalTimerService) globalTimerService).getTimerServiceId());
 		
-		TimerJobInstance jobInstance = scheduler.getTimerByName(jobName);
-		if (jobInstance != null) {
-			return jobInstance.getJobHandle();
+		TimerJobInstance jobInstance = null;
+		// check if given timer job is marked as new timer meaning it was never scheduled before, 
+		// if so skip the check by timer name as it has no way to exist
+		if (!isNewTimer(ctx)) {
+    		jobInstance = scheduler.getTimerByName(jobName);
+    		if (jobInstance != null) {
+    			return jobInstance.getJobHandle();
+    		}
 		}
-		
 		jobInstance = globalTimerService.getTimerJobFactoryManager().createTimerJobInstance(
 														job, 
 														ctx, 
@@ -105,7 +112,7 @@ public class EjbSchedulerService implements GlobalSchedulerService {
 
 	@Override
 	public boolean isTransactional() {
-		return false;
+		return TRANSACTIONAL;
 	}
 
 	@Override
@@ -142,5 +149,15 @@ public class EjbSchedulerService implements GlobalSchedulerService {
         }
         return jobname;
 	}
+	
+   private boolean isNewTimer(JobContext ctx) {
+
+        boolean isNewTimer = true;
+        if (ctx instanceof ProcessJobContext) {
+            ProcessJobContext processCtx = (ProcessJobContext) ctx;
+            isNewTimer = processCtx.isNewTimer();
+        }
+        return isNewTimer;
+    }
 
 }

@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,9 +29,9 @@ import org.jbpm.process.audit.AuditLoggerFactory.Type;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.kie.api.KieBase;
 import org.kie.api.runtime.Environment;
 import org.kie.api.runtime.KieSession;
-import org.kie.internal.KnowledgeBase;
 
 /**
  * This class tests the following classes: 
@@ -52,7 +52,7 @@ public class CommandBasedAuditLogServiceTest extends AbstractAuditLogServiceTest
         context = setupWithPoolingDataSource(JBPM_PERSISTENCE_UNIT_NAME);
         
         // load the process
-        KnowledgeBase kbase = createKnowledgeBase();
+        KieBase kbase = createKnowledgeBase();
         // create a new session
         Environment env = createEnvironment(context);
         session = createKieSession(kbase, env);
@@ -67,10 +67,11 @@ public class CommandBasedAuditLogServiceTest extends AbstractAuditLogServiceTest
 
     @After
     public void tearDown() throws Exception {
-        cleanUp(context);
         session.dispose();
+        auditLogService.clear();
         session = null;
         auditLogService = null;
+        cleanUp(context);
     }
 
     @Test

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.services.task.persistence;
 
 import static org.kie.internal.query.QueryParameterIdentifiers.ACTUAL_OWNER_ID_LIST;
@@ -196,6 +212,9 @@ public class TaskSummaryQueryCriteriaUtil extends AbstractTaskQueryCriteriaUtil 
                 );
         taskRoot.join(TaskImpl_.taskData); // added for convienence sake, since other logic expects to find this join
 
+        addUserGroupsViaCallBackToQueryWhere(userGroupCallback, queryWhere.getCriteria());
+
+        // 3. check to see if there's already a user(/security)-limitation in the search
         checkExistingCriteriaForUserBasedLimit(queryWhere, userId, userGroupCallback);
         for( QueryModificationService queryModificationService : queryModificationServiceLoader ) {
             queryModificationService.optimizeCriteria(queryWhere);
@@ -235,6 +254,41 @@ public class TaskSummaryQueryCriteriaUtil extends AbstractTaskQueryCriteriaUtil 
     }
 
     /**
+     * @param userGroupCallback
+     * @param criteriaList
+     */
+    private void addUserGroupsViaCallBackToQueryWhere(UserGroupCallback userGroupCallback, List<QueryCriteria> criteriaList) {
+        if (criteriaList.isEmpty()) {
+            return;
+        }
+
+        for (QueryCriteria criteria : criteriaList) {
+            if (criteria.isGroupCriteria()) {
+                addUserGroupsViaCallBackToQueryWhere(userGroupCallback, criteria.getCriteria());
+            } else {
+                String critieraListId = criteria.getListId();
+                if (critieraListId.equals(POTENTIAL_OWNER_ID_LIST) || critieraListId.equals(ACTUAL_OWNER_ID_LIST)
+                        || critieraListId.equals(STAKEHOLDER_ID_LIST) || critieraListId.equals(BUSINESS_ADMIN_ID_LIST)) {
+
+                    List<String> allNewGroupIds = new ArrayList<>();
+                    for (Object userObj : criteria.getValues()) {
+                        if (userObj instanceof String) {
+                            List<String> groupIds = userGroupCallback.getGroupsForUser(userObj.toString());
+                            if (groupIds != null && !groupIds.isEmpty()) {
+                                allNewGroupIds.addAll(groupIds);
+                            }
+                        }
+                    }
+
+                    if (!allNewGroupIds.isEmpty()) {
+                        criteria.getValues().addAll(allNewGroupIds);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * This method checks whether or not the query *already* contains a limiting criteria (in short, a criteria that limits results
      * of the query) that refers to the user or (the user's groups).  If there is no user/group limiting criteria, then a
      * {@link QueryCriteria} with the user and group ids is added to the {@link QueryWhere} instance
@@ -247,7 +301,7 @@ public class TaskSummaryQueryCriteriaUtil extends AbstractTaskQueryCriteriaUtil 
      * @param userGroupCallback A {@link UserGroupCallback} instance in order to retrieve the groups of the given user
      */
     private void checkExistingCriteriaForUserBasedLimit(QueryWhere queryWhere, String userId, UserGroupCallback userGroupCallback) {
-        List<String> groupIds = userGroupCallback.getGroupsForUser(userId, null, null);
+        List<String> groupIds = userGroupCallback.getGroupsForUser(userId);
         Set<String> userAndGroupIds = new HashSet<String>();
         if( groupIds != null ) {
             userAndGroupIds.addAll(groupIds);
@@ -268,11 +322,12 @@ public class TaskSummaryQueryCriteriaUtil extends AbstractTaskQueryCriteriaUtil 
      */
     private static boolean criteriaListForcesUserLimitation(Set<String> userAndGroupIds, List<QueryCriteria> criteriaList) {
         boolean userLimitiationIntersection = false;
+
         if( criteriaList.isEmpty() ) {
             return false;
         }
         for( QueryCriteria criteria : criteriaList ) {
-          if( criteria.isUnion() ) {
+          if( criteria.isUnion() && criteriaList.size() > 1) {
               return false;
           }
           if( criteria.isGroupCriteria() ) {
@@ -501,8 +556,8 @@ public class TaskSummaryQueryCriteriaUtil extends AbstractTaskQueryCriteriaUtil 
         }
         return predicate;
     }
-    
-    
+
+
 
     @SuppressWarnings("unchecked")
     private static <T> Predicate createTaskUserRolesLimitPredicate(QueryCriteria criteria, CriteriaQuery<T> criteriaQuery, CriteriaBuilder builder) {
@@ -633,7 +688,7 @@ public class TaskSummaryQueryCriteriaUtil extends AbstractTaskQueryCriteriaUtil 
         }
         return (Expression<?>) orderBySelection;
     }
-    
+
     public static <Q,T> Predicate taskSpecificCreatePredicateFromSingleCriteria(
             CriteriaQuery<Q> query, CriteriaBuilder builder,
             QueryCriteria criteria, QueryWhere queryWhere) {

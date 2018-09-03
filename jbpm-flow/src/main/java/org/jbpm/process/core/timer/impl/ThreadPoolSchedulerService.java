@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 package org.jbpm.process.core.timer.impl;
+
+import java.io.Serializable;
+import java.util.Date;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.drools.core.time.InternalSchedulerService;
 import org.drools.core.time.Job;
@@ -29,21 +38,19 @@ import org.jbpm.process.core.timer.SchedulerServiceInterceptor;
 import org.jbpm.process.core.timer.impl.GlobalTimerService.GlobalJobHandle;
 import org.jbpm.process.instance.timer.TimerManager.ProcessJobContext;
 import org.jbpm.process.instance.timer.TimerManager.StartProcessJobContext;
-
-import java.io.Serializable;
-import java.util.Date;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * ThreadPool based scheduler service backed by <code>ThreadPoolSchedulerService</code>
  *
  */
 public class ThreadPoolSchedulerService implements GlobalSchedulerService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(ThreadPoolSchedulerService.class);
+    
+    private static final Integer FAILED_JOB_RETRIES = Integer.parseInt(System.getProperty("org.jbpm.timer.thread.retries", "5"));
+    private static final Integer FAILED_JOB_DELAY = Integer.parseInt(System.getProperty("org.jbpm.timer.thread.delay", "1000"));
     
     private AtomicLong idCounter = new AtomicLong();
     private ScheduledThreadPoolExecutor scheduler;
@@ -68,6 +75,7 @@ public class ThreadPoolSchedulerService implements GlobalSchedulerService {
 
     @Override
     public void shutdown() {
+        
         try {
         	this.scheduler.shutdown();
             if ( !this.scheduler.awaitTermination( 10, TimeUnit.SECONDS ) ) {
@@ -77,6 +85,7 @@ public class ThreadPoolSchedulerService implements GlobalSchedulerService {
         	this.scheduler.shutdownNow();
             Thread.currentThread().interrupt();
         }
+        this.activeTimer.clear();
     }
 
     @Override
@@ -157,11 +166,11 @@ public class ThreadPoolSchedulerService implements GlobalSchedulerService {
         long now = System.currentTimeMillis();
         ScheduledFuture<Void> future = null;
         if ( then >= now ) {
-            future = scheduler.schedule( item,
+            future = scheduler.schedule( new RetriggerCallable(scheduler, item),
                                          then - now,
                                          TimeUnit.MILLISECONDS );
         } else {
-            future = scheduler.schedule( item,
+            future = scheduler.schedule( new RetriggerCallable(scheduler, item),
                                          0,
                                          TimeUnit.MILLISECONDS );
         }
@@ -210,7 +219,7 @@ public class ThreadPoolSchedulerService implements GlobalSchedulerService {
 
 	@Override
 	public boolean retryEnabled() {
-		return true;
+		return false;
 	}
 
 
@@ -218,5 +227,38 @@ public class ThreadPoolSchedulerService implements GlobalSchedulerService {
 	public boolean isValid(GlobalJobHandle jobHandle) {
 		
 		return true;
+	}
+	
+	private static class RetriggerCallable implements Callable<Void> {
+
+	    private Callable<Void> delegate;
+	    private ScheduledThreadPoolExecutor scheduler;
+	    
+	    private int retries = 0;
+	    
+	    RetriggerCallable(ScheduledThreadPoolExecutor scheduler, Callable<Void> delegate) {
+	        this.scheduler = scheduler;
+	        this.delegate = delegate;	        
+	    }
+        @Override
+        public Void call() throws Exception {
+            try {
+                this.delegate.call();
+                return null;
+            } catch (Exception e) {
+                GlobalJDKJobHandle jobHandle = (GlobalJDKJobHandle) ((TimerJobInstance)this.delegate).getJobHandle();
+                if (retries < FAILED_JOB_RETRIES) {                                                       
+                    ScheduledFuture<Void> future = this.scheduler.schedule( this,
+                                                     FAILED_JOB_DELAY,
+                                                     TimeUnit.MILLISECONDS );
+                    jobHandle.setFuture( future );
+                    retries++;
+                } else {
+                    logger.error("Timer execution failed {} times in a roll, unscheduling ({})", FAILED_JOB_RETRIES, jobHandle);                    
+                }
+                throw e;
+            }
+        }
+	    
 	}
 }

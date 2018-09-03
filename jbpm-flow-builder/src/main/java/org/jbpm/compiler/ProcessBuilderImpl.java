@@ -1,11 +1,11 @@
 /*
- * Copyright 2005 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -63,6 +63,7 @@ import org.jbpm.workflow.core.impl.NodeImpl;
 import org.jbpm.workflow.core.impl.WorkflowProcessImpl;
 import org.jbpm.workflow.core.node.CompositeNode;
 import org.jbpm.workflow.core.node.ConstraintTrigger;
+import org.jbpm.workflow.core.node.DynamicNode;
 import org.jbpm.workflow.core.node.EventNode;
 import org.jbpm.workflow.core.node.EventSubProcessNode;
 import org.jbpm.workflow.core.node.MilestoneNode;
@@ -405,9 +406,20 @@ public class ProcessBuilderImpl implements org.drools.compiler.compiler.ProcessB
                 }
             } else if ( nodes[i] instanceof NodeContainer ) {
                 generateRules( ((NodeContainer) nodes[i]).getNodes(), process, builder);
+                if ( nodes[i] instanceof DynamicNode) {
+                    DynamicNode dynamicNode = (DynamicNode) nodes[i];
+                    if (dynamicNode.getCompletionExpression() != null && "rule".equals(((DynamicNode) nodes[i]).getLanguage())) {
+                        builder.append( createAdHocCompletionRule( process, dynamicNode ) );
+                    }
+                    if (dynamicNode.getActivationExpression() != null && !dynamicNode.getActivationExpression().isEmpty()) {
+                        builder.append( createAdHocActivationRule( process, dynamicNode ) );
+                    }
+                }
             } else if ( nodes[i] instanceof EventNode ) {
                 EventNode state = (EventNode) nodes[i];
                 builder.append( createEventStateRule(process, state) );
+            } else if (nodes[i].getMetaData().get("customActivationExpression") != null) {
+                builder.append( createActivationRule( process, nodes[i] ) );
             }
         }
     }
@@ -480,7 +492,7 @@ public class ProcessBuilderImpl implements org.drools.compiler.compiler.ProcessB
             return "";
         } else {
             return
-                "rule \"RuleFlowStateEventSubProcess-" + process.getId() + "-" + compositeNode.getUniqueId() + "\" @Propagation(EAGER) \n" +
+                "rule \"RuleFlowStateEventSubProcess-Event-" + process.getId() + "-" + compositeNode.getUniqueId() + "\" @Propagation(EAGER) \n" +
                 "      ruleflow-group \"DROOLS_SYSTEM\" \n" +
                 "    when \n" +
                 "      " + condition + "\n" +
@@ -515,11 +527,44 @@ public class ProcessBuilderImpl implements org.drools.compiler.compiler.ProcessB
             for ( Map.Entry<String, String> entry : inMappings.entrySet() ) {
                 result += "        params.put(\"" + entry.getKey() + "\", " + entry.getValue() + ");\n";
             }
-            result += "        ((org.jbpm.process.instance.ProcessRuntimeImpl)((org.drools.core.common.InternalKnowledgeRuntime)kcontext.getKnowledgeRuntime()).getProcessRuntime()).startProcess(\"" + process.getId() + "\", params, \"conditional\");\n" + "end\n\n";
+            result += "        ((org.jbpm.process.instance.ProcessRuntimeImpl)((org.drools.core.common.InternalWorkingMemory)kcontext.getKnowledgeRuntime()).getProcessRuntime()).startProcess(\"" + process.getId() + "\", params, \"conditional\");\n" + "end\n\n";
         } else {
-            result += "        ((org.jbpm.process.instance.ProcessRuntimeImpl)((org.drools.core.common.InternalKnowledgeRuntime)kcontext.getKnowledgeRuntime()).getProcessRuntime()).startProcess(\"" + process.getId() + "\", null, \"conditional\");\n" + "end\n\n";
+            result += "        ((org.jbpm.process.instance.ProcessRuntimeImpl)((org.drools.core.common.InternalWorkingMemory)kcontext.getKnowledgeRuntime()).getProcessRuntime()).startProcess(\"" + process.getId() + "\", null, \"conditional\");\n" + "end\n\n";
         }
         return result;
+    }
+    
+    private String createAdHocCompletionRule(Process process, DynamicNode dynamicNode) {
+        return
+        "rule \"RuleFlow-AdHocComplete-" + process.getId() + "-" + dynamicNode.getUniqueId() + "\" @Propagation(EAGER) \n" +
+        "      ruleflow-group \"DROOLS_SYSTEM\" \n" +
+        "    when \n" +
+        "      " + dynamicNode.getCompletionExpression() + "\n" +
+        "    then \n" +
+        "end \n\n";
+    }
+    
+    private String createAdHocActivationRule(Process process, DynamicNode dynamicNode) {
+        return
+        "rule \"RuleFlow-AdHocActivate-" + process.getId() + "-" + dynamicNode.getUniqueId() + "\" @Propagation(EAGER) \n" +
+        "      ruleflow-group \"DROOLS_SYSTEM\" \n" +
+        "    when \n" +
+        "      " + dynamicNode.getActivationExpression() + "\n" +
+        "    then \n" +
+        "end \n\n";
+    }
+    
+    private String createActivationRule(Process process, Node node) {
+        return
+        "rule \"RuleFlow-Activate-" + process.getId() + "-" + node.getMetaData().get("UniqueId") + "\"  \n" +
+        "       \n" +
+        "    when \n" +
+        "    org.kie.api.runtime.process.CaseData(definitionId == \""  + process.getId() + "\") \n" +
+        "      " + node.getMetaData().get("customActivationExpression") + "\n" +
+        "    then \n" +
+        "       org.jbpm.casemgmt.api.CaseService caseService = (org.jbpm.casemgmt.api.CaseService) org.jbpm.services.api.service.ServiceRegistry.get().service(org.jbpm.services.api.service.ServiceRegistry.CASE_SERVICE); \n" +
+        "       caseService.triggerAdHocFragment(org.jbpm.casemgmt.api.CaseUtils.getCaseId(kcontext.getKieRuntime()), \"" + node.getMetaData().get("customActivationFragmentName") +"\", null); \n" +
+        "end \n\n";
     }
 
 }

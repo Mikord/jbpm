@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.assertj.core.api.Assertions;
-import org.jbpm.runtime.manager.impl.task.SynchronizedTaskService;
 import org.jbpm.test.JbpmTestCase;
 import org.junit.Test;
 import org.kie.api.runtime.KieSession;
@@ -30,6 +29,7 @@ import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.task.model.TaskSummary;
 import org.kie.internal.query.QueryFilter;
+import org.kie.internal.task.api.InternalTaskService;
 import qa.tools.ikeeper.annotation.BZ;
 
 public class HumanTaskQueryFilterTest extends JbpmTestCase {
@@ -40,7 +40,7 @@ public class HumanTaskQueryFilterTest extends JbpmTestCase {
             "org.jbpm.test.functional.task.HumanTaskQueryFilter-configurableHumanTask";
 
     private KieSession kieSession;
-    private SynchronizedTaskService taskService;
+    private InternalTaskService taskService;
     private List<ProcessInstance> instanceList;
 
     public HumanTaskQueryFilterTest() {
@@ -54,7 +54,7 @@ public class HumanTaskQueryFilterTest extends JbpmTestCase {
         createRuntimeManager(CONF_HUMAN_TASK);
         RuntimeEngine runtimeEngine = getRuntimeEngine();
         kieSession = runtimeEngine.getKieSession();
-        taskService = (SynchronizedTaskService) runtimeEngine.getTaskService();
+        taskService = (InternalTaskService) runtimeEngine.getTaskService();
         instanceList = new ArrayList<ProcessInstance>();
     }
 
@@ -82,7 +82,7 @@ public class HumanTaskQueryFilterTest extends JbpmTestCase {
         Assertions.assertThat(taskList).hasSize(2);
         logger.debug("### Potential owner task list: " + taskList);
 
-        taskList = taskService.getTasksOwned("john", null, new QueryFilter(0, 1, false, null, "en-UK", null));
+        taskList = taskService.getTasksOwned("john", null, new QueryFilter(0, 1, null, "en-UK", null));
         Assertions.assertThat(taskList).hasSize(1);
         logger.debug("### Owned task list: " + taskList);
 
@@ -129,7 +129,7 @@ public class HumanTaskQueryFilterTest extends JbpmTestCase {
         startHumanTaskProcess(4, "john's task", "john");
 
         List<TaskSummary> taskList = taskService.getTasksAssignedAsPotentialOwner("john", null, null,
-                new QueryFilter(0, 0, true));
+                new QueryFilter(0, 0));
         logger.debug("### Potential owner task list: " + taskList);
         Assertions.assertThat(taskList).hasSize(1);
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,6 @@
 
 package org.jbpm.services.cdi.test.humantaskservice;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
-
-import javax.inject.Inject;
-
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.shrinkwrap.api.Archive;
@@ -28,12 +23,17 @@ import org.jboss.shrinkwrap.api.ArchivePaths;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jbpm.kie.test.util.AbstractKieServicesBaseTest;
-import org.jbpm.services.cdi.test.humantaskservice.CustomHumanTaskServiceProducer.CustomTaskPersistenceContextManagerInUse;
+import org.jbpm.services.cdi.test.humantaskservice.CustomHumanTaskServiceProducer.CustomTaskServiceInUse;
 import org.jbpm.services.task.commands.TaskCommand;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.kie.api.runtime.Context;
 import org.kie.api.task.TaskService;
-import org.kie.internal.command.Context;
+
+import javax.inject.Inject;
+
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertThat;
 
 /**
  * This test demonstrates subclassing the HumanTaskServiceProducer to inject
@@ -147,13 +147,12 @@ public class CustomHumanTaskServiceTest extends AbstractKieServicesBaseTest {
     }
 
     /**
-     * The CustomHumanTaskService is configured with a TaskPersistenceContextManager
-     * implementation that throws an exception to prove that the custom environment
-     * is in use.
+     * The CustomHumanTaskService is configured as a mock which throws an exception
+     * when the the execute() method is called.
      *
      * @throws Exception
      */
-    @Test(expected=CustomTaskPersistenceContextManagerInUse.class)
+    @Test(expected=CustomTaskServiceInUse.class)
     public void testCustomTaskService() throws Exception {
         customTaskService.execute(new TestCommand());
     }

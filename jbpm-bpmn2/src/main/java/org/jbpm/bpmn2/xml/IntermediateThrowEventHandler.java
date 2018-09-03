@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +24,6 @@ import org.drools.core.xml.ExtensibleXmlParser;
 import org.jbpm.bpmn2.core.Escalation;
 import org.jbpm.bpmn2.core.IntermediateLink;
 import org.jbpm.bpmn2.core.Message;
-import org.jbpm.bpmn2.core.Signal;
 import org.jbpm.compiler.xml.ProcessBuildData;
 import org.jbpm.process.core.impl.DataTransformerRegistry;
 import org.jbpm.ruleflow.core.RuleFlowProcess;
@@ -38,11 +37,13 @@ import org.jbpm.workflow.core.node.Transformation;
 import org.kie.api.runtime.process.DataTransformer;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.NodeList;
+import org.w3c.dom.Text;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 
 public class IntermediateThrowEventHandler extends AbstractNodeHandler {
-	
+
 	private DataTransformerRegistry transformerRegistry = DataTransformerRegistry.get();
 
 	public static final String LINK_NAME = "linkName";
@@ -114,7 +115,7 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 		NamedNodeMap linkAttr = xmlLinkNode.getAttributes();
 		String name = linkAttr.getNamedItem("name").getNodeValue();
 
-		
+
 		String id = element.getAttribute("id");
 		node.setMetaData("UniqueId", id);
 		node.setMetaData(LINK_NAME, name);
@@ -193,25 +194,18 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 			} else if ("signalEventDefinition".equals(nodeName)) {
 				String signalName = ((Element) xmlNode).getAttribute("signalRef");
 				String variable = (String) actionNode.getMetaData("MappingVariable");
-				
-				Map<String, Signal> signals = (Map<String, Signal>) ((ProcessBuildData) parser.getData()).getMetaData("Signals");
-                
-                if (signals != null && signals.containsKey(signalName)) {
-                    Signal signal = signals.get(signalName);                      
-                    signalName = signal.getName();
-                    if (signalName == null) {
-                        throw new IllegalArgumentException("Signal definition must have a name attribute");
-                    }
-                }
+
+				signalName = checkSignalAndConvertToRealSignalNam(parser, signalName);
+
                 actionNode.setMetaData("EventType", "signal");
                 actionNode.setMetaData("Ref", signalName);
                 actionNode.setMetaData("Variable", variable);
-                
+
 				// check if signal should be send async
 				if (dataInputs.containsValue("async")) {
 				    signalName = "ASYNC-" + signalName;
 				}
-				
+
 				String signalExpression = getSignalExpression(actionNode, signalName, "tVariable");
 
 				actionNode
@@ -327,7 +321,7 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 											+ "\");"
 											+ EOL
 											+ "if (scopeInstance != null) {"
-											+ EOL 
+											+ EOL
 											+ " Object tVariable = "+ (variable == null ? "null" : variable)+";"
 											+ "org.jbpm.workflow.core.node.Transformation transformation = (org.jbpm.workflow.core.node.Transformation)kcontext.getNodeInstance().getNode().getMetaData().get(\"Transformation\");"
 											+ "if (transformation != null) {"
@@ -342,7 +336,7 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 											+ EOL
 											+ "    ((org.jbpm.process.instance.ProcessInstance) kcontext.getProcessInstance()).setState(org.jbpm.process.instance.ProcessInstance.STATE_ABORTED);"
 											+ EOL + "}"));
-				} else { 
+				} else {
 				    throw new IllegalArgumentException("General escalation is not yet supported");
 				}
 			}
@@ -352,30 +346,65 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 
 	protected void readDataInputAssociation(org.w3c.dom.Node xmlNode,
 			ActionNode actionNode) {
-		// sourceRef
-		org.w3c.dom.Node subNode = xmlNode.getFirstChild();
-		String eventVariable = subNode.getTextContent();
-		// targetRef
-		subNode = subNode.getNextSibling();
-		String target = subNode.getTextContent();
-		// transformation
-		Transformation transformation = null;
-		subNode = subNode.getNextSibling();
-		if (subNode != null && "transformation".equals(subNode.getNodeName())) {
-			String lang = subNode.getAttributes().getNamedItem("language").getNodeValue();
-			String expression = subNode.getTextContent();
-			
-			DataTransformer transformer = transformerRegistry.find(lang);
-			if (transformer == null) {
-				throw new IllegalArgumentException("No transformer registered for language " + lang);
-			}    			
-			transformation = new Transformation(lang, expression, dataInputs.get(target));
-			actionNode.setMetaData("Transformation", transformation);		
-		}
 		
-		if (eventVariable != null && eventVariable.trim().length() > 0) {
-			actionNode.setMetaData("MappingVariable", eventVariable);
-		}
+		
+		org.w3c.dom.Node subNode = xmlNode.getFirstChild();
+        if ("sourceRef".equals(subNode.getNodeName())) {            
+            // sourceRef
+            String eventVariable = subNode.getTextContent();
+            // targetRef
+            subNode = subNode.getNextSibling();
+            String target = subNode.getTextContent();
+            // transformation
+            Transformation transformation = null;
+            subNode = subNode.getNextSibling();
+            if (subNode != null && "transformation".equals(subNode.getNodeName())) {
+                String lang = subNode.getAttributes().getNamedItem("language").getNodeValue();
+                String expression = subNode.getTextContent();
+    
+                DataTransformer transformer = transformerRegistry.find(lang);
+                if (transformer == null) {
+                    throw new IllegalArgumentException("No transformer registered for language " + lang);
+                }
+                transformation = new Transformation(lang, expression, dataInputs.get(target));
+                actionNode.setMetaData("Transformation", transformation);
+            }
+    
+            if (eventVariable != null && eventVariable.trim().length() > 0) {            
+                if (dataInputs.containsKey(eventVariable)) {
+                    eventVariable = dataInputs.get(eventVariable);
+                }
+                
+                actionNode.setMetaData("MappingVariable", eventVariable);
+            }
+        } else {
+            // targetRef
+            // assignment
+            subNode = subNode.getNextSibling();
+            if (subNode != null) {
+                org.w3c.dom.Node subSubNode = subNode.getFirstChild();
+                NodeList nl = subSubNode.getChildNodes();
+                if (nl.getLength() > 1) {
+                    actionNode.setMetaData("MappingVariable", subSubNode.getTextContent());
+                    return;
+                } else if (nl.getLength() == 0) {
+                    return;
+                }
+                Object result = null;
+                Object from = nl.item(0);
+                if (from instanceof Text) {
+                    String text = ((Text) from).getTextContent();
+                    if (text.startsWith("\"") && text.endsWith("\"")) {
+                        result = text.substring(1, text.length() -1);
+                    } else {
+                        result = text;
+                    }
+                } else {
+                    result = nl.item(0);
+                }
+                actionNode.setMetaData("MappingVariable", "\"" + result + "\"");
+            }
+        }
 	}
 
 	public void writeNode(Node node, StringBuilder xmlDump, int metaDataType) {

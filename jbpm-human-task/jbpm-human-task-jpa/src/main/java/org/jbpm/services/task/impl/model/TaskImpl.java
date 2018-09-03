@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import java.io.ObjectOutput;
 import java.util.Collections;
 import java.util.List;
 
+import java.util.Objects;
 import javax.persistence.Basic;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
@@ -32,6 +33,7 @@ import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Index;
 import javax.persistence.JoinColumn;
 import javax.persistence.OneToMany;
 import javax.persistence.SequenceGenerator;
@@ -48,7 +50,15 @@ import org.kie.internal.task.api.model.InternalTask;
 import org.kie.internal.task.api.model.SubTasksStrategy;
 
 @Entity
-@Table(name="Task")
+@Table(name="Task",
+       indexes = {@Index(name = "IDX_Task_Initiator",  columnList="taskInitiator_id"),
+                  @Index(name = "IDX_Task_ActualOwner",  columnList="actualOwner_id"),
+                  @Index(name = "IDX_Task_CreatedBy",  columnList="createdBy_id"),
+                  @Index(name = "IDX_Task_processInstanceId",  columnList="processInstanceId"),
+                  @Index(name = "IDX_Task_processId",  columnList="processId"),
+                  @Index(name = "IDX_Task_status",  columnList="status"),
+                  @Index(name = "IDX_Task_archived",  columnList="archived"),
+                  @Index(name = "IDX_Task_workItemId", columnList="workItemId")})
 @SequenceGenerator(name="taskIdSeq", sequenceName="TASK_ID_SEQ", allocationSize=1)
 public class TaskImpl implements InternalTask {
     /**
@@ -236,7 +246,7 @@ public class TaskImpl implements InternalTask {
         return id;
     }
 
-    public void setId(long id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -255,15 +265,15 @@ public class TaskImpl implements InternalTask {
         }
     }
     
-    public int getVersion() {
+    public Integer getVersion() {
         return this.version;
     }
 
-    public int getPriority() {
+    public Integer getPriority() {
         return priority;
     }
 
-    public void setPriority(int priority) {
+    public void setPriority(Integer priority) {
         this.priority = priority;
     }
 
@@ -366,7 +376,7 @@ public class TaskImpl implements InternalTask {
         if ( this.version != other.version ) {
             return false;
         }
-        if ( this.archived != other.archived ) {
+        if (!Objects.equals(this.archived, other.archived)) {
             return false;
         }
         if (taskType == null) {
@@ -423,7 +433,10 @@ public class TaskImpl implements InternalTask {
     public void setDescription(String description) {
         this.description = description;
     }
-    
-    
 
+    @Override
+    public String toString() {
+        return "TaskImpl [id=" + id + ", name=" + name + "]";
+    }
+  
 }

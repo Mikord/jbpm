@@ -1,17 +1,18 @@
 /*
-Copyright 2013 Red Hat, Inc. and/or its affiliates.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.*/
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package org.jbpm.bpmn2;
 
@@ -40,6 +41,8 @@ import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.process.WorkItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.Assert.*;
 
 @RunWith(Parameterized.class)
 public class EscalationEventTest extends JbpmBpmn2TestCase {
@@ -263,5 +266,16 @@ public class EscalationEventTest extends JbpmBpmn2TestCase {
         ProcessInstance processInstance = ksession.startProcess("BPMN2BoundaryEscalationEventOnTask", sessionArgs);
         assertProcessInstanceCompleted(processInstance);
         assertProcessVarValue(processInstance, "Property_3", "java.lang.RuntimeException");
+    }
+    
+    @Test
+    public void testHandledEscalationEndEventProcess() throws Exception {
+        KieBase kbase = createKnowledgeBase("escalation/BPMN2-EscalationEndEventHandling.bpmn2");
+        KieSession ksession = createKnowledgeSession(kbase);
+        
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("hello", 70);
+        ProcessInstance processInstance = ksession.startProcess("helloWorld.Escalation", parameters);
+        assertProcessInstanceFinished(processInstance, ksession);
     }
 }

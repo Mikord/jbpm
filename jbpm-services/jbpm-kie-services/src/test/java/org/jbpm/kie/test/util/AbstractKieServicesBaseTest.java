@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,8 @@ import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.FilenameFilter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BrokenBarrierException;
@@ -29,6 +31,7 @@ import javax.persistence.EntityManagerFactory;
 
 import org.dashbuilder.DataSetCore;
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
+import org.jbpm.kie.services.impl.FormManagerService;
 import org.jbpm.kie.services.impl.FormManagerServiceImpl;
 import org.jbpm.kie.services.impl.KModuleDeploymentService;
 import org.jbpm.kie.services.impl.ProcessServiceImpl;
@@ -37,8 +40,10 @@ import org.jbpm.kie.services.impl.UserTaskServiceImpl;
 import org.jbpm.kie.services.impl.bpmn2.BPMN2DataServiceImpl;
 import org.jbpm.kie.services.impl.query.QueryServiceImpl;
 import org.jbpm.kie.services.test.TestIdentityProvider;
+import org.jbpm.kie.services.test.objects.TestUserGroupCallbackImpl;
 import org.jbpm.process.instance.impl.util.LoggingPrintStream;
 import org.jbpm.runtime.manager.impl.RuntimeManagerFactoryImpl;
+import org.jbpm.runtime.manager.impl.deploy.DeploymentDescriptorImpl;
 import org.jbpm.runtime.manager.impl.jpa.EntityManagerFactoryManager;
 import org.jbpm.services.api.DefinitionService;
 import org.jbpm.services.api.DeploymentService;
@@ -49,6 +54,7 @@ import org.jbpm.services.api.query.QueryService;
 import org.jbpm.services.task.HumanTaskServiceFactory;
 import org.jbpm.services.task.audit.TaskAuditServiceFactory;
 import org.jbpm.shared.services.impl.TransactionalCommandService;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.kie.api.KieServices;
@@ -64,10 +70,11 @@ import org.kie.api.conf.EventProcessingOption;
 import org.kie.api.runtime.conf.ClockTypeOption;
 import org.kie.api.task.TaskService;
 import org.kie.internal.io.ResourceFactory;
+import org.kie.internal.runtime.conf.DeploymentDescriptor;
+import org.kie.internal.runtime.conf.DeploymentDescriptorBuilder;
+import org.kie.internal.runtime.conf.ObjectModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 
 public abstract class AbstractKieServicesBaseTest {
 
@@ -75,7 +82,7 @@ public abstract class AbstractKieServicesBaseTest {
 
 	protected static final String ARTIFACT_ID = "test-module";
 	protected static final String GROUP_ID = "org.jbpm.test";
-	protected static final String VERSION = "1.0.0-SNAPSHOT";
+	protected static final String VERSION = "1.0.0";
 
 	protected PoolingDataSource ds;
 
@@ -88,6 +95,9 @@ public abstract class AbstractKieServicesBaseTest {
 	protected QueryService queryService;
 
 	protected TestIdentityProvider identityProvider;
+    protected TestUserGroupCallbackImpl userGroupCallback;
+
+    protected FormManagerService formManagerService;
 
     @BeforeClass
     public static void configure() {
@@ -114,12 +124,15 @@ public abstract class AbstractKieServicesBaseTest {
 		buildDatasource();
 		emf = EntityManagerFactoryManager.get().getOrCreate("org.jbpm.domain");
 		identityProvider = new TestIdentityProvider();
+        userGroupCallback = new TestUserGroupCallbackImpl();
+        formManagerService = new FormManagerServiceImpl();
 
 		// build definition service
 		bpmn2Service = new BPMN2DataServiceImpl();
 
 		queryService = new QueryServiceImpl();
 		((QueryServiceImpl)queryService).setIdentityProvider(identityProvider);
+        ((QueryServiceImpl)queryService).setUserGroupCallback(userGroupCallback);
 		((QueryServiceImpl)queryService).setCommandService(new TransactionalCommandService(emf));
 		((QueryServiceImpl)queryService).init();
 
@@ -129,10 +142,10 @@ public abstract class AbstractKieServicesBaseTest {
 		((KModuleDeploymentService)deploymentService).setEmf(emf);
 		((KModuleDeploymentService)deploymentService).setIdentityProvider(identityProvider);
 		((KModuleDeploymentService)deploymentService).setManagerFactory(new RuntimeManagerFactoryImpl());
-		((KModuleDeploymentService)deploymentService).setFormManagerService(new FormManagerServiceImpl());
+		((KModuleDeploymentService)deploymentService).setFormManagerService( formManagerService );
 
 		TaskService taskService = HumanTaskServiceFactory.newTaskServiceConfigurator().entityManagerFactory(emf).getTaskService();
-		
+
 		// build runtime data service
 		runtimeDataService = new RuntimeDataServiceImpl();
 		((RuntimeDataServiceImpl) runtimeDataService).setCommandService(new TransactionalCommandService(emf));
@@ -144,6 +157,7 @@ public abstract class AbstractKieServicesBaseTest {
 		// set runtime data service as listener on deployment service
 		((KModuleDeploymentService)deploymentService).addListener(((RuntimeDataServiceImpl) runtimeDataService));
 		((KModuleDeploymentService)deploymentService).addListener(((BPMN2DataServiceImpl) bpmn2Service));
+		((KModuleDeploymentService)deploymentService).addListener(((QueryServiceImpl) queryService));
 
 		// build process service
 		processService = new ProcessServiceImpl();
@@ -192,7 +206,21 @@ public abstract class AbstractKieServicesBaseTest {
         KieFileSystem kfs = createKieFileSystemWithKProject(ks);
         kfs.writePomXML( getPom(releaseId) );
 
+        if (createDescriptor()) {
+            DeploymentDescriptor customDescriptor = new DeploymentDescriptorImpl("org.jbpm.domain");
+            DeploymentDescriptorBuilder ddBuilder = customDescriptor.getBuilder();
 
+            for (ObjectModel listener : getProcessListeners()) {
+                ddBuilder.addEventListener(listener);
+            }
+            for (ObjectModel listener : getTaskListeners()) {
+                ddBuilder.addTaskEventListener(listener);
+            }
+            if (extraResources == null) {
+                extraResources = new HashMap<String, String>();
+            }
+            extraResources.put("src/main/resources/" + DeploymentDescriptor.META_INF_LOCATION, customDescriptor.toXml());
+        }
         for (String resource : resources) {
             kfs.write("src/main/resources/KBase-test/" + resource, ResourceFactory.newClassPathResource(resource));
         }
@@ -203,6 +231,8 @@ public abstract class AbstractKieServicesBaseTest {
         }
 
         kfs.write("src/main/resources/forms/DefaultProcess.ftl", ResourceFactory.newClassPathResource("repo/globals/forms/DefaultProcess.ftl"));
+        kfs.write("src/main/resources/forms/DefaultProcess.form", ResourceFactory.newClassPathResource("repo/globals/forms/DefaultProcess.form"));
+        kfs.write("src/main/resources/forms/DefaultProcess.frm", ResourceFactory.newClassPathResource("repo/globals/forms/DefaultProcess.frm"));
 
         KieBuilder kieBuilder = ks.newKieBuilder(kfs);
         if (!kieBuilder.buildAll().getResults().getMessages().isEmpty()) {
@@ -252,12 +282,10 @@ public abstract class AbstractKieServicesBaseTest {
 
         //NON XA CONFIGS
         ds.setClassName("org.h2.jdbcx.JdbcDataSource");
-        ds.setMaxPoolSize(3);
-        ds.setAllowLocalTransactions(true);
         ds.getDriverProperties().put("user", "sa");
         ds.getDriverProperties().put("password", "sasa");
         ds.getDriverProperties().put("URL", "jdbc:h2:mem:mydb");
-        
+
         ds.init();
     }
 
@@ -286,6 +314,18 @@ public abstract class AbstractKieServicesBaseTest {
         }
     }
 
+    protected boolean createDescriptor() {
+        return false;
+    }
+
+    protected List<ObjectModel> getProcessListeners() {
+        return new ArrayList<>();
+    }
+
+    protected List<ObjectModel> getTaskListeners() {
+        return new ArrayList<>();
+    }
+
 	public void setDeploymentService(DeploymentService deploymentService) {
 		this.deploymentService = deploymentService;
 	}
@@ -305,13 +345,17 @@ public abstract class AbstractKieServicesBaseTest {
 	public void setUserTaskService(UserTaskService userTaskService) {
 		this.userTaskService = userTaskService;
 	}
-    
+
     public void setQueryService(QueryService queryService) {
         this.queryService = queryService;
     }
-    
+
     public void setIdentityProvider(TestIdentityProvider identityProvider) {
         this.identityProvider = identityProvider;
+    }
+
+    public void setUserGroupCallback(TestUserGroupCallbackImpl userGroupCallback) {
+        this.userGroupCallback = userGroupCallback;
     }
 
     protected static void waitForTheOtherThreads(CyclicBarrier barrier) {

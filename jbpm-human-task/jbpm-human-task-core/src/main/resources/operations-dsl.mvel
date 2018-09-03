@@ -43,12 +43,12 @@
             } ],   
     Operation.Resume 
         : [ new OperationCommand().{ 
-                previousStatus = [ Status.Ready ],
+                status = [ Status.Suspended ],
                 allowed = [ Allowed.PotentialOwner, Allowed.BusinessAdministrator  ],              
                 setToPreviousStatus = true
             },
             new OperationCommand().{ 
-                previousStatus = [ Status.Reserved, Status.InProgress ],
+                status = [ Status.Suspended ],
                 allowed = [ Allowed.Owner, Allowed.BusinessAdministrator ],          
                 setToPreviousStatus = true
             } ],
@@ -90,21 +90,19 @@
         : [ new OperationCommand().{ 
                 status = [ Status.Ready ],
                 allowed = [ Allowed.PotentialOwner, Allowed.BusinessAdministrator  ],
-                userIsExplicitPotentialOwner = true,                
-                addTargetUserToPotentialOwners = true,     
+                addTargetUserToPotentialOwners = true,
                 removeUserFromPotentialOwners = true,
-                groupTargetEntityAllowed = false,   
-                setNewOwnerToNull = true,         
+                groupTargetEntityAllowed = false,
+                setNewOwnerToNull = true,
                 newStatus = Status.Ready
             },
             new OperationCommand().{ 
                 status = [ Status.Reserved, Status.InProgress ],
                 allowed = [ Allowed.Owner, Allowed.BusinessAdministrator ],
-                userIsExplicitPotentialOwner = true,
-                addTargetUserToPotentialOwners = true,     
+                addTargetUserToPotentialOwners = true,
                 removeUserFromPotentialOwners = true,
-                groupTargetEntityAllowed = false, 
-                setNewOwnerToNull = true,                             
+                groupTargetEntityAllowed = false,
+                setNewOwnerToNull = true,
                 newStatus = Status.Ready
             }],            
     Operation.Complete 
@@ -119,19 +117,18 @@
                     allowed = [ Allowed.Owner, Allowed.BusinessAdministrator  ],      
                 newStatus = Status.Failed
             } ],
-    
     Operation.Activate
-    	: [ new OperationCommand().{
-    			status = [ Status.Created ],
-    			allowed = [ Allowed.Owner, Allowed.BusinessAdministrator ],
-    			newStatus = Status.Ready
-    		} ],
-	Operation.Nominate
-    	: [ new OperationCommand().{
-    			status = [ Status.Created ],
-    			allowed = [ Allowed.BusinessAdministrator ],
-    			exec = Operation.Nominate
-    		} ],    		
+        : [ new OperationCommand().{
+                status = [ Status.Created ],
+                allowed = [ Allowed.BusinessAdministrator ],
+                newStatus = Status.Ready
+            } ],
+    Operation.Nominate
+        : [ new OperationCommand().{
+                status = [ Status.Created ],
+                allowed = [ Allowed.BusinessAdministrator ],
+                exec = Operation.Nominate
+            } ],
     Operation.Exit
         : [ new OperationCommand().{
                 status = [ Status.Created, Status.Ready, Status.Reserved, Status.InProgress, Status.Suspended ],

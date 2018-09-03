@@ -8,7 +8,7 @@
             <userTask id="task1" name="task1" drools:taskName="task1" />
             <userTask id="task2" name="task2" drools:taskName="task2" />
             <userTask id="task3" name="task3" drools:taskName="task3" />
-            <completionCondition xsi:type="tFormalExpression">getActivityInstanceAttribute("numberOfActiveInstances") == 0</completionCondition>
+            <completionCondition xsi:type="tFormalExpression">autocomplete</completionCondition>
         </adHocSubProcess>
         <endEvent id="end1" name="end"/>
         <sequenceFlow id="sf1" sourceRef="start1" targetRef="adhoc1"/>

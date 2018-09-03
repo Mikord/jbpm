@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.services.task.impl.command;
 
@@ -21,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.drools.core.command.CommandService;
 import org.jbpm.services.task.commands.ActivateTaskCommand;
 import org.jbpm.services.task.commands.AddAttachmentCommand;
 import org.jbpm.services.task.commands.AddCommentCommand;
@@ -83,7 +83,6 @@ import org.jbpm.services.task.commands.GetTaskOwnedByExpDateBeforeDateCommand;
 import org.jbpm.services.task.commands.GetTaskPropertyCommand;
 import org.jbpm.services.task.commands.GetTasksByProcessInstanceIdCommand;
 import org.jbpm.services.task.commands.GetTasksByStatusByProcessInstanceIdCommand;
-import org.jbpm.services.task.commands.GetTasksByVariousFieldsCommand;
 import org.jbpm.services.task.commands.GetTasksOwnedCommand;
 import org.jbpm.services.task.commands.GetUserCommand;
 import org.jbpm.services.task.commands.GetUserInfoCommand;
@@ -107,7 +106,8 @@ import org.jbpm.services.task.events.TaskEventSupport;
 import org.jbpm.services.task.impl.TaskContentRegistry;
 import org.jbpm.services.task.impl.TaskSummaryQueryBuilderImpl;
 import org.kie.api.command.Command;
-import org.kie.api.runtime.CommandExecutor;
+import org.kie.api.runtime.Environment;
+import org.kie.api.runtime.ExecutableRunner;
 import org.kie.api.task.TaskLifeCycleEventListener;
 import org.kie.api.task.model.Attachment;
 import org.kie.api.task.model.Comment;
@@ -133,8 +133,9 @@ import org.kie.internal.task.query.TaskSummaryQueryBuilder;
 
 public class CommandBasedTaskService implements InternalTaskService, EventService<TaskLifeCycleEventListener> {
 
-	private CommandService executor;
+	private ExecutableRunner executor;
 	private TaskEventSupport taskEventSupport;
+	private Environment environment;
 
 	private QueryFilter addLanguageFilter(String language) {
 	   if( language == null ) {
@@ -147,9 +148,10 @@ public class CommandBasedTaskService implements InternalTaskService, EventServic
 	   return filter;
 	}
 
-	public CommandBasedTaskService(CommandService executor, TaskEventSupport taskEventSupport) {
+	public CommandBasedTaskService(ExecutableRunner executor, TaskEventSupport taskEventSupport, Environment environment) {
 		this.executor = executor;
 		this.taskEventSupport = taskEventSupport;
+		this.environment = environment;
 	}
 
 	@Override
@@ -291,35 +293,6 @@ public class CommandBasedTaskService implements InternalTaskService, EventServic
 		return executor.execute(new GetTasksByProcessInstanceIdCommand(processInstanceId));
 	}
 
-    @Override
-    /**
-     *  This method should be deleted in jBPM 7.x
-     *  @see {@link CommandBasedTaskService#fluentTaskQuery}
-     */
-    @Deprecated
-    public List<TaskSummary> getTasksByVariousFields(String userId, List<Long> workItemIds, List<Long> taskIds, List<Long> procInstIds,
-            List<String> busAdmins, List<String> potOwners, List<String> taskOwners, List<Status> statuses, List<String> languages,
-            boolean union) {
-        GetTasksByVariousFieldsCommand cmd = new GetTasksByVariousFieldsCommand(workItemIds, taskIds, procInstIds,
-		        busAdmins, potOwners, taskOwners,
-		        statuses, union);
-        cmd.setUserId(userId);
-
-		return executor.execute(cmd);
-    }
-
-    /**
-     *  This method should be deleted in jBPM 7.x
-     *  @see {@link CommandBasedTaskService#fluentTaskQuery}
-     */
-    @Override
-    @Deprecated
-    public List<TaskSummary> getTasksByVariousFields(String userId, Map<String, List<?>> parameters, boolean union) {
-		GetTasksByVariousFieldsCommand cmd = new GetTasksByVariousFieldsCommand(parameters, union);
-		cmd.setUserId(userId);
-		return executor.execute(cmd);
-    }
-
 	@Override
     public TaskSummaryQueryBuilder taskSummaryQuery(String userId) {
         return new TaskSummaryQueryBuilderImpl(userId, this);
@@ -384,18 +357,6 @@ public class CommandBasedTaskService implements InternalTaskService, EventServic
 	@Override
 	public int archiveTasks(List<TaskSummary> tasks) {
 		return executor.execute(new ArchiveTasksCommand(tasks));
-	}
-
-	@Override
-	// TODO: groupIds argument is not processed!
-	public void claim(long taskId, String userId, List<String> groupIds) {
-		executor.execute(new ClaimTaskCommand(taskId, userId));
-	}
-
-	@Override
-	// TODO: groupIds argument is not processed!
-	public void claimNextAvailable(String userId, List<String> groupIds) {
-		executor.execute(new ClaimNextAvailableTaskCommand(userId));
 	}
 
 	@Override
@@ -845,6 +806,9 @@ public class CommandBasedTaskService implements InternalTaskService, EventServic
 		executor.execute(new ExecuteReminderCommand(taskId,fromUser));
 	}
 
+    public Environment getEnvironment() {
+        return environment;
+    }
 
 }
 

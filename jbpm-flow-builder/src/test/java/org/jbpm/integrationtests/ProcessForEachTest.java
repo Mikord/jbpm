@@ -1,21 +1,20 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.integrationtests;
-
-import static org.junit.Assert.assertEquals;
 
 import java.io.Reader;
 import java.io.StringReader;
@@ -27,10 +26,12 @@ import java.util.Map;
 import org.jbpm.process.instance.ProcessInstance;
 import org.jbpm.test.util.AbstractBaseTest;
 import org.junit.Test;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.WorkItem;
 import org.kie.api.runtime.process.WorkItemHandler;
 import org.kie.api.runtime.process.WorkItemManager;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
+
+import static org.junit.Assert.assertEquals;
 
 public class ProcessForEachTest extends AbstractBaseTest {
   
@@ -48,7 +49,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "    </globals>\n" +
             "    <variables>\n" +
             "      <variable name=\"collection\" >\n" +
-            "        <type name=\"org.drools.core.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
+            "        <type name=\"org.jbpm.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
             "      </variable>\n" +
             "    </variables>\n" +
             "  </header>\n" +
@@ -80,7 +81,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "</process>");
         builder.addRuleFlow(source);
         
-        StatefulKnowledgeSession workingMemory = createKieSession(builder.getPackage());
+        KieSession workingMemory = createKieSession(builder.getPackages());
         
         List<String> myList = new ArrayList<String>();
         workingMemory.setGlobal("myList", myList);
@@ -107,7 +108,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "  <header>\n" +
             "    <variables>\n" +
             "      <variable name=\"collection\" >\n" +
-            "        <type name=\"org.drools.core.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
+            "        <type name=\"org.jbpm.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
             "      </variable>\n" +
             "    </variables>\n" +
             "  </header>\n" +
@@ -118,7 +119,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "        <workItem id=\"1\" name=\"Log\" >\n" +
             "          <work name=\"Log\" >\n" +
             "            <parameter name=\"Message\" >\n" +
-            "              <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "              <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "            </parameter>\n" +
             "          </work>\n" +
             "          <mapping type=\"in\" from=\"item\" to=\"Message\" />" +
@@ -144,7 +145,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "</process>");
         builder.addRuleFlow(source);
         
-        StatefulKnowledgeSession workingMemory = createKieSession(builder.getPackage());
+        KieSession workingMemory = createKieSession(builder.getPackages());
         
         final List<String> myList = new ArrayList<String>();
         workingMemory.getWorkItemManager().registerWorkItemHandler("Log", new WorkItemHandler() {
@@ -182,7 +183,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "    </globals>\n" +
             "    <variables>\n" +
             "      <variable name=\"collection\" >\n" +
-            "        <type name=\"org.drools.core.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
+            "        <type name=\"org.jbpm.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
             "      </variable>\n" +
             "    </variables>\n" +
             "  </header>\n" +
@@ -214,7 +215,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "</process>");
         builder.addRuleFlow(source);
         
-        StatefulKnowledgeSession workingMemory = createKieSession(builder.getPackage());
+        KieSession workingMemory = createKieSession(builder.getPackages());
         
         List<String> myList = new ArrayList<String>();
         workingMemory.setGlobal("myList", myList);
@@ -240,7 +241,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "    </globals>\n" +
             "    <variables>\n" +
             "      <variable name=\"collection\" >\n" +
-            "        <type name=\"org.drools.core.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
+            "        <type name=\"org.jbpm.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
             "      </variable>\n" +
             "    </variables>\n" +
             "  </header>\n" +
@@ -272,7 +273,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "</process>");
         builder.addRuleFlow(source);
         
-        StatefulKnowledgeSession workingMemory = createKieSession(builder.getPackage());
+        KieSession workingMemory = createKieSession(builder.getPackages());
         
         List<String> myList = new ArrayList<String>();
         workingMemory.setGlobal("myList", myList);
@@ -295,7 +296,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "    </globals>\n" +
             "    <variables>\n" +
             "      <variable name=\"collection\" >\n" +
-            "        <type name=\"org.drools.core.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
+            "        <type name=\"org.jbpm.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
             "      </variable>\n" +
             "    </variables>\n" +
             "  </header>\n" +
@@ -353,7 +354,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
 			"</process>");
 		builder.addRuleFlow(source);
 		
-        StatefulKnowledgeSession workingMemory = createKieSession(builder.getPackage());
+        KieSession workingMemory = createKieSession(builder.getPackages());
         
         List<String> collection = new ArrayList<String>();
         collection.add("one");
@@ -383,7 +384,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "    </globals>\n" +
             "    <variables>\n" +
             "      <variable name=\"collection\" >\n" +
-            "        <type name=\"org.drools.core.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
+            "        <type name=\"org.jbpm.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
             "      </variable>\n" +
             "    </variables>\n" +
             "  </header>\n" +
@@ -441,7 +442,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
 			"</process>");
 		builder.addRuleFlow(source);
         
-        StatefulKnowledgeSession workingMemory = createKieSession(builder.getPackage());
+        KieSession workingMemory = createKieSession(builder.getPackages());
         
         List<String> collection = new ArrayList<String>();
         collection.add("one");
@@ -471,7 +472,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "    </globals>\n" +
             "    <variables>\n" +
             "      <variable name=\"collection\" >\n" +
-            "        <type name=\"org.drools.core.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
+            "        <type name=\"org.jbpm.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
             "      </variable>\n" +
             "    </variables>\n" +
             "  </header>\n" +
@@ -515,7 +516,7 @@ public class ProcessForEachTest extends AbstractBaseTest {
             "</process>");
         builder.addRuleFlow(source);
         
-        StatefulKnowledgeSession workingMemory = createKieSession(builder.getPackage());
+        KieSession workingMemory = createKieSession(builder.getPackages());
         
         List<String> myList = new ArrayList<String>();
         workingMemory.setGlobal("myList", myList);

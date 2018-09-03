@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.test.functional.task;
 
@@ -55,6 +56,8 @@ import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
 import org.kie.internal.task.api.InternalTaskService;
 import org.kie.internal.task.api.TaskModelProvider;
 import org.kie.internal.task.api.UserGroupCallback;
+
+import static org.junit.Assert.*;
 
 public class ConcurrentHumanTaskTest extends JbpmTestCase {
 
@@ -121,7 +124,7 @@ class ProcessRunner implements Runnable {
 		properties.setProperty("john", "PM");
 
 		KnowledgeBuilder knowledgeBuilder = createKBuilder(process, ResourceType.BPMN2);
-		KieBase kieBase = knowledgeBuilder.newKnowledgeBase();
+		KieBase kieBase = knowledgeBuilder.newKieBase();
 
 		UserGroupCallback userGroupCallback = new JBossUserGroupCallbackImpl( properties);
 		// load up the knowledge base

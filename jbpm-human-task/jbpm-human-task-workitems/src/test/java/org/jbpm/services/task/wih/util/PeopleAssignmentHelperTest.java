@@ -1,17 +1,17 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.jbpm.services.task.wih.util;
 
@@ -87,6 +87,25 @@ public class PeopleAssignmentHelperTest  extends AbstractBaseTest {
 		assertTrue(organizationalEntities.contains(createGroup("Software Developer")));
 		assertTrue(organizationalEntities.contains(createGroup("Project Manager")));
 		
+	}
+
+	@Test
+	public void testProcessPeopleAssignmentsWithEmptyStrings() {
+
+		List<OrganizationalEntity> organizationalEntities = new ArrayList<OrganizationalEntity>();
+
+		String ids = "bpmsAdmin,";
+		assertTrue(organizationalEntities.isEmpty());
+		peopleAssignmentHelper.processPeopleAssignments(ids, organizationalEntities, true);
+		assertTrue(organizationalEntities.size() == 1);
+		assertTrue(organizationalEntities.contains(createUser("bpmsAdmin")));
+
+		ids = ",bpmsAdmin";
+		organizationalEntities = new ArrayList<OrganizationalEntity>();
+		assertTrue(organizationalEntities.isEmpty());
+		peopleAssignmentHelper.processPeopleAssignments(ids, organizationalEntities, true);
+		assertTrue(organizationalEntities.size() == 1);
+		assertTrue(organizationalEntities.contains(createUser("bpmsAdmin")));
 	}
 	
 	@Test
@@ -480,6 +499,27 @@ public class PeopleAssignmentHelperTest  extends AbstractBaseTest {
         assertTrue(organizationalEntity1 instanceof User);
         assertEquals(recipientId, organizationalEntity1.getId());
 
+    }
+    
+    @Test
+    public void testAssignBusinessAdministratorsChangedDefaults() {
+        peopleAssignmentHelper = new PeopleAssignmentHelper("myadmin", "mygroup");
+        
+        
+        Task task = TaskModelProvider.getFactory().newTask();
+        PeopleAssignments peopleAssignments = peopleAssignmentHelper.getNullSafePeopleAssignments(task);
+        
+        WorkItem workItem = new WorkItemImpl();             
+
+        peopleAssignmentHelper.assignBusinessAdministrators(workItem, peopleAssignments);
+        assertEquals(2, peopleAssignments.getBusinessAdministrators().size());
+        OrganizationalEntity organizationalEntity1 = peopleAssignments.getBusinessAdministrators().get(0);
+        assertTrue(organizationalEntity1 instanceof User);
+        assertEquals("myadmin", organizationalEntity1.getId());
+
+        OrganizationalEntity organizationalEntity2 = peopleAssignments.getBusinessAdministrators().get(1);        
+        assertTrue(organizationalEntity2 instanceof Group);              
+        assertEquals("mygroup", organizationalEntity2.getId());
     }
 
     private User createUser(String id) {

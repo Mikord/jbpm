@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,8 +31,8 @@ public class ProcessInstanceWithVarsDesc extends ProcessInstanceDesc implements 
         super();
     }
 
-    public ProcessInstanceWithVarsDesc(long id, String processId, String processName, String processVersion, int state, String deploymentId, Date dataTimeStamp, String initiator, String processInstanceDescription, String correlationKey, Long parentId) {
-        super(id, processId, processName, processVersion, state, deploymentId, dataTimeStamp, initiator, processInstanceDescription, correlationKey, parentId);
+    public ProcessInstanceWithVarsDesc(long id, String processId, String processName, String processVersion, int state, String deploymentId, Date dataTimeStamp, String initiator, String processInstanceDescription, String correlationKey, Long parentId, Date slaDueDate, Integer slaCompliance) {
+        super(id, processId, processName, processVersion, state, deploymentId, dataTimeStamp, initiator, processInstanceDescription, correlationKey, parentId, slaDueDate, slaCompliance);
     }
 
     public ProcessInstanceWithVarsDesc(long id, String processId, String processName, String processVersion, int state, String deploymentId, Date dataTimeStamp, String initiator, String processInstanceDescription, String correlationKey) {
@@ -41,6 +41,10 @@ public class ProcessInstanceWithVarsDesc extends ProcessInstanceDesc implements 
 
     public ProcessInstanceWithVarsDesc(long id, String processId, String processName, String processVersion, int state, String deploymentId, Date dataTimeStamp, String initiator, String correlationKey) {
         super(id, processId, processName, processVersion, state, deploymentId, dataTimeStamp, initiator, correlationKey);     
+    }
+    
+    public ProcessInstanceWithVarsDesc(long id, String processId, String processName, String processVersion, int state, String deploymentId, Date dataTimeStamp, String initiator, String processInstanceDescription, String correlationKey, Long parentId) {
+        super(id, processId, processName, processVersion, state, deploymentId, dataTimeStamp, initiator, processInstanceDescription, correlationKey, parentId);
     }
 
     @Override

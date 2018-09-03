@@ -1,20 +1,20 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.test.functional.migration;
-
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,8 +24,7 @@ import java.util.Map;
 import javax.persistence.EntityManager;
 import javax.persistence.Query;
 
-import org.drools.core.command.impl.GenericCommand;
-import org.drools.core.command.impl.KnowledgeCommandContext;
+import org.drools.core.command.impl.RegistryContext;
 import org.jbpm.persistence.processinstance.ProcessInstanceInfo;
 import org.jbpm.test.JbpmTestCase;
 import org.jbpm.workflow.instance.WorkflowProcessInstance;
@@ -33,6 +32,7 @@ import org.jbpm.workflow.instance.WorkflowProcessInstanceUpgrader;
 import org.jbpm.workflow.instance.node.WorkItemNodeInstance;
 import org.junit.Before;
 import org.junit.Test;
+import org.kie.api.command.ExecutableCommand;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
@@ -45,8 +45,8 @@ import org.kie.api.runtime.process.WorkItemManager;
 import org.kie.api.task.TaskService;
 import org.kie.api.task.model.TaskSummary;
 
-import bitronix.tm.BitronixTransactionManager;
-import bitronix.tm.TransactionManagerServices;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class ProcessInstanceMigrationTest extends JbpmTestCase {
 
@@ -58,7 +58,7 @@ public class ProcessInstanceMigrationTest extends JbpmTestCase {
     private RuntimeEngine engine;
     private KieSession ksession;
     private TaskService taskService;
-    private BitronixTransactionManager transactionManager;
+    private javax.transaction.TransactionManager transactionManager;
 
     @Before
     public void init() throws Exception {
@@ -70,7 +70,7 @@ public class ProcessInstanceMigrationTest extends JbpmTestCase {
         ksession = engine.getKieSession();
         taskService = engine.getTaskService();
 
-        transactionManager = TransactionManagerServices.getTransactionManager();
+        transactionManager = com.arjuna.ats.jta.TransactionManager.transactionManager();
         transactionManager.setTransactionTimeout(3600); // longer timeout
                                                         // for a debugger
     }
@@ -270,7 +270,7 @@ public class ProcessInstanceMigrationTest extends JbpmTestCase {
         }
     }
 
-    private static class UpgradeCommand implements GenericCommand<Object> {
+    private static class UpgradeCommand implements ExecutableCommand<Object> {
 
         private static final long serialVersionUID = -626809842544969669L;
 
@@ -284,8 +284,8 @@ public class ProcessInstanceMigrationTest extends JbpmTestCase {
             this.toProcessId = toProcessId;
         }
 
-        public Object execute(org.kie.internal.command.Context arg0) {
-            KieSession ksession = ((KnowledgeCommandContext) arg0).getKieSession();
+        public Object execute(org.kie.api.runtime.Context arg0) {
+            KieSession ksession = ((RegistryContext) arg0).lookup( KieSession.class );
 
             WorkflowProcessInstanceUpgrader.upgradeProcessInstance(ksession,
                     pid, toProcessId, mapping);
@@ -295,7 +295,7 @@ public class ProcessInstanceMigrationTest extends JbpmTestCase {
         }
     }
 
-    private static class ExplicitUpgradeCommand implements GenericCommand<Object> {
+    private static class ExplicitUpgradeCommand implements ExecutableCommand<Object> {
         private static final long serialVersionUID = 8673518721648293556L;
         
         private long pid;
@@ -308,8 +308,8 @@ public class ProcessInstanceMigrationTest extends JbpmTestCase {
             this.toProcessId = toProcessId;
         }
 
-        public Object execute(org.kie.internal.command.Context arg0) {
-            KieSession ksession = ((KnowledgeCommandContext) arg0).getKieSession();
+        public Object execute(org.kie.api.runtime.Context arg0) {
+            KieSession ksession = ((RegistryContext) arg0).lookup( KieSession.class );
 
             WorkflowProcessInstanceUpgrader.upgradeProcessInstanceByNodeNames(
                     ksession,

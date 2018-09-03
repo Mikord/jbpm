@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,6 +29,7 @@ import org.kie.api.runtime.process.WorkItem;
 import org.kie.api.runtime.process.WorkItemHandler;
 import org.kie.api.runtime.process.WorkItemManager;
 import org.kie.api.runtime.query.QueryContext;
+import org.kie.internal.runtime.Cacheable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,10 +39,11 @@ import org.slf4j.LoggerFactory;
  * it expects following parameters to be present on work item for proper execution:
  * <ul>
  *  <li>CommandClass - FQCN of the command to be executed - mandatory unless this handler is configured with default command class</li>
- *  <li>Retries - number of retires for the command execution - optional</li>
+ *  <li>Retries - number of retries for the command execution - optional</li>
  *  <li>RetryDelay - Comma separated list of time expressions (5s, 2m, 4h) to be used in case of errors and retry needed.</li>
  *  <li>Delay - optionally delay which job should be executed after given as time expression (5s, 2m, 4h) that will be calculated starting from current time</li>
  *  <li>AutoComplete - allows to use "fire and forget" style so it will not wait for job completion and allow to move on (default false)</li>
+ *  <li>Priority - priority for the job execution - from 0 (the lowest) to 9 (the highest)</li>
  * </ul>
  * During execution it will set contextual data that will be available inside the command:
  * <ul>
@@ -52,7 +54,7 @@ import org.slf4j.LoggerFactory;
  * 
  * In case work item shall be aborted handler will attempt to cancel active requests based on business key (process instance id and work item id)
  */
-public class AsyncWorkItemHandler implements WorkItemHandler {
+public class AsyncWorkItemHandler implements WorkItemHandler, Cacheable {
     
     private static final Logger logger = LoggerFactory.getLogger(AsyncWorkItemHandler.class);
     
@@ -112,7 +114,12 @@ public class AsyncWorkItemHandler implements WorkItemHandler {
             ctxCMD.setData("retryDelay", workItem.getParameter("RetryDelay"));
         }
         
-        Date scheduleDate = new Date();
+        if (workItem.getParameter("Priority") != null) {
+            
+            ctxCMD.setData("priority", Integer.parseInt(workItem.getParameter("Priority").toString()));
+        }
+        
+        Date scheduleDate = null;
         if (workItem.getParameter("Delay") != null) {
             long delayInMillis = TimeUtils.parseTimeString((String)workItem.getParameter("Delay"));
             scheduleDate = new Date(System.currentTimeMillis() + delayInMillis);
@@ -137,7 +144,7 @@ public class AsyncWorkItemHandler implements WorkItemHandler {
         if (requests != null) {
             for (RequestInfo request : requests) {
                 if (request.getStatus() != STATUS.CANCELLED && request.getStatus() != STATUS.DONE
-                        && request.getStatus() != STATUS.ERROR) {
+                        && request.getStatus() != STATUS.ERROR && request.getStatus() != STATUS.RUNNING) {
                     logger.info("About to cancel request with id {} and business key {} request state {}",
                             request.getId(), businessKey, request.getStatus());
                     executorService.cancelRequest(request.getId());
@@ -161,6 +168,11 @@ public class AsyncWorkItemHandler implements WorkItemHandler {
     
     protected long getProcessInstanceId(WorkItem workItem) {
         return ((WorkItemImpl) workItem).getProcessInstanceId();
+    }
+
+    @Override
+    public void close() {
+        //no-op
     }
     
     

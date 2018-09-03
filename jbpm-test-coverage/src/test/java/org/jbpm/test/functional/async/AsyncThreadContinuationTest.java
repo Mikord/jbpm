@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +24,7 @@ import java.util.Map;
 import org.assertj.core.api.Assertions;
 import org.jbpm.executor.ExecutorServiceFactory;
 import org.jbpm.test.JbpmTestCase;
-import org.jbpm.test.listener.CountDownProcessEventListener;
+import org.jbpm.test.listener.process.NodeLeftCountDownProcessEventListener;
 import org.jbpm.test.wih.FirstErrorWorkItemHandler;
 import org.junit.After;
 import org.junit.Before;
@@ -126,7 +126,7 @@ public class AsyncThreadContinuationTest extends JbpmTestCase {
 
     @Test(timeout = 10000)
     public void testRepeatIntermediateTimerAfterException() {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("MySignal", 1, true);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("MySignal", 1, true);
         
         KieSession ksession = createKSession(BPMN_IT);
         ksession.addEventListener(countDownListener);

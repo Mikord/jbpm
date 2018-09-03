@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,12 +17,14 @@
 package org.jbpm.workflow.instance.node;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.drools.core.common.InternalAgenda;
 import org.drools.core.common.InternalFactHandle;
@@ -32,6 +34,8 @@ import org.drools.core.spi.Activation;
 import org.drools.core.time.TimeUtils;
 import org.drools.core.time.impl.CronExpression;
 import org.drools.core.util.MVELSafeHelper;
+import org.jbpm.process.core.ContextContainer;
+import org.jbpm.process.core.context.variable.Variable;
 import org.jbpm.process.core.context.variable.VariableScope;
 import org.jbpm.process.core.timer.BusinessCalendar;
 import org.jbpm.process.core.timer.DateTimeUtils;
@@ -42,6 +46,7 @@ import org.jbpm.process.instance.context.variable.VariableScopeInstance;
 import org.jbpm.process.instance.impl.Action;
 import org.jbpm.process.instance.timer.TimerInstance;
 import org.jbpm.process.instance.timer.TimerManager;
+import org.jbpm.util.PatternConstants;
 import org.jbpm.workflow.core.DroolsAction;
 import org.jbpm.workflow.core.node.StateBasedNode;
 import org.jbpm.workflow.instance.WorkflowProcessInstance;
@@ -49,16 +54,16 @@ import org.jbpm.workflow.instance.impl.ExtendedNodeInstanceImpl;
 import org.jbpm.workflow.instance.impl.NodeInstanceResolverFactory;
 import org.jbpm.workflow.instance.impl.WorkflowProcessInstanceImpl;
 import org.kie.api.event.rule.MatchCreatedEvent;
+import org.kie.api.runtime.KieRuntime;
 import org.kie.api.runtime.process.EventListener;
 import org.kie.api.runtime.process.NodeInstance;
-import org.kie.internal.runtime.KnowledgeRuntime;
+import org.kie.api.runtime.rule.Match;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl implements EventBasedNodeInstanceInterface, EventListener {
 
 	private static final long serialVersionUID = 510l;
-    protected static final Pattern PARAMETER_MATCHER = Pattern.compile("#\\{([\\S&&[^\\}]]+)\\}", Pattern.DOTALL);
 
     private static final Logger logger = LoggerFactory.getLogger(StateBasedNodeInstance.class);
 
@@ -100,13 +105,28 @@ public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl im
                     addActivationListener();
                 }
 		    }
-		}
+		}		
+		
 		((WorkflowProcessInstanceImpl) getProcessInstance()).addActivatingNodeId((String) getNode().getMetaData().get("UniqueId"));
+	}
+	
+	protected void configureSla() {
+	    String slaDueDateExpression = (String) getNode().getMetaData().get("customSLADueDate");
+        if (slaDueDateExpression != null) {
+            TimerInstance timer = ((WorkflowProcessInstanceImpl)getProcessInstance()).configureSLATimer(slaDueDateExpression);
+            if (timer != null) {
+                this.slaTimerId = timer.getId();
+                this.slaDueDate = new Date(System.currentTimeMillis() + timer.getDelay());
+                this.slaCompliance = ProcessInstance.SLA_PENDING;
+                logger.debug("SLA for node instance {} is PENDING with due date {}", this.getId(), this.slaDueDate);
+                addTimerListener();
+            }
+        }
 	}
 
     protected TimerInstance createTimerInstance(Timer timer) {
     	TimerInstance timerInstance = new TimerInstance();
-    	KnowledgeRuntime kruntime = getProcessInstance().getKnowledgeRuntime();
+		KieRuntime kruntime = getProcessInstance().getKnowledgeRuntime();
     	if (kruntime != null && kruntime.getEnvironment().get("jbpm.business.calendar") != null){
         	BusinessCalendar businessCalendar = (BusinessCalendar) kruntime.getEnvironment().get("jbpm.business.calendar");
         	String delay = null;
@@ -180,8 +200,9 @@ public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl im
                     timerInstance.setPeriod(resolveValue(timer.getPeriod()));
                 }
             } else {
-            	if (CronExpression.isValidExpression(timer.getDelay())) {
-            		timerInstance.setCronExpression(timer.getDelay());
+                String resolvedDelay = resolveVariable(timer.getDelay());
+            	if (CronExpression.isValidExpression(resolvedDelay)) {
+            		timerInstance.setCronExpression(resolvedDelay);
             	} else {
 
 	                // when using ISO date/time period is not set
@@ -189,9 +210,8 @@ public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl im
 	                try {
 	                    repeatValues = DateTimeUtils.parseRepeatableDateTime(timer.getDelay());
 	                } catch (RuntimeException e) {
-	                    // cannot parse delay, trying to interpret it
-	                    s = resolveVariable(timer.getDelay());
-	                    repeatValues = DateTimeUtils.parseRepeatableDateTime(s);
+	                    // cannot parse delay, trying to interpret it	                   
+	                    repeatValues = DateTimeUtils.parseRepeatableDateTime(resolvedDelay);
 	                }
 	                if (repeatValues.length == 3) {
 	                    int parsedReapedCount = (int)repeatValues[0];
@@ -249,13 +269,13 @@ public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl im
     	}
     }
 
-    private String resolveVariable(String s) {
+    protected String resolveVariable(String s) {
     	if (s == null) {
     		return null;
     	}
     	// cannot parse delay, trying to interpret it
 		Map<String, String> replacements = new HashMap<String, String>();
-		Matcher matcher = PARAMETER_MATCHER.matcher(s);
+		Matcher matcher = PatternConstants.PARAMETER_MATCHER.matcher(s);
         while (matcher.find()) {
         	String paramName = matcher.group(1);
         	if (replacements.get(paramName) == null) {
@@ -284,15 +304,32 @@ public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl im
 
         return s;
     }
+    
+    protected void handleSLAViolation() {
+        if (slaCompliance == ProcessInstance.SLA_PENDING) {
+            InternalProcessRuntime processRuntime = ((InternalProcessRuntime) getProcessInstance().getKnowledgeRuntime().getProcessRuntime());
+            processRuntime.getProcessEventSupport().fireBeforeSLAViolated(getProcessInstance(), this, getProcessInstance().getKnowledgeRuntime());
+            logger.debug("SLA violated on node instance {}", getId());                   
+            this.slaCompliance = ProcessInstance.SLA_VIOLATED;
+            this.slaTimerId = -1;
+            processRuntime.getProcessEventSupport().fireAfterSLAViolated(getProcessInstance(), this, getProcessInstance().getKnowledgeRuntime());
+        }
+    }
 
     @Override
     public void signalEvent(String type, Object event) {
     	if ("timerTriggered".equals(type)) {
     		TimerInstance timerInstance = (TimerInstance) event;
-            if (timerInstances.contains(timerInstance.getId())) {
+            if (timerInstances != null && timerInstances.contains(timerInstance.getId())) {
                 triggerTimer(timerInstance);
+            } else if (timerInstance.getId() == slaTimerId) {                
+                handleSLAViolation();        
             }
-    	} else if (type.equals(getActivationType())) {
+    	} else if (("slaViolation:" + getId()).equals(type)) {
+                           
+            handleSLAViolation();        
+           
+        } else if (type.equals(getActivationType())) {
             if (event instanceof MatchCreatedEvent) {
                 String name = ((MatchCreatedEvent)event).getMatch().getRule().getName();
                 if (checkProcessInstance((Activation) ((MatchCreatedEvent)event).getMatch())) {
@@ -321,22 +358,36 @@ public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl im
     }
 
     public void addEventListeners() {
-    	if (timerInstances != null && timerInstances.size() > 0) {
+    	if (timerInstances != null && timerInstances.size() > 0 || slaTimerId > -1) {
     		addTimerListener();
+    	}
+    	if (slaCompliance == ProcessInstance.SLA_PENDING) {
+    	    ((WorkflowProcessInstance) getProcessInstance()).addEventListener("slaViolation:" + getId(), this, true);
     	}
     }
 
     protected void addTimerListener() {
     	((WorkflowProcessInstance) getProcessInstance()).addEventListener("timerTriggered", this, false);
     	((WorkflowProcessInstance) getProcessInstance()).addEventListener("timer", this, true);
+    	((WorkflowProcessInstance) getProcessInstance()).addEventListener("slaViolation:" + getId(), this, true);
     }
 
     public void removeEventListeners() {
     	((WorkflowProcessInstance) getProcessInstance()).removeEventListener("timerTriggered", this, false);
     	((WorkflowProcessInstance) getProcessInstance()).removeEventListener("timer", this, true);
+    	((WorkflowProcessInstance) getProcessInstance()).removeEventListener("slaViolation:" + getId(), this, true);
     }
 
 	protected void triggerCompleted(String type, boolean remove) {
+	    if (this.slaCompliance == ProcessInstance.SLA_PENDING) {
+	        if (System.currentTimeMillis() > slaDueDate.getTime()) {
+                // completion of the node instance is after expected SLA due date, mark it accordingly
+                this.slaCompliance = ProcessInstance.SLA_VIOLATED;
+            } else {
+                this.slaCompliance = ProcessInstance.STATE_COMPLETED;
+            }
+        }
+	    cancelSlaTimer();
 	    ((org.jbpm.workflow.instance.NodeInstanceContainer)getNodeInstanceContainer()).setCurrentLevel(getLevel());
 		cancelTimers();
 		removeActivationListener();
@@ -352,6 +403,15 @@ public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl im
 	}
 
     public void cancel() {
+        if (this.slaCompliance == ProcessInstance.SLA_PENDING) {
+            if (System.currentTimeMillis() > slaDueDate.getTime()) {
+                // completion of the process instance is after expected SLA due date, mark it accordingly
+                this.slaCompliance = ProcessInstance.SLA_VIOLATED;
+            } else {
+                this.slaCompliance = ProcessInstance.SLA_ABORTED;
+            }
+        }
+        cancelSlaTimer();
         cancelTimers();
         removeEventListeners();
         removeActivationListener();
@@ -367,6 +427,15 @@ public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl im
 				timerManager.cancelTimer(id);
 			}
 		}
+	}
+	
+	private void cancelSlaTimer() {
+	    if (this.slaTimerId > -1) {
+	        TimerManager timerManager = ((InternalProcessRuntime)
+	                getProcessInstance().getKnowledgeRuntime().getProcessRuntime()).getTimerManager();
+	        timerManager.cancelTimer(this.slaTimerId);
+            logger.debug("SLA Timer {} has been canceled", this.slaTimerId);
+        }
 	}
 
 	protected String getActivationType() {
@@ -396,5 +465,45 @@ public abstract class StateBasedNodeInstance extends ExtendedNodeInstanceImpl im
             }
         }
         return true;
+    }
+    
+    protected boolean checkDeclarationMatch(Match match, String matchVariable) {   
+        if (matchVariable == null) {
+            // no extra check is needed
+            return true;
+        }
+        
+        Object dec = match.getDeclarationIds().contains("$" + matchVariable) ? match.getDeclarationValue("$" + matchVariable) : match.getDeclarationValue(matchVariable);      
+        Object var = getVariable(matchVariable);
+        
+        boolean check = var.equals(dec);
+        
+        return check;
+    }
+    
+    protected void mapDynamicOutputData(Map<String, Object> results) {
+        if (results != null && !results.isEmpty()) {
+            VariableScope variableScope = (VariableScope) ((ContextContainer) getProcessInstance().getProcess()).getDefaultContext( VariableScope.VARIABLE_SCOPE );
+            VariableScopeInstance variableScopeInstance = (VariableScopeInstance)getProcessInstance().getContextInstance(VariableScope.VARIABLE_SCOPE);
+            for (Entry<String, Object> result : results.entrySet()) {
+                
+                String variableName = result.getKey();
+                Variable variable = variableScope.findVariable(variableName);
+                if (variable == null) {
+                    // check if there is any match for case file data
+                    variableName = VariableScope.CASE_FILE_PREFIX + variableName;
+                    // check only those that are defined and avoid dynamically created case file variables
+                    List<String> definedVariables = Arrays.asList(variableScope.getVariableNames());
+                    if (definedVariables.contains(variableName)) {
+                        variable = variableScope.findVariable(variableName);
+                    }
+                }
+                
+                if (variable != null) {    
+                    variableScopeInstance.getVariableScope().validateVariable(getProcessInstance().getProcessName(), variableName, result.getValue());    
+                    variableScopeInstance.setVariable(variableName, result.getValue());
+                }
+            }
+        }
     }
 }

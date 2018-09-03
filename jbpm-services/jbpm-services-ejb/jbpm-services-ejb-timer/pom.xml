@@ -4,13 +4,14 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-services-ejb</artifactId>
-    <version>7.0.0-SNAPSHOT</version>
+    <version>7.11.0-SNAPSHOT</version>
   </parent>
   <artifactId>jbpm-services-ejb-timer</artifactId>
   <name>jBPM :: EJB Timer</name>
   
    <!--  skip tests from maven build for now as they require server installation -->
   <properties>
+    <java.module.name>org.jbpm.services.ejb.timer</java.module.name>
     <skipTests>true</skipTests>    
   </properties>
 
@@ -33,7 +34,7 @@
     </dependency>
     <dependency>
       <groupId>org.jboss.spec.javax.ejb</groupId>
-      <artifactId>jboss-ejb-api_3.1_spec</artifactId>
+      <artifactId>jboss-ejb-api_3.2_spec</artifactId>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -52,9 +53,15 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.jboss.as</groupId>
-      <artifactId>jboss-as-arquillian-container-managed</artifactId>
+      <groupId>org.wildfly.arquillian</groupId>
+      <artifactId>wildfly-arquillian-container-managed</artifactId>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.jboss.remoting3</groupId>
+          <artifactId>jboss-remoting</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.jboss.arquillian.protocol</groupId>
@@ -63,26 +70,38 @@
     </dependency>
   </dependencies>
 
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <executions>
-          <execution>
-            <phase>pre-integration-test</phase>
-            <goals>
-              <goal>single</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <finalName>timer-war</finalName>
-          <descriptors>
-            <descriptor>src/main/assembly/assembly-ejb-war.xml</descriptor>
-          </descriptors>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
+  <profiles>
+    <!-- Create the test WAR only in case we actually need it - when the tests are enabled -->
+    <profile>
+      <id>ejb-war</id>
+      <activation>
+        <property>
+          <name>skipTests</name>
+          <value>false</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <executions>
+              <execution>
+                <phase>pre-integration-test</phase>
+                <goals>
+                  <goal>single</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <finalName>executor-war</finalName>
+              <descriptors>
+                <descriptor>src/main/assembly/assembly-ejb-war.xml</descriptor>
+              </descriptors>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,13 +28,17 @@ import java.util.Map;
 
 import org.apache.commons.io.input.ClassLoaderObjectInputStream;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.jbpm.executor.AsyncJobException;
 import org.jbpm.executor.entities.ErrorInfo;
 import org.jbpm.executor.entities.RequestInfo;
+import org.jbpm.executor.impl.event.ExecutorEventSupportImpl;
 import org.jbpm.executor.impl.event.ExecutorEventSupport;
+import org.jbpm.process.core.async.AsyncExecutionMarker;
 import org.kie.api.executor.Command;
 import org.kie.api.executor.CommandCallback;
 import org.kie.api.executor.CommandContext;
 import org.kie.api.executor.ExecutionResults;
+import org.kie.api.executor.Executor;
 import org.kie.api.executor.ExecutorQueryService;
 import org.kie.api.executor.ExecutorStoreService;
 import org.kie.api.executor.Reoccurring;
@@ -63,7 +67,9 @@ public abstract class AbstractAvailableJobsExecutor {
    
     protected ExecutorStoreService executorStoreService;
     
-    protected ExecutorEventSupport eventSupport = new ExecutorEventSupport();
+    protected ExecutorEventSupport eventSupport = new ExecutorEventSupportImpl();
+    
+    protected Executor executor;
 
     public void setEventSupport(ExecutorEventSupport eventSupport) {
         this.eventSupport = eventSupport;
@@ -80,22 +86,26 @@ public abstract class AbstractAvailableJobsExecutor {
 	public void setExecutorStoreService(ExecutorStoreService executorStoreService) {
 		this.executorStoreService = executorStoreService;
 	}
-     
+         
+	public void setExecutor(Executor executor) {
+        this.executor = executor;
+    }
+
     public void executeGivenJob(RequestInfo request) {
         Throwable exception = null;
         try {
+            AsyncExecutionMarker.markAsync();
             eventSupport.fireBeforeJobExecuted(request, null);
             if (request != null) {
             	boolean processReoccurring = false;
             	Command cmd = null;
                 CommandContext ctx = null;
+                ExecutionResults results = null;
                 List<CommandCallback> callbacks = null;
                 ClassLoader cl = getClassLoader(request.getDeploymentId());
                 try {
     
                     logger.debug("Processing Request Id: {}, status {} command {}", request.getId(), request.getStatus(), request.getCommandName());
-                    
-                    
                     byte[] reqData = request.getRequestData();
                     if (reqData != null) {
                         ObjectInputStream in = null;
@@ -111,24 +121,23 @@ public abstract class AbstractAvailableJobsExecutor {
                             }
                         }
                     }
-                    for (Map.Entry<String, Object> entry : contextData.entrySet()) {
-                    	ctx.setData(entry.getKey(), entry.getValue());
-                    }
-                    // add class loader so internally classes can be created with valid (kjar) deployment
-                    ctx.setData("ClassLoader", cl);
-                    
-                    
-                    cmd = classCacheManager.findCommand(request.getCommandName(), cl);
-                    ExecutionResults results = cmd.execute(ctx);
-                    
-                    callbacks = classCacheManager.buildCommandCallback(ctx, cl);                
-                    
-                    for (CommandCallback handler : callbacks) {
+                    if (request.getResponseData() == null) {                        
+                       
+                        for (Map.Entry<String, Object> entry : contextData.entrySet()) {
+                        	ctx.setData(entry.getKey(), entry.getValue());
+                        }
+                        // add class loader so internally classes can be created with valid (kjar) deployment
+                        ctx.setData("ClassLoader", cl);
+                                                
+                        cmd = classCacheManager.findCommand(request.getCommandName(), cl);
+                        // increment execution counter directly to cover both success and failure paths
+                        request.setExecutions(request.getExecutions() + 1);                        
+                        results = cmd.execute(ctx);
+                      
                         
-                        handler.onCommandDone(ctx, results);
-                    }
-                    
-                    if (results != null) {
+                        if (results == null) {
+                            results = new ExecutionResults();
+                        }
                         try {
                             ByteArrayOutputStream bout = new ByteArrayOutputStream();
                             ObjectOutputStream out = new ObjectOutputStream(bout);
@@ -138,22 +147,55 @@ public abstract class AbstractAvailableJobsExecutor {
                         } catch (IOException e) {
                             request.setResponseData(null);
                         }
+                        results.setData("CompletedAt", new Date());                        
+        
+                        request.setStatus(STATUS.DONE);
+                         
+                        executorStoreService.updateRequest(request, null);
+                        processReoccurring = true;
+                    } else {
+                        logger.debug("Job was already successfully executed, retrying callbacks only...");
+                        byte[] resData = request.getResponseData();
+                        if (resData != null) {
+                            ObjectInputStream in = null;
+                            try {
+                                in = new ClassLoaderObjectInputStream(cl, new ByteArrayInputStream(resData));
+                                results = (ExecutionResults) in.readObject();
+                            } catch (IOException e) {                        
+                                logger.warn("Exception while serializing response data", e);
+                                return;
+                            } finally {
+                                if (in != null) {
+                                    in.close();
+                                }
+                            }
+                        }
+                        request.setStatus(STATUS.DONE);
+                        
+                        executorStoreService.updateRequest(request, null);
+                        processReoccurring = true;
                     }
-    
-                    request.setStatus(STATUS.DONE);
-                     
-                    executorStoreService.updateRequest(request);
-                    processReoccurring = true;
+                    // callback handling after job execution
+                    callbacks = classCacheManager.buildCommandCallback(ctx, cl);                
+                    
+                    for (CommandCallback handler : callbacks) {
+                        
+                        handler.onCommandDone(ctx, results);
+                    }
                     
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } catch (Throwable e) {
                     exception = e;
-                    callbacks = classCacheManager.buildCommandCallback(ctx, cl);  
+                    if (callbacks == null) {
+                        callbacks = classCacheManager.buildCommandCallback(ctx, cl);
+                    }
                     
                 	processReoccurring = handleException(request, e, ctx, callbacks);
                 	
                 } finally {
+                    ((ExecutorImpl) executor).clearExecution(request.getId());
+                    AsyncExecutionMarker.reset();
                 	handleCompletion(processReoccurring, cmd, ctx);
                 	eventSupport.fireAfterJobExecuted(request, exception);
                 }
@@ -201,32 +243,31 @@ public abstract class AbstractAvailableJobsExecutor {
                 long retryAdd = 0l;
 
                 try {
-                    retryAdd = retryDelay.get(request.getExecutions());
+                    retryAdd = retryDelay.get(request.getExecutions() - 1); // need to decrement it as executions are directly incremented upon execution
                 } catch (IndexOutOfBoundsException ex) {
                     // in case there is no element matching given execution, use last one
                     retryAdd = retryDelay.get(retryDelay.size()-1);
                 }
                 
-                request.setTime(new Date(System.currentTimeMillis() + retryAdd));
-                request.setExecutions(request.getExecutions() + 1);
+                request.setTime(new Date(System.currentTimeMillis() + retryAdd));                
                 logger.info("Retrying request ( with id {}) - delay configured, next retry at {}", request.getId(), request.getTime());
             }
             
             logger.debug("Retrying ({}) still available!", request.getRetries());
             
-            executorStoreService.updateRequest(request);
+            executorStoreService.updateRequest(request, ((ExecutorImpl) executor).scheduleExecution(request, request.getTime()));
+            
             
             return false;
         } else {
             logger.debug("Error no retries left!");
             request.setStatus(STATUS.ERROR);
-            request.setExecutions(request.getExecutions() + 1);
             
-            executorStoreService.updateRequest(request);
-            
+            executorStoreService.updateRequest(request, null);
+            AsyncJobException wrappedException = new AsyncJobException(request.getId(), request.getCommandName(), e);
             if (callbacks != null) {
                 for (CommandCallback handler : callbacks) {                        
-                    handler.onCommandError(ctx, e);                        
+                    handler.onCommandError(ctx, wrappedException);                        
                 }
             }
             return true;
@@ -247,6 +288,7 @@ public abstract class AbstractAvailableJobsExecutor {
                 requestInfo.setTime(nextScheduleTime);
                 requestInfo.setMessage("Rescheduled reoccurring job");
                 requestInfo.setDeploymentId((String)ctx.getData("deploymentId"));
+                requestInfo.setProcessInstanceId((Long)ctx.getData("processInstanceId"));
                 requestInfo.setOwner((String)ctx.getData("owner"));
                 if (ctx.getData("retries") != null) {
                     requestInfo.setRetries(Integer.valueOf(String.valueOf(ctx.getData("retries"))));
@@ -268,7 +310,7 @@ public abstract class AbstractAvailableJobsExecutor {
                     }
                 }
                 
-                executorStoreService.persistRequest(requestInfo);
+                executorStoreService.persistRequest(requestInfo, ((ExecutorImpl) executor).scheduleExecution(requestInfo, requestInfo.getTime()));
             }
         }
     }

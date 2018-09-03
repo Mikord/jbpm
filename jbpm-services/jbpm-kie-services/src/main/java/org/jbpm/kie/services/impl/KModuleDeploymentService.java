@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,8 +15,6 @@
  */
 
 package org.jbpm.kie.services.impl;
-
-import static org.kie.scanner.MavenRepository.getMavenRepository;
 
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
@@ -29,7 +27,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import javax.persistence.EntityManagerFactory;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlType;
@@ -41,7 +38,7 @@ import javax.xml.xpath.XPathFactory;
 import org.apache.commons.codec.binary.Base64;
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
 import org.drools.compiler.kie.builder.impl.KieContainerImpl;
-import org.drools.compiler.kproject.xml.DependencyFilter;
+import org.appformer.maven.support.DependencyFilter;
 import org.drools.core.common.ProjectClassLoader;
 import org.drools.core.marshalling.impl.ClassObjectMarshallingStrategyAcceptor;
 import org.drools.core.marshalling.impl.SerializablePlaceholderResolverStrategy;
@@ -55,9 +52,11 @@ import org.jbpm.runtime.manager.impl.deploy.DeploymentDescriptorManager;
 import org.jbpm.runtime.manager.impl.deploy.DeploymentDescriptorMerger;
 import org.jbpm.runtime.manager.impl.jpa.EntityManagerFactoryManager;
 import org.jbpm.services.api.DefinitionService;
+import org.jbpm.services.api.DeploymentService;
 import org.jbpm.services.api.model.DeployedAsset;
 import org.jbpm.services.api.model.DeployedUnit;
 import org.jbpm.services.api.model.DeploymentUnit;
+import org.jbpm.services.api.service.ServiceRegistry;
 import org.kie.api.KieBase;
 import org.kie.api.KieServices;
 import org.kie.api.builder.ReleaseId;
@@ -76,36 +75,43 @@ import org.kie.internal.runtime.conf.ObjectModel;
 import org.kie.internal.runtime.conf.ObjectModelResolver;
 import org.kie.internal.runtime.conf.ObjectModelResolverProvider;
 import org.kie.internal.runtime.conf.PersistenceMode;
-import org.kie.scanner.MavenRepository;
+import org.kie.internal.runtime.manager.InternalRuntimeManager;
+import org.kie.scanner.KieMavenRepository;
 import org.reflections.Reflections;
 import org.reflections.util.ConfigurationBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.InputSource;
 
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
+
 
 public class KModuleDeploymentService extends AbstractDeploymentService {
 
-    private static Logger logger = LoggerFactory.getLogger(KModuleDeploymentService.class);
+    protected static Logger logger = LoggerFactory.getLogger(KModuleDeploymentService.class);
     private static final String DEFAULT_KBASE_NAME = "defaultKieBase";
     private static final String PROCESS_ID_XPATH = "/*[local-name() = 'definitions']/*[local-name() = 'process']/@id";
+    private static final String CASE_ID_XPATH = "/*[local-name() = 'definitions']/*[local-name() = 'case']/@id";
 
-    private DefinitionService bpmn2Service;
+    protected DefinitionService bpmn2Service;
 
-    private DeploymentDescriptorMerger merger = new DeploymentDescriptorMerger();
+    protected DeploymentDescriptorMerger merger = new DeploymentDescriptorMerger();
 
-    private FormManagerService formManagerService;
+    protected FormManagerService formManagerService;
 
-    private ExecutorService executorService;
+    protected ExecutorService executorService;
 
-    private XPathExpression processIdXPathExpression;
+    protected XPathExpression processIdXPathExpression;
+    protected XPathExpression caseIdXPathExpression;
 
     public KModuleDeploymentService() {
         try {
             processIdXPathExpression = XPathFactory.newInstance().newXPath().compile(PROCESS_ID_XPATH);
+            caseIdXPathExpression = XPathFactory.newInstance().newXPath().compile(CASE_ID_XPATH);
         } catch (XPathExpressionException e) {
             logger.error("Unable to parse '{}' XPath expression due to {}", PROCESS_ID_XPATH, e.getMessage());
         }
+        ServiceRegistry.get().register(DeploymentService.class.getSimpleName(), this);
     }
 
     public void onInit() {
@@ -121,6 +127,7 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
             }
             KModuleDeploymentUnit kmoduleUnit = (KModuleDeploymentUnit) unit;
             DeployedUnitImpl deployedUnit = new DeployedUnitImpl(unit);
+            deployedUnit.setActive(kmoduleUnit.isActive());
 
             // Create the release id
             KieContainer kieContainer = kmoduleUnit.getKieContainer();
@@ -130,7 +137,7 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
 
 	            releaseId = ks.newReleaseId(kmoduleUnit.getGroupId(), kmoduleUnit.getArtifactId(), kmoduleUnit.getVersion());
 
-	            MavenRepository repository = getMavenRepository();
+	            KieMavenRepository repository = getKieMavenRepository();
 	            repository.resolveArtifact(releaseId.toExternalForm());
 
 	            kieContainer = ks.newKieContainer(releaseId);
@@ -157,7 +164,7 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
             KieBase kbase = kieContainer.getKieBase(kbaseName);
             Map<String, ProcessDescriptor> processDescriptors = new HashMap<String, ProcessDescriptor>();
             for (org.kie.api.definition.process.Process process : kbase.getProcesses()) {
-                processDescriptors.put(process.getId(), (ProcessDescriptor) process.getMetaData().get("ProcessDescriptor"));
+                processDescriptors.put(process.getId(), ((ProcessDescriptor) process.getMetaData().get("ProcessDescriptor")).clone());
             }
 
             // TODO: add forms data?
@@ -206,8 +213,7 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
     		KieContainer kieContainer,KModuleDeploymentUnit unit) {
     	KModuleRegisterableItemsFactory factory = new KModuleRegisterableItemsFactory(kieContainer, unit.getKsessionName());
     	factory.setAuditBuilder(auditLoggerBuilder);
-    	factory.addProcessListener(IdentityProviderAwareProcessListener.class);
-    	return factory;
+		return factory;
     }
 
     @Override
@@ -298,6 +304,9 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
 		if (executorService != null) {
 		    builder.addEnvironmentEntry("ExecutorService", executorService);
 		}
+		if (identityProvider != null) {
+            builder.addEnvironmentEntry(EnvironmentName.IDENTITY_PROVIDER, identityProvider);
+        }
 		// populate all assets with roles for this deployment unit
 		List<String> requiredRoles = descriptor.getRequiredRoles(DeploymentDescriptor.TYPE_VIEW);
 		if (requiredRoles != null && !requiredRoles.isEmpty()) {
@@ -372,7 +381,7 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
                 } catch (UnsupportedEncodingException e) {
                     throw new IllegalArgumentException("Unsupported encoding while processing process " + fileName);
                 }
-            } else if (fileName.matches(".+ftl$") || fileName.matches(".+form$")) {
+            } else if (fileName.matches(".+ftl$") || fileName.matches(".+form$") || fileName.matches( ".+frm$" )) {
                 try {
                     String formContent = new String(module.getBytes(fileName), "UTF-8");
                     if (fileName.indexOf( "/" ) != -1) fileName = fileName.substring( fileName.lastIndexOf( "/" ) + 1);
@@ -393,11 +402,31 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
                 	throw new IllegalArgumentException("Class " + className + " not found in the project");
 				}
                 addClassToDeployedUnit(deploymentClass, deployedUnit);
+            } else if(fileName.matches(".+cmmn$")) {
+                ProcessAssetDesc process;
+                try {
+                    String processString = new String(module.getBytes(fileName), "UTF-8");
+                    String processId = getCaseId(processString);
+                    ProcessDescriptor processDesriptor = processes.get(processId);
+                    if (processDesriptor != null) {
+                        process = processDesriptor.getProcess();
+                        if (process == null) {
+                            throw new IllegalArgumentException("Unable to read process " + fileName);
+                        }
+                        process.setEncodedProcessSource(Base64.encodeBase64String(processString.getBytes()));
+                        process.setDeploymentId(unit.getIdentifier());
+
+                        deployedUnit.addAssetLocation(process.getId(), process);
+                        bpmn2Service.addProcessDefinition(unit.getIdentifier(), processId, processDesriptor, kieContainer);
+                    }
+                } catch (UnsupportedEncodingException e) {
+                    throw new IllegalArgumentException("Unsupported encoding while processing process " + fileName);
+                }
             }
         }
     }
 
-	private void addClassToDeployedUnit(Class deploymentClass, DeployedUnitImpl deployedUnit) {
+	protected void addClassToDeployedUnit(Class deploymentClass, DeployedUnitImpl deployedUnit) {
         if( deploymentClass != null ) {
             DeploymentUnit unit = deployedUnit.getDeploymentUnit();
             Boolean limitClasses = false;
@@ -449,7 +478,6 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
 
 				for (Class<?> clazz : allClasses) {
 				    filterClassesAddedToDeployedUnit(deployedUnit, clazz);
-				    break;
 				}
 			}
 	    }
@@ -527,17 +555,24 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
 		DeployedUnit deployed = getDeployedUnit(deploymentId);
 		if (deployed != null) {
 			((DeployedUnitImpl)deployed).setActive(true);
+			
+			((InternalRuntimeManager)deployed.getRuntimeManager()).activate();
+			
 			notifyOnActivate(deployed.getDeploymentUnit(), deployed);
 		}
+		
 	}
 
 	@Override
 	public void deactivate(String deploymentId) {
 		DeployedUnit deployed = getDeployedUnit(deploymentId);
-		if (deployed != null) {
+		if (deployed != null && deployed.isActive()) {
 			((DeployedUnitImpl)deployed).setActive(false);
+			
+			((InternalRuntimeManager)deployed.getRuntimeManager()).deactivate();
+					
 			notifyOnDeactivate(deployed.getDeploymentUnit(), deployed);
-		}
+		}		
 	}
 
 
@@ -553,5 +588,18 @@ public class KModuleDeploymentService extends AbstractDeploymentService {
             return null;
         }
 	}
+	
+    protected String getCaseId(String processSource) {
+
+        try {
+            InputSource inputSource = new InputSource(new StringReader(processSource));
+            String caseId = (String) caseIdXPathExpression.evaluate(inputSource, XPathConstants.STRING);
+
+            return caseId;
+        } catch (XPathExpressionException e) {
+            logger.error("Unable to find case id from case source due to {}", e.getMessage());
+            return null;
+        }
+    }
 
 }

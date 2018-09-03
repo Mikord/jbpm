@@ -1,21 +1,20 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.integrationtests;
-
-import static org.junit.Assert.assertEquals;
 
 import java.io.Reader;
 import java.io.StringReader;
@@ -27,6 +26,8 @@ import org.jbpm.test.util.AbstractBaseTest;
 import org.junit.Test;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
+
+import static org.junit.Assert.assertEquals;
 
 public class ProcessEventTest extends AbstractBaseTest {
   
@@ -42,7 +43,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "  <header>\n" +
     		"    <variables>\n" +
     		"      <variable name=\"MyVar\" >\n" +
-    		"        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"        <value>SomeText</value>\n" +
     		"      </variable>\n" +
     		"    </variables>\n" +
@@ -71,7 +72,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "\n" +
             "</process>");
         builder.addRuleFlow(source);
-        KieSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
         
         ProcessInstance processInstance = session.startProcess("org.drools.core.event");
         assertEquals(ProcessInstance.STATE_COMPLETED, processInstance.getState());
@@ -92,7 +93,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "  <header>\n" +
     		"    <variables>\n" +
     		"      <variable name=\"MyVar\" >\n" +
-    		"        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"        <value>SomeText</value>\n" +
     		"      </variable>\n" +
     		"    </variables>\n" +
@@ -117,7 +118,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "\n" +
             "</process>");
         builder.addRuleFlow(source);
-        KieSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
         ProcessInstance processInstance = session.startProcess("org.drools.core.event");
         assertEquals(ProcessInstance.STATE_ACTIVE, processInstance.getState());
         
@@ -142,7 +143,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "  <header>\n" +
     		"    <variables>\n" +
     		"      <variable name=\"MyVar\" >\n" +
-    		"        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"        <value>SomeText</value>\n" +
     		"      </variable>\n" +
     		"    </variables>\n" +
@@ -167,7 +168,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "\n" +
             "</process>");
         builder.addRuleFlow(source);
-        KieSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
                 
         ProcessInstance processInstance = session.startProcess("org.drools.core.event");
         assertEquals(ProcessInstance.STATE_ACTIVE, processInstance.getState());
@@ -196,7 +197,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "  <header>\n" +
     		"    <variables>\n" +
     		"      <variable name=\"MyVar\" >\n" +
-    		"        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"        <value>SomeText</value>\n" +
     		"      </variable>\n" +
     		"    </variables>\n" +
@@ -221,7 +222,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "\n" +
             "</process>");
         builder.addRuleFlow(source);
-        KieSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
         
         ProcessInstance processInstance = session.startProcess("org.drools.core.event");
         assertEquals(ProcessInstance.STATE_ACTIVE, processInstance.getState());
@@ -247,7 +248,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "  <header>\n" +
     		"    <variables>\n" +
     		"      <variable name=\"MyVar\" >\n" +
-    		"        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"        <value>SomeText</value>\n" +
     		"      </variable>\n" +
     		"    </variables>\n" +
@@ -288,7 +289,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "\n" +
             "</process>");
         builder.addRuleFlow(source);
-        KieSession ksession = createKieSession(builder.getPackage());
+        KieSession ksession = createKieSession(builder.getPackages());
         
         ProcessInstance processInstance =
             ksession.startProcess("org.drools.core.event");
@@ -310,7 +311,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "  <header>\n" +
     		"    <variables>\n" +
     		"      <variable name=\"MyVar\" >\n" +
-    		"        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"        <value>SomeText</value>\n" +
     		"      </variable>\n" +
     		"    </variables>\n" +
@@ -347,7 +348,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "\n" +
             "</process>");
         builder.addRuleFlow(source);
-        KieSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
         
         ProcessInstance processInstance = session.startProcess("org.drools.core.event");
         assertEquals(ProcessInstance.STATE_ACTIVE, processInstance.getState());
@@ -373,7 +374,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "  <header>\n" +
     		"    <variables>\n" +
     		"      <variable name=\"MyVar\" >\n" +
-    		"        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"        <value>SomeText</value>\n" +
     		"      </variable>\n" +
     		"    </variables>\n" +
@@ -410,7 +411,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "\n" +
             "</process>");
         builder.addRuleFlow(source);
-        KieSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
         
         ProcessInstance processInstance = session.startProcess("org.drools.core.event");
         assertEquals(ProcessInstance.STATE_ACTIVE, processInstance.getState());
@@ -436,7 +437,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "  <header>\n" +
     		"    <variables>\n" +
     		"      <variable name=\"MyVar\" >\n" +
-    		"        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"        <value>SomeText</value>\n" +
     		"      </variable>\n" +
     		"    </variables>\n" +
@@ -473,7 +474,7 @@ public class ProcessEventTest extends AbstractBaseTest {
             "\n" +
             "</process>");
         builder.addRuleFlow(source);
-        KieSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
         ProcessInstance processInstance = session.startProcess("org.drools.core.event");
         assertEquals(ProcessInstance.STATE_ACTIVE, processInstance.getState());
 

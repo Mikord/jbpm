@@ -1,17 +1,17 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.jbpm.services.task.impl.model;
 
@@ -29,6 +29,7 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Index;
 import javax.persistence.JoinColumn;
 import javax.persistence.OneToMany;
 import javax.persistence.SequenceGenerator;
@@ -39,7 +40,9 @@ import org.kie.api.task.model.I18NText;
 import org.kie.internal.task.api.model.Escalation;
 
 @Entity
-@Table(name="Deadline")
+@Table(name="Deadline",
+       indexes = {@Index(name = "IDX_Deadline_StartId",  columnList="Deadlines_StartDeadLine_Id"),
+                  @Index(name = "IDX_Deadline_EndId", columnList="Deadlines_EndDeadLine_Id")})
 @SequenceGenerator(name="deadlineIdSeq", sequenceName="DEADLINE_ID_SEQ", allocationSize=1)
 public class DeadlineImpl implements org.kie.internal.task.api.model.Deadline {
 

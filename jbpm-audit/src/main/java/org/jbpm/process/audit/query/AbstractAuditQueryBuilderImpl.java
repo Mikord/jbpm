@@ -1,39 +1,35 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.process.audit.query;
-
-import static org.kie.internal.query.QueryParameterIdentifiers.DATE_LIST;
-import static org.kie.internal.query.QueryParameterIdentifiers.PROCESS_ID_LIST;
-import static org.kie.internal.query.QueryParameterIdentifiers.PROCESS_INSTANCE_ID_LIST;
-
-import java.util.Date;
-import java.util.List;
 
 import org.jbpm.process.audit.JPAAuditLogService;
 import org.jbpm.process.audit.command.AuditCommand;
 import org.jbpm.query.jpa.builder.impl.AbstractQueryBuilderImpl;
 import org.jbpm.query.jpa.data.QueryWhere;
 import org.kie.api.runtime.CommandExecutor;
-import org.kie.internal.command.Context;
+import org.kie.api.runtime.Context;
 import org.kie.internal.query.ParametrizedQuery;
 import org.kie.internal.query.QueryParameterIdentifiers;
 import org.kie.internal.runtime.manager.audit.query.AuditLogQueryBuilder;
-import org.kie.internal.runtime.manager.audit.query.NodeInstanceLogQueryBuilder;
-import org.kie.internal.runtime.manager.audit.query.AuditLogQueryBuilder.OrderBy;
-import org.kie.internal.runtime.manager.audit.query.ProcessIdQueryBuilder;
+
+import java.util.Date;
+import java.util.List;
+
+import static org.kie.internal.query.QueryParameterIdentifiers.*;
 
 @SuppressWarnings("unchecked")
 public abstract class AbstractAuditQueryBuilderImpl<T,R> extends AbstractQueryBuilderImpl<T> implements AuditLogQueryBuilder<T,R> {

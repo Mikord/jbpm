@@ -1,12 +1,12 @@
 /*
- * Copyright 2006 Red Hat, Inc. and/or its affiliates.
- * 
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,7 +17,6 @@
 package org.jbpm.process.builder.dialect.java;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -25,18 +24,12 @@ import org.drools.compiler.compiler.AnalysisResult;
 import org.drools.compiler.compiler.BoundIdentifiers;
 import org.drools.compiler.lang.descr.ActionDescr;
 import org.drools.compiler.rule.builder.PackageBuildContext;
-import org.drools.compiler.rule.builder.dialect.java.JavaAnalysisResult;
 import org.drools.compiler.rule.builder.dialect.java.JavaDialect;
-import org.drools.compiler.rule.builder.dialect.java.parser.JavaLocalDeclarationDescr;
 import org.jbpm.process.builder.ActionBuilder;
 import org.jbpm.process.builder.ProcessBuildContext;
 import org.jbpm.process.core.ContextResolver;
 import org.jbpm.workflow.core.DroolsAction;
 
-/**
- * @author etirelli
- *
- */
 public class JavaActionBuilder extends AbstractJavaProcessBuilder
     implements
     ActionBuilder {
@@ -72,7 +65,7 @@ public class JavaActionBuilder extends AbstractJavaProcessBuilder
         JavaDialect dialect = (JavaDialect) context.getDialect( "java" );
         
         Map<String, Class<?>> variables = new HashMap<String,Class<?>>();
-        BoundIdentifiers boundIdentifiers = new BoundIdentifiers(variables, context.getKnowledgeBuilder().getGlobals());
+        BoundIdentifiers boundIdentifiers = new BoundIdentifiers(variables, context);
         AnalysisResult analysis = dialect.analyzeBlock( context,
                                                         actionDescr,
                                                         actionDescr.getText(),

@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,13 +15,8 @@
  */
 package org.jbpm.runtime.manager.impl.task;
 
-import java.lang.reflect.InvocationHandler;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-
 import org.drools.core.command.impl.CommandBasedStatefulKnowledgeSession;
-import org.drools.persistence.SingleSessionCommandService;
+import org.drools.persistence.PersistableRunner;
 import org.kie.api.command.Command;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.task.TaskLifeCycleEventListener;
@@ -46,6 +41,11 @@ import org.kie.internal.task.api.model.SubTasksStrategy;
 import org.kie.internal.task.api.model.TaskDef;
 import org.kie.internal.task.api.model.TaskEvent;
 import org.kie.internal.task.query.TaskSummaryQueryBuilder;
+
+import java.lang.reflect.InvocationHandler;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 /**
  * Fully synchronized <code>TaskService</code> implementation used by the <code>SingletonRuntimeManager</code>.
  * Synchronization is done on <code>CommandService</code> of the <code>KieSession</code> to ensure correctness
@@ -63,7 +63,7 @@ public class SynchronizedTaskService
 
 	public SynchronizedTaskService(KieSession ksession, InternalTaskService taskService) {
 	    if (ksession instanceof CommandBasedStatefulKnowledgeSession) {
-	        this.ksession = (SingleSessionCommandService) ((CommandBasedStatefulKnowledgeSession) ksession).getCommandService();
+	        this.ksession = ((CommandBasedStatefulKnowledgeSession) ksession).getRunner();
 	    } else {
 	        this.ksession = ksession;
 	    }
@@ -103,20 +103,6 @@ public class SynchronizedTaskService
     public void claim(long taskId, String userId) {
         synchronized (ksession) {
             taskService.claim(taskId, userId);
-        }
-    }
-
-    @Override
-    public void claim(long taskId, String userId, List<String> groupIds) {
-        synchronized (ksession) {
-            taskService.claim(taskId, userId, groupIds);
-        }
-    }
-
-    @Override
-    public void claimNextAvailable(String userId, List<String> groupIds) {
-        synchronized (ksession) {
-            taskService.claimNextAvailable(userId, groupIds);
         }
     }
 
@@ -918,33 +904,6 @@ public class SynchronizedTaskService
             return null;
         }
     }
-
-
-	@Override
-	public List<TaskSummary> getTasksByVariousFields(String userId, List<Long> workItemIds,
-			List<Long> taskIds, List<Long> procInstIds, List<String> busAdmins,
-			List<String> potOwners, List<String> taskOwners,
-			List<Status> status,  List<String> language, boolean union) {
-		synchronized (ksession) {
-            if (taskService != null) {
-                return taskService.getTasksByVariousFields(userId, workItemIds, taskIds, procInstIds,
-                		busAdmins, potOwners, taskOwners, status, language, union);
-            }
-            return null;
-        }
-	}
-
-
-	@Override
-	public List<TaskSummary> getTasksByVariousFields(String userId, Map<String, List<?>> parameters, boolean union) {
-		synchronized (ksession) {
-            if (taskService != null) {
-                return taskService.getTasksByVariousFields(userId, parameters, union);
-            }
-
-            return null;
-        }
-	}
 
 	@Override
 	public List<TaskSummary> getTasksOwned(String userId, List<Status> status, QueryFilter filter) {

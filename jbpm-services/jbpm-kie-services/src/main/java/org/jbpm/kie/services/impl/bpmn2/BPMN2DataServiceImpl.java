@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,19 +29,21 @@ import org.drools.core.util.StringUtils;
 import org.jbpm.kie.services.impl.model.ProcessAssetDesc;
 import org.jbpm.services.api.DefinitionService;
 import org.jbpm.services.api.DeploymentEvent;
+import org.jbpm.services.api.DeploymentNotFoundException;
 import org.jbpm.services.api.DeploymentEventListener;
+import org.jbpm.services.api.ProcessDefinitionNotFoundException;
 import org.jbpm.services.api.model.ProcessDefinition;
 import org.jbpm.services.api.model.UserTaskDefinition;
+import org.jbpm.services.api.service.ServiceRegistry;
+import org.kie.api.definition.KiePackage;
 import org.kie.api.definition.process.Process;
 import org.kie.api.io.ResourceType;
 import org.kie.api.runtime.KieContainer;
 import org.kie.internal.builder.KnowledgeBuilder;
 import org.kie.internal.builder.KnowledgeBuilderError;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
-import org.kie.internal.definition.KnowledgePackage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 public class BPMN2DataServiceImpl implements DefinitionService, DeploymentEventListener {
 
@@ -50,8 +52,9 @@ public class BPMN2DataServiceImpl implements DefinitionService, DeploymentEventL
     private ConcurrentMap<String, Map<String, ProcessDescriptor>> definitionCache =
     		new ConcurrentHashMap<String, Map<String, ProcessDescriptor>>();
 
-
     public BPMN2DataServiceImpl() {
+        
+        ServiceRegistry.get().register(DefinitionService.class.getSimpleName(), this);
     }
 
     private void validateNonEmptyDeploymentIdAndProcessId(String deploymentId, String processId) {
@@ -83,7 +86,7 @@ public class BPMN2DataServiceImpl implements DefinitionService, DeploymentEventL
             throw new IllegalStateException( msg.toString() );
         }
     }
-    
+
     public void addProcessDefinition(String deploymentId, String processId, Object processDescriptor, KieContainer kieContainer) {
         Map<String, ProcessDescriptor> definitions = null;
         synchronized (definitionCache) {
@@ -94,17 +97,8 @@ public class BPMN2DataServiceImpl implements DefinitionService, DeploymentEventL
             }
 
             ProcessDescriptor descriptor = (ProcessDescriptor) processDescriptor;
-            ProcessAssetDesc definition = descriptor.getProcess();
-            
-            definition.setAssociatedEntities(descriptor.getTaskAssignments());
-            definition.setProcessVariables(descriptor.getInputs());
-            definition.setServiceTasks(descriptor.getServiceTasks());
+            fillProcessDefinition(descriptor, kieContainer);
 
-            if( kieContainer != null && descriptor.hasUnresolvedReusableSubProcessNames() ) {
-                descriptor.resolveReusableSubProcessNames(kieContainer.getKieBase().getProcesses());
-            }
-            definition.setReusableSubProcesses(descriptor.getReusableSubProcesses());
-            
             definitions.put(processId, descriptor);
         }
     }
@@ -115,8 +109,6 @@ public class BPMN2DataServiceImpl implements DefinitionService, DeploymentEventL
 		if (StringUtils.isEmpty(bpmn2Content)) {
             return null;
         }
-
-		validateNonEmptyDeploymentIdAndProcessId(deploymentId, "no proc id");
 
         KnowledgeBuilder kbuilder = null;
 
@@ -135,24 +127,16 @@ public class BPMN2DataServiceImpl implements DefinitionService, DeploymentEventL
             return null;
         }
 
-        KnowledgePackage pckg = kbuilder.getKnowledgePackages().iterator().next();
+        KiePackage pckg = kbuilder.getKnowledgePackages().iterator().next();
 
         Process process = pckg.getProcesses().iterator().next();
 
         ProcessDescriptor helper = (ProcessDescriptor) process.getMetaData().get("ProcessDescriptor");
-        ProcessAssetDesc definition = helper.getProcess();
-        
-        definition.setAssociatedEntities(helper.getTaskAssignments());
-        definition.setProcessVariables(helper.getInputs());
-        definition.setServiceTasks(helper.getServiceTasks());
-
-        if( kieContainer != null && helper.hasUnresolvedReusableSubProcessNames() ) {
-           helper.resolveReusableSubProcessNames(kieContainer.getKieBase().getProcesses());
-        }
-        definition.setReusableSubProcesses(helper.getReusableSubProcesses());
+        ProcessAssetDesc definition = fillProcessDefinition(helper, kieContainer);
 
         // cache the data if requested
         if (cache) {
+            validateNonEmptyDeploymentIdAndProcessId(deploymentId, "no proc id");
         	Map<String, ProcessDescriptor> definitions = null;
         	synchronized (definitionCache) {
         		Map<String, ProcessDescriptor> newDef = new ConcurrentHashMap<String, ProcessDescriptor>();
@@ -167,6 +151,26 @@ public class BPMN2DataServiceImpl implements DefinitionService, DeploymentEventL
 
         return definition;
 
+	}
+
+	private ProcessAssetDesc fillProcessDefinition(ProcessDescriptor helper, KieContainer kieContainer ) {
+
+        ProcessAssetDesc definition = helper.getProcess();
+
+	    definition.setAssociatedEntities(helper.getTaskAssignments());
+	    definition.setProcessVariables(helper.getInputs());
+	    definition.setServiceTasks(helper.getServiceTasks());
+
+	    definition.setSignals(helper.getSignals() );
+	    definition.setGlobals(helper.getGlobals() );
+	    definition.setReferencedRules(helper.getReferencedRules() );
+
+        if( kieContainer != null && helper.hasUnresolvedReusableSubProcessNames() ) {
+            helper.resolveReusableSubProcessNames(kieContainer.getKieBase().getProcesses());
+         }
+         definition.setReusableSubProcesses(helper.getReusableSubProcesses());
+
+         return definition;
 	}
 
 
@@ -188,18 +192,16 @@ public class BPMN2DataServiceImpl implements DefinitionService, DeploymentEventL
 
 	@Override
 	public ProcessDefinition getProcessDefinition(String deploymentId, String processId) {
-	    validateNonEmptyDeploymentIdAndProcessId(deploymentId, processId);
-
-	    if (definitionCache.containsKey(deploymentId)) {
-
-	        ProcessDescriptor helper = definitionCache.get(deploymentId).get(processId);
-	        if (helper == null) {
-	            throw new IllegalStateException("No process available with given id : " + processId);
-	        }
-	        return helper.getProcess();
-	    }
-
-	    return null;
+        if (definitionCache.containsKey(deploymentId)) {
+            ProcessDescriptor helper = definitionCache.get(deploymentId).get(processId);
+            if(helper != null && helper.getProcess() != null) {
+                return helper.getProcess();
+            } else {
+                throw new ProcessDefinitionNotFoundException("No process available with given id : " + processId);
+            }
+        } else {
+            throw new DeploymentNotFoundException("No deployments available for " + deploymentId);
+        }
 	}
 
 	@Override

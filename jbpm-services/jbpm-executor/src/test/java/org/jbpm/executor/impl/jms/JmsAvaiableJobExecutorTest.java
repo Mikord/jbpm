@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.executor.impl.jms;
 
@@ -35,12 +36,17 @@ import javax.persistence.Persistence;
 import javax.transaction.UserTransaction;
 
 import org.hornetq.jms.server.embedded.EmbeddedJMS;
+import org.jboss.narayana.jta.jms.ConnectionFactoryProxy;
+import org.jboss.narayana.jta.jms.TransactionHelperImpl;
+import org.jbpm.executor.AsynchronousJobEvent;
+import org.jbpm.executor.AsynchronousJobListener;
 import org.jbpm.executor.ExecutorServiceFactory;
 import org.jbpm.executor.impl.ClassCacheManager;
 import org.jbpm.executor.impl.ExecutorImpl;
 import org.jbpm.executor.impl.ExecutorServiceImpl;
 import org.jbpm.executor.test.CountDownAsyncJobListener;
 import org.jbpm.test.util.ExecutorTestUtil;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -50,9 +56,6 @@ import org.kie.api.executor.RequestInfo;
 import org.kie.api.runtime.query.QueryContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
-import bitronix.tm.resource.jms.PoolingConnectionFactory;
 
 public class JmsAvaiableJobExecutorTest  {
 
@@ -129,31 +132,109 @@ public class JmsAvaiableJobExecutorTest  {
  
     }
     
-   
+    @Test
+    public void testAsyncAuditProducerPrioritizedJobs() throws Exception {
+        
+        CountDownAsyncJobListener countDownListener = configureListener(2);
+        final List<String> executedJobs = new ArrayList<String>();
+        ((ExecutorServiceImpl) executorService).addAsyncJobListener(new AsynchronousJobListener() {
+            
+            @Override
+            public void beforeJobScheduled(AsynchronousJobEvent event) {
+            }
+            
+            @Override
+            public void beforeJobExecuted(AsynchronousJobEvent event) {                
+            }
+            
+            @Override
+            public void beforeJobCancelled(AsynchronousJobEvent event) {                
+            }
+            
+            @Override
+            public void afterJobScheduled(AsynchronousJobEvent event) {                
+            }
+            
+            @Override
+            public void afterJobExecuted(AsynchronousJobEvent event) {
+                executedJobs.add(event.getJob().getKey());
+            }
+            
+            @Override
+            public void afterJobCancelled(AsynchronousJobEvent event) {                
+            }
+        });
+        CommandContext ctxCMD = new CommandContext();
+        ctxCMD.setData("businessKey", "low priority");
+        ctxCMD.setData("priority", 2);
+        
+        CommandContext ctxCMD2 = new CommandContext();
+        ctxCMD2.setData("businessKey", "high priority");
+        ctxCMD2.setData("priority", 8);
+        
+        UserTransaction ut = InitialContext.doLookup("java:comp/UserTransaction");
+        ut.begin();
+        executorService.scheduleRequest("org.jbpm.executor.commands.PrintOutCommand", ctxCMD);
+        executorService.scheduleRequest("org.jbpm.executor.commands.PrintOutCommand", ctxCMD2);
+        ut.commit();
+        MessageReceiver receiver = new MessageReceiver();
+        receiver.receiveAndProcess(queue, countDownListener);
+
+        List<RequestInfo> inErrorRequests = executorService.getInErrorRequests(new QueryContext());
+        assertEquals(0, inErrorRequests.size());
+        List<RequestInfo> queuedRequests = executorService.getQueuedRequests(new QueryContext());
+        assertEquals(0, queuedRequests.size());
+        List<RequestInfo> executedRequests = executorService.getCompletedRequests(new QueryContext());
+        assertEquals(2, executedRequests.size());
+        
+        assertEquals(2,  executedJobs.size());
+        assertEquals("high priority",  executedJobs.get(0));
+        assertEquals("low priority",  executedJobs.get(1));
+ 
+    }
+    
+    @Test
+    public void testAsyncAuditProducerNotExistingDeployment() throws Exception {
+        
+        CountDownAsyncJobListener countDownListener = configureListener(1);
+        CommandContext ctxCMD = new CommandContext();
+        ctxCMD.setData("businessKey", UUID.randomUUID().toString());
+        ctxCMD.setData("deploymentId", "not-existing");
+        
+        UserTransaction ut = InitialContext.doLookup("java:comp/UserTransaction");
+        ut.begin();
+        executorService.scheduleRequest("org.jbpm.executor.commands.PrintOutCommand", ctxCMD);
+        ut.commit();
+        MessageReceiver receiver = new MessageReceiver();
+        receiver.receiveAndProcess(queue, countDownListener, 3000);
+
+        List<RequestInfo> inErrorRequests = executorService.getInErrorRequests(new QueryContext());
+        assertEquals(0, inErrorRequests.size());
+        List<RequestInfo> queuedRequests = executorService.getQueuedRequests(new QueryContext());
+        assertEquals(1, queuedRequests.size());
+        List<RequestInfo> executedRequests = executorService.getCompletedRequests(new QueryContext());
+        assertEquals(0, executedRequests.size());
+ 
+    }
     
     private void startHornetQServer() throws Exception {
         jmsServer = new EmbeddedJMS();
         jmsServer.start();
         logger.debug("Started Embedded JMS Server");
 
-        BitronixHornetQXAConnectionFactory.connectionFactory = (XAConnectionFactory) jmsServer.lookup("ConnectionFactory");
+        XAConnectionFactory connectionFactory = (XAConnectionFactory) jmsServer.lookup("ConnectionFactory");
 
-        PoolingConnectionFactory myConnectionFactory = new PoolingConnectionFactory ();                   
-        myConnectionFactory.setClassName("org.jbpm.executor.impl.jms.BitronixHornetQXAConnectionFactory");              
-        myConnectionFactory.setUniqueName("ConnectionFactory");                                                    
-        myConnectionFactory.setMaxPoolSize(5); 
-        myConnectionFactory.setAllowLocalTransactions(true);
+        new InitialContext().rebind("java:comp/UserTransaction", com.arjuna.ats.jta.UserTransaction.userTransaction());
+        new InitialContext().rebind("java:comp/TransactionManager", com.arjuna.ats.jta.TransactionManager.transactionManager());
+        new InitialContext().rebind("java:comp/TransactionSynchronizationRegistry", new com.arjuna.ats.internal.jta.transaction.arjunacore.TransactionSynchronizationRegistryImple());
 
-        myConnectionFactory.init(); 
-        
-        factory = myConnectionFactory;
+        factory =  new ConnectionFactoryProxy(connectionFactory, new TransactionHelperImpl(com.arjuna.ats.jta.TransactionManager.transactionManager()));
         
         queue = (Queue) jmsServer.lookup("/queue/exampleQueue");
         
     }
     
     private void stopHornetQServer() throws Exception {
-        ((PoolingConnectionFactory) factory).close();
         jmsServer.stop();
         jmsServer = null;
     }
@@ -161,6 +242,12 @@ public class JmsAvaiableJobExecutorTest  {
     private class MessageReceiver {
         
         void receiveAndProcess(Queue queue, CountDownAsyncJobListener countDownListener) throws Exception {
+            
+            receiveAndProcess(queue, countDownListener, 100000);
+
+        }
+        
+        void receiveAndProcess(Queue queue, CountDownAsyncJobListener countDownListener, long waitTill) throws Exception {
             
             Connection qconnetion = factory.createConnection();
             Session qsession = qconnetion.createSession(true, QueueSession.AUTO_ACKNOWLEDGE);
@@ -171,9 +258,10 @@ public class JmsAvaiableJobExecutorTest  {
             jmsExecutor.setExecutorStoreService(((ExecutorImpl)((ExecutorServiceImpl)executorService).getExecutor()).getExecutorStoreService());
             jmsExecutor.setQueryService(((ExecutorServiceImpl)executorService).getQueryService());
             jmsExecutor.setEventSupport(((ExecutorServiceImpl)executorService).getEventSupport());
+            jmsExecutor.setExecutor(((ExecutorServiceImpl)executorService).getExecutor());
             consumer.setMessageListener(jmsExecutor);
             // since we use message listener allow it to complete the async processing
-            countDownListener.waitTillCompleted();
+            countDownListener.waitTillCompleted(waitTill);
             
             consumer.close();            
             qsession.close();            

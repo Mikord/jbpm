@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 /*
  * To change this template, choose Tools | Templates
@@ -25,6 +26,7 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.util.Date;
 
+import java.util.Objects;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
@@ -235,16 +237,16 @@ public class TaskEventImpl implements TaskEvent, Externalizable {
       return false;
     }
     final TaskEventImpl other = (TaskEventImpl) obj;
-    if (this.id != other.id && (this.id == null || !this.id.equals(other.id))) {
+    if (!Objects.equals(this.id, other.id) && (this.id == null || !this.id.equals(other.id))) {
       return false;
     }
-    if (this.version != other.version && (this.version == null || !this.version.equals(other.version))) {
+    if (!Objects.equals(this.version, other.version) && (this.version == null || !this.version.equals(other.version))) {
       return false;
     }
-    if (this.taskId != other.taskId && (this.taskId == null || !this.taskId.equals(other.taskId))) {
+    if (!Objects.equals(this.taskId, other.taskId) && (this.taskId == null || !this.taskId.equals(other.taskId))) {
       return false;
     }
-    if (this.workItemId != other.workItemId && (this.workItemId == null || !this.workItemId.equals(other.workItemId))) {
+    if (!Objects.equals(this.workItemId, other.workItemId) && (this.workItemId == null || !this.workItemId.equals(other.workItemId))) {
       return false;
     }
     if (this.type != other.type) {
@@ -253,7 +255,7 @@ public class TaskEventImpl implements TaskEvent, Externalizable {
     if (!this.message.equals(other.message) ) {
       return false;
     }
-    if (this.processInstanceId != other.processInstanceId && (this.processInstanceId == null || !this.processInstanceId.equals(other.processInstanceId))) {
+    if (!Objects.equals(this.processInstanceId, other.processInstanceId) && (this.processInstanceId == null || !this.processInstanceId.equals(other.processInstanceId))) {
       return false;
     }
     if ((this.userId == null) ? (other.userId != null) : !this.userId.equals(other.userId)) {

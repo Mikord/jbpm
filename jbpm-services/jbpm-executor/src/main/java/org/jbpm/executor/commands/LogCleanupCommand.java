@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.executor.commands;
 
@@ -121,19 +122,39 @@ public class LogCleanupCommand implements Command, Reoccurring {
 			
 			olderThan = formatToUse.format(olderThanDate);
 		}
+		
+        
+        if (!skipTaskLog) {
+            // task tables
+            long taLogsRemoved = 0l;
+            taLogsRemoved = auditLogService.auditTaskDelete()
+            .processId(forProcess)      
+            .dateRangeEnd(olderThan==null?null:formatToUse.parse(olderThan))
+            .deploymentId(forDeployment)
+            .build()
+            .execute();
+            logger.info("TaskAuditLogRemoved {}", taLogsRemoved);
+            executionResults.setData("TaskAuditLogRemoved", taLogsRemoved);
+            
+            long teLogsRemoved = 0l;
+            teLogsRemoved = auditLogService.taskEventInstanceLogDelete()
+            .dateRangeEnd(olderThan==null?null:formatToUse.parse(olderThan))        
+            .build()
+            .execute();
+            logger.info("TaskEventLogRemoved {}", teLogsRemoved);
+            executionResults.setData("TaskEventLogRemoved", teLogsRemoved);
+            
+            long tvLogsRemoved = 0l;
+            tvLogsRemoved = auditLogService.taskVariableInstanceLogDelete()
+            .dateRangeEnd(olderThan==null?null:formatToUse.parse(olderThan))        
+            .build()
+            .execute();
+            logger.info("TaskVariableLogRemoved {}", tvLogsRemoved);
+            executionResults.setData("TaskVariableLogRemoved", tvLogsRemoved);
+        }		
+		
 		if (!skipProcessLog) {
-		// process tables
-			long piLogsRemoved = 0l;		
-			piLogsRemoved = auditLogService.processInstanceLogDelete()
-			.processId(forProcess)
-			.status(ProcessInstance.STATE_COMPLETED, ProcessInstance.STATE_ABORTED)
-			.endDateRangeEnd(olderThan==null?null:formatToUse.parse(olderThan))
-			.externalId(forDeployment)
-			.build()
-			.execute();
-			logger.info("ProcessInstanceLogRemoved {}", piLogsRemoved);
-			executionResults.setData("ProcessInstanceLogRemoved", piLogsRemoved);
-			
+		// process tables			
 			long niLogsRemoved = 0l;
 			niLogsRemoved = auditLogService.nodeInstanceLogDelete()
 			.processId(forProcess)
@@ -153,28 +174,19 @@ public class LogCleanupCommand implements Command, Reoccurring {
 			.execute();
 			logger.info("VariableInstanceLogRemoved {}", viLogsRemoved);
 			executionResults.setData("VariableInstanceLogRemoved", viLogsRemoved);
-		}
-		
-		if (!skipTaskLog) {
-			// task tables
-			long taLogsRemoved = 0l;
-			taLogsRemoved = auditLogService.auditTaskDelete()
-			.processId(forProcess)		
-			.dateRangeEnd(olderThan==null?null:formatToUse.parse(olderThan))
-			.deploymentId(forDeployment)
-			.build()
-			.execute();
-			logger.info("TaskAuditLogRemoved {}", taLogsRemoved);
-			executionResults.setData("TaskAuditLogRemoved", taLogsRemoved);
 			
-			long teLogsRemoved = 0l;
-			teLogsRemoved = auditLogService.taskEventInstanceLogDelete()
-			.dateRangeEnd(olderThan==null?null:formatToUse.parse(olderThan))		
-			.build()
-			.execute();
-			logger.info("TaskEventLogRemoved {}", teLogsRemoved);
-			executionResults.setData("TaskEventLogRemoved", teLogsRemoved);
+			long piLogsRemoved = 0l;        
+            piLogsRemoved = auditLogService.processInstanceLogDelete()
+            .processId(forProcess)
+            .status(ProcessInstance.STATE_COMPLETED, ProcessInstance.STATE_ABORTED)
+            .endDateRangeEnd(olderThan==null?null:formatToUse.parse(olderThan))
+            .externalId(forDeployment)
+            .build()
+            .execute();
+            logger.info("ProcessInstanceLogRemoved {}", piLogsRemoved);
+            executionResults.setData("ProcessInstanceLogRemoved", piLogsRemoved);
 		}
+
 		
 		if (!skipExecutorLog) {
 			// executor tables	

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,13 +16,6 @@
 
 package org.jbpm.services.ejb.test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
@@ -30,7 +23,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import javax.ejb.EJB;
 
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
@@ -53,10 +45,13 @@ import org.kie.api.KieServices;
 import org.kie.api.builder.ReleaseId;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.process.WorkItem;
+import org.kie.api.runtime.query.QueryContext;
 import org.kie.internal.KieInternalServices;
 import org.kie.internal.process.CorrelationKey;
-import org.kie.api.runtime.query.QueryContext;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
+
+import static org.junit.Assert.*;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 @RunWith(Arquillian.class)
 public class ProcessServiceEJBIntegrationTest extends AbstractTestSupport {
@@ -83,6 +78,7 @@ public class ProcessServiceEJBIntegrationTest extends AbstractTestSupport {
         processes.add("processes/customtask.bpmn");
         processes.add("processes/humanTask.bpmn");
         processes.add("processes/signal.bpmn");
+		processes.add("processes/signalWithExpression.bpmn2");
         processes.add("processes/import.bpmn");
         
         InternalKieModule kJar1 = createKieJar(ks, releaseId, processes);
@@ -95,7 +91,7 @@ public class ProcessServiceEJBIntegrationTest extends AbstractTestSupport {
         } catch (Exception e) {
             
         }
-        MavenRepository repository = getMavenRepository();
+		KieMavenRepository repository = getKieMavenRepository();
         repository.installArtifact(releaseId, kJar1, pom);
 	}
 	
@@ -344,6 +340,44 @@ public class ProcessServiceEJBIntegrationTest extends AbstractTestSupport {
     	pi2 = processService.getProcessInstance(processInstanceId2);    	
     	assertNull(pi2);
     }
+
+	@Test
+	public void testStartAndSignalProcessesWithExpression() {
+		assertNotNull(deploymentService);
+
+		KModuleDeploymentUnit deploymentUnit = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, VERSION);
+
+		deploymentService.deploy(deploymentUnit);
+		units.add(deploymentUnit);
+
+		boolean isDeployed = deploymentService.isDeployed(deploymentUnit.getIdentifier());
+		assertTrue(isDeployed);
+
+		assertNotNull(processService);
+		// first start first instance
+		long processInstanceId1 = processService.startProcess(deploymentUnit.getIdentifier(), "org.jbpm.signalWithExpression");
+		assertNotNull(processInstanceId1);
+
+		ProcessInstance pi = processService.getProcessInstance(processInstanceId1);
+		assertNotNull(pi);
+		// then start second instance
+		long processInstanceId2 = processService.startProcess(deploymentUnit.getIdentifier(), "org.jbpm.signalWithExpression");
+		assertNotNull(processInstanceId2);
+
+		ProcessInstance pi2 = processService.getProcessInstance(processInstanceId2);
+		assertNotNull(pi2);
+
+		List<Long> instances = new ArrayList<Long>();
+		instances.add(processInstanceId1);
+		instances.add(processInstanceId2);
+		// and lastly cancel both
+		processService.signalProcessInstances(instances, "MySignal", null);
+
+		pi = processService.getProcessInstance(processInstanceId1);
+		assertNull(pi);
+		pi2 = processService.getProcessInstance(processInstanceId2);
+		assertNull(pi2);
+	}
     
     @Test
     public void testStartAndSignal() {
@@ -649,7 +683,7 @@ public class ProcessServiceEJBIntegrationTest extends AbstractTestSupport {
     		processService.startProcess(deploymentUnit.getIdentifier(), "customtask");
     		fail("Deployment is deactivated so cannot start new process instances");
     	} catch (Exception e) {
-    		assertEquals("org.jbpm.services.api.DeploymentNotFoundException: Deployments org.jbpm.test:test-module:1.0.0-SNAPSHOT is not active", e.getMessage());
+    		assertEquals("org.jbpm.services.api.DeploymentNotFoundException: Deployments org.jbpm.test:test-module:1.0.0 is not active", e.getMessage());
     	}
     }
     

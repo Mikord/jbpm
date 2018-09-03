@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.persistence.scripts;
 
 import java.io.File;
@@ -18,6 +34,7 @@ import java.util.Set;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 
+import org.drools.core.impl.KnowledgeBaseFactory;
 import org.drools.core.impl.KnowledgeBaseImpl;
 import org.drools.persistence.jta.JtaTransactionManager;
 import org.jbpm.persistence.map.impl.ProcessCreatorForHelp;
@@ -28,13 +45,12 @@ import org.jbpm.persistence.scripts.util.SQLCommandUtil;
 import org.jbpm.persistence.scripts.util.SQLScriptUtil;
 import org.jbpm.persistence.scripts.util.TestsUtil;
 import org.jbpm.persistence.util.PersistenceUtil;
+import org.jbpm.test.util.PoolingDataSource;
 import org.kie.api.KieBase;
 import org.kie.api.runtime.Environment;
 import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.task.model.I18NText;
 import org.kie.api.task.model.OrganizationalEntity;
-import org.kie.internal.KnowledgeBase;
-import org.kie.internal.KnowledgeBaseFactory;
 import org.kie.internal.persistence.jpa.JPAKnowledgeService;
 import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.kie.internal.task.api.TaskModelProvider;
@@ -42,8 +58,6 @@ import org.kie.internal.task.api.model.InternalI18NText;
 import org.kie.internal.task.api.model.InternalOrganizationalEntity;
 import org.kie.internal.task.api.model.InternalPeopleAssignments;
 import org.kie.internal.task.api.model.InternalTaskData;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,14 +86,24 @@ public final class TestPersistenceContext {
      * @param persistenceUnit Persistence unit which is used to initialize this persistence context.
      */
     public void init(final PersistenceUnit persistenceUnit) {
-        context = PersistenceUtil.setupWithPoolingDataSource(persistenceUnit.getName(), persistenceUnit
-                .getDataSourceName());
-        entityManagerFactory = (EntityManagerFactory) context.get(EnvironmentName.ENTITY_MANAGER_FACTORY);
-        environment = PersistenceUtil.createEnvironment(context);
-        Object tm = this.environment.get(EnvironmentName.TRANSACTION_MANAGER);
-        transactionManager = new JtaTransactionManager(environment.get(EnvironmentName.TRANSACTION),
-                environment.get(EnvironmentName.TRANSACTION_SYNCHRONIZATION_REGISTRY),
-                tm);
+        try {
+            context = PersistenceUtil.setupWithPoolingDataSource(persistenceUnit.getName(), persistenceUnit
+                    .getDataSourceName());
+            entityManagerFactory = (EntityManagerFactory) context.get(EnvironmentName.ENTITY_MANAGER_FACTORY);
+            environment = PersistenceUtil.createEnvironment(context);
+            Object tm = this.environment.get(EnvironmentName.TRANSACTION_MANAGER);
+            transactionManager = new JtaTransactionManager(environment.get(EnvironmentName.TRANSACTION),
+                    environment.get(EnvironmentName.TRANSACTION_SYNCHRONIZATION_REGISTRY),
+                    tm);
+        } catch (RuntimeException ex) {
+            // log the whole exception stacktrace as for some reason junit is not able to do so and only prints
+            // the highest level exception, which makes debugging very hard
+            logger.error("Failed to initialize persistence unit {}", persistenceUnit, ex);
+            if (entityManagerFactory != null) {
+                entityManagerFactory.close();
+            }
+            throw ex;
+        }
     }
 
     /**
@@ -133,7 +157,7 @@ public final class TestPersistenceContext {
     }
 
     /**
-     * Starts and persists a basic simple process using current database entites.
+     * Starts and persists a basic simple process using current database entities.
      * @param processId Process identifier. This identifier is also used to generate KieBase
      * (process with this identifier is part of generated KieBase).
      */
@@ -284,7 +308,7 @@ public final class TestPersistenceContext {
      * @return Basic KieBase.
      */
     private KieBase createKieBase(final String... processIds) {
-        final KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+        final KieBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
         for (String processId : processIds) {
             ((KnowledgeBaseImpl) kbase).addProcess(ProcessCreatorForHelp.newSimpleEventProcess(processId, "test"));
         }

@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,10 @@ package org.jbpm.workflow.core.impl;
 
 import org.kie.api.definition.process.Node;
 import org.kie.api.definition.process.NodeContainer;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import org.jbpm.process.core.impl.ProcessImpl;
 import org.jbpm.workflow.core.WorkflowProcess;
 
@@ -43,7 +47,7 @@ public class WorkflowProcessImpl extends ProcessImpl implements WorkflowProcess,
     
     public Node[] getNodes() {
         return nodeContainer.getNodes();
-    }
+    }    
 
     public Node getNode(final long id) {
         return nodeContainer.getNode(id);
@@ -87,4 +91,29 @@ public class WorkflowProcessImpl extends ProcessImpl implements WorkflowProcess,
 		this.dynamic = dynamic;
 	}
 
+    @Override
+    public Integer getProcessType() {
+        if (dynamic) {
+            return CASE_TYPE;
+        }
+        return PROCESS_TYPE;
+    }
+
+    public List<Node> getNodesRecursively() {
+        List<Node> nodes = new ArrayList<>(); 
+        
+        processNodeContainer(nodeContainer, nodes);
+                
+        return nodes;        
+    }
+    
+    protected void processNodeContainer(org.jbpm.workflow.core.NodeContainer nodeContainer, List<Node> nodes) {
+        
+        for (Node node : nodeContainer.getNodes()){
+            nodes.add(node);
+            if (node instanceof org.jbpm.workflow.core.NodeContainer) {
+                processNodeContainer((org.jbpm.workflow.core.NodeContainer) node, nodes);
+            }
+        }
+    }
 }

@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.process.audit.query;
 
@@ -21,6 +22,7 @@ import static org.jbpm.persistence.util.PersistenceUtil.setupWithPoolingDataSour
 import static org.junit.Assert.assertEquals;
 import static org.kie.api.runtime.EnvironmentName.ENTITY_MANAGER_FACTORY;
 
+import java.io.Serializable;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -61,13 +63,12 @@ public class AuditDeleteTest extends JPAAuditLogService {
     private ProcessInstanceLog [] pilTestData;
     private VariableInstanceLog [] vilTestData;
     private NodeInstanceLog [] nilTestData;
-    
+
+    private boolean firstRun = true;
     
     @BeforeClass
     public static void configure() { 
         LoggingPrintStream.interceptSysOutSysErr();
-        
-        
     }
     
     @AfterClass
@@ -80,17 +81,23 @@ public class AuditDeleteTest extends JPAAuditLogService {
     public void setUp() throws Exception {
     	context = setupWithPoolingDataSource(JBPM_PERSISTENCE_UNIT_NAME);
         emf = (EntityManagerFactory) context.get(ENTITY_MANAGER_FACTORY);
-        if( pilTestData == null ) { 
+        this.persistenceStrategy = new StandaloneJtaStrategy(emf);
+
+        if (firstRun) {
+            clearTables(ProcessInstanceLog.class, VariableInstanceLog.class, NodeInstanceLog.class);
+            firstRun = false;
+        }
+        if (pilTestData == null) {
             pilTestData = createTestProcessInstanceLogData();
             vilTestData = createTestVariableInstanceLogData();
             nilTestData = createTestNodeInstanceLogData();
         }
-        this.persistenceStrategy = new StandaloneJtaStrategy(emf);
     }
     
     @After
     public void cleanup() {
-    	cleanUp(context);
+        clearTables(ProcessInstanceLog.class, VariableInstanceLog.class, NodeInstanceLog.class);
+        cleanUp(context);
     }
    
     private static Random random = new Random();
@@ -193,6 +200,7 @@ public class AuditDeleteTest extends JPAAuditLogService {
     
         int numEntities = 9;
         NodeInstanceLog [] testData = new NodeInstanceLog[numEntities];
+        ProcessInstanceLog [] testDataPI = new ProcessInstanceLog[numEntities];
         
         Calendar cal = randomCal();
     
@@ -212,6 +220,9 @@ public class AuditDeleteTest extends JPAAuditLogService {
             nil.setExternalId(randomString());
             
             testData[i] = nil; 
+            
+            ProcessInstanceLog pLog = buildCompletedProcessInstance(nil.getProcessInstanceId());
+            testDataPI[i] = pLog;
         }
     
         for( int i = 0; i < numEntities; ++i ) { 
@@ -244,6 +255,7 @@ public class AuditDeleteTest extends JPAAuditLogService {
         }
         Object tx = jtaHelper.joinTransaction(em);
         for( int i = 0; i < numEntities; ++i ) {
+            em.persist(testDataPI[i]);
             em.persist(testData[i]);
         }
         jtaHelper.leaveTransaction(em, tx);
@@ -257,6 +269,7 @@ public class AuditDeleteTest extends JPAAuditLogService {
     
         int numEntities = 8;
         VariableInstanceLog [] testData = new VariableInstanceLog[numEntities];
+        ProcessInstanceLog [] testDataPI = new ProcessInstanceLog[numEntities];
        
         Calendar cal = randomCal();
         
@@ -273,6 +286,9 @@ public class AuditDeleteTest extends JPAAuditLogService {
             vil.setExternalId(randomString());
             
             testData[i] = vil; 
+            
+            ProcessInstanceLog pLog = buildCompletedProcessInstance(vil.getProcessInstanceId());
+            testDataPI[i] = pLog;
         }
     
         for( int i = 0; i < numEntities; ++i ) { 
@@ -302,11 +318,30 @@ public class AuditDeleteTest extends JPAAuditLogService {
         }
         Object tx = jtaHelper.joinTransaction(em);
         for( int i = 0; i < numEntities; ++i ) {
+            em.persist(testDataPI[i]);
             em.persist(testData[i]);
         }
         jtaHelper.leaveTransaction(em, tx);
         
         return testData;
+    }
+    
+    private ProcessInstanceLog buildCompletedProcessInstance(long processInstanceId) {
+        ProcessInstanceLog pil = new ProcessInstanceLog(processInstanceId, randomString());
+        pil.setDuration(randomLong());
+        pil.setExternalId(randomString());
+        pil.setIdentity(randomString());
+        pil.setOutcome(randomString());
+        pil.setParentProcessInstanceId(randomLong());
+        pil.setProcessId(randomString());
+        pil.setProcessName(randomString());
+        pil.setProcessVersion(randomString());
+        pil.setStatus(2);
+                
+        pil.setStart(null);        
+        pil.setEnd(null);
+        
+        return pil;
     }
 
     @Test
@@ -478,4 +513,17 @@ public class AuditDeleteTest extends JPAAuditLogService {
         int result = updateBuilder.build().execute();
         assertEquals(2, result);
     }
+
+    private void clearTables(Class<? extends Serializable>... entities) {
+        EntityManager em = getEntityManager();
+        Object newTx = joinTransaction(em);
+        try {
+            for (Class<? extends Serializable> entity : entities) {
+                em.createQuery("DELETE FROM " + entity.getSimpleName()).executeUpdate();
+            }
+        } finally {
+            closeEntityManager(em, newTx);
+        }
+    }
+
 }

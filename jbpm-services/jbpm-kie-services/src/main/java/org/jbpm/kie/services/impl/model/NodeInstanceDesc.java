@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
- * 
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,6 +34,12 @@ public class NodeInstanceDesc implements org.jbpm.services.api.model.NodeInstanc
     private Date dataTimeStamp;
 
     private Long workItemId;
+    
+    private Long referenceId;    
+    private String nodeContainerId;
+    
+    private Date slaDueDate;
+    private Integer slaCompliance;
 
     public NodeInstanceDesc() {
         // default constructor
@@ -42,7 +48,8 @@ public class NodeInstanceDesc implements org.jbpm.services.api.model.NodeInstanc
 
     public NodeInstanceDesc(String id, String nodeId, String name, String nodeType,
                             String deploymentId, long processInstanceId, Date date, 
-                            String connection, int type, Long workItemId) {
+                            String connection, int type, Long workItemId,
+                            Long referenceId, String nodeContainerId, Date slaDueDate, Integer slaCompliance) {
         this.id = Long.parseLong(id);
         this.name = name;
         this.nodeId = nodeId;
@@ -53,6 +60,10 @@ public class NodeInstanceDesc implements org.jbpm.services.api.model.NodeInstanc
         this.connection = connection;
         this.type = type;
         this.workItemId = workItemId;
+        this.referenceId = referenceId;
+        this.nodeContainerId = nodeContainerId;
+        this.slaDueDate = slaDueDate;
+        this.slaCompliance = slaCompliance;
     }
 
     public Long getId() {
@@ -115,6 +126,30 @@ public class NodeInstanceDesc implements org.jbpm.services.api.model.NodeInstanc
 
     public void setWorkItemId(Long workItemId) {
         this.workItemId = workItemId;
-   }
+    }
+
+    public Long getReferenceId() {
+        return referenceId;
+    }
+    
+    public String getNodeContainerId() {
+        return nodeContainerId;
+    }
+    
+    public Date getSlaDueDate() {
+        return slaDueDate;
+    }
+    
+    public void setSlaDueDate(Date slaDueDate) {
+        this.slaDueDate = slaDueDate;
+    }
+    
+    public Integer getSlaCompliance() {
+        return slaCompliance;
+    }
+
+    public void setSlaCompliance(Integer slaCompliance) {
+        this.slaCompliance = slaCompliance;
+    }
 
 }

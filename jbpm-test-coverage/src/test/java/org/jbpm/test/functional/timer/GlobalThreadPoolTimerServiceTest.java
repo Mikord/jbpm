@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.test.functional.timer;
 
@@ -19,14 +20,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import javax.persistence.Persistence;
 
 import org.jbpm.process.core.timer.impl.ThreadPoolSchedulerService;
 import org.jbpm.test.functional.timer.addon.TransactionalThreadPoolSchedulerService;
-import org.jbpm.test.listener.CountDownProcessEventListener;
+import org.jbpm.test.listener.process.NodeLeftCountDownProcessEventListener;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,6 +46,8 @@ import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.internal.io.ResourceFactory;
 import org.kie.internal.runtime.manager.SessionNotFoundException;
 import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
+
+import static org.junit.Assert.*;
 
 @RunWith(Parameterized.class)
 public class GlobalThreadPoolTimerServiceTest extends GlobalTimerServiceBaseTest {
@@ -94,7 +95,7 @@ public class GlobalThreadPoolTimerServiceTest extends GlobalTimerServiceBaseTest
     
     @Test(timeout=20000)
     public void testInterediateTimerWithGlobalTestServiceWithinTransaction() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("timer", 3);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("timer", 3);
 
         globalScheduler = new TransactionalThreadPoolSchedulerService(3);
         // prepare listener to assert results

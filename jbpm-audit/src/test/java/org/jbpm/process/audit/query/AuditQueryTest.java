@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.process.audit.query;
 
@@ -21,6 +22,7 @@ import static org.jbpm.persistence.util.PersistenceUtil.setupWithPoolingDataSour
 import static org.jbpm.process.audit.query.AuditQueryDataUtil.BOTH;
 import static org.jbpm.process.audit.query.AuditQueryDataUtil.MAX;
 import static org.jbpm.process.audit.query.AuditQueryDataUtil.MIN;
+import static org.jbpm.process.audit.query.AuditQueryDataUtil.cleanDB;
 import static org.jbpm.process.audit.query.AuditQueryDataUtil.createTestNodeInstanceLogData;
 import static org.jbpm.process.audit.query.AuditQueryDataUtil.createTestProcessInstanceLogData;
 import static org.jbpm.process.audit.query.AuditQueryDataUtil.createTestVariableInstanceLogData;
@@ -91,6 +93,7 @@ public class AuditQueryTest extends JPAAuditLogService {
     @AfterClass
     public static void reset() { 
         LoggingPrintStream.resetInterceptSysOutSysErr();
+        cleanDB(emf);
         cleanUp(context);
     }
 
@@ -375,7 +378,7 @@ public class AuditQueryTest extends JPAAuditLogService {
     public void likeRegexQueryBuilderTest() { 
        ProcessInstanceLogQueryBuilder builder = this.processInstanceLogQuery();
       
-       builder.like();
+       builder.regex();
        boolean parameterFailed = false;
        try { 
            builder.duration(pilTestData[0].getDuration(), pilTestData[2].getDuration());
@@ -392,38 +395,38 @@ public class AuditQueryTest extends JPAAuditLogService {
        
        builder = this.processInstanceLogQuery();
        regex = regex.substring(0, regex.length()-1) + ".";
-       builder.like().identity(regex);
+       builder.regex().identity(regex);
        resultList = builder.build().getResultList(); 
        assertEquals( "literal regex identity result", 1, resultList.size());
        assertEquals( externalId, resultList.get(0).getExternalId() );
        
        builder = this.processInstanceLogQuery();
        regex = regex.substring(0, 10) + "*";
-       builder.like().identity(regex);
+       builder.regex().identity(regex);
        resultList = builder.build().getResultList(); 
        assertEquals( "literal regex identity result", 1, resultList.size());
        assertEquals( externalId, resultList.get(0).getExternalId() );
        
        builder = this.processInstanceLogQuery();
        String regex2 = "*" + pilTestData[0].getIdentity().substring(10);
-       builder.like().intersect().identity(regex, regex2);
+       builder.regex().intersect().identity(regex, regex2);
        resultList = builder.build().getResultList(); 
        assertEquals( "literal regex identity result", 1, resultList.size());
        assertEquals( externalId, resultList.get(0).getExternalId() );
       
        builder = this.processInstanceLogQuery();
        regex2 = "*" + pilTestData[5].getIdentity().substring(10);
-       builder.like().intersect().identity(regex, regex2);
+       builder.regex().intersect().identity(regex, regex2);
        resultList = builder.build().getResultList(); 
        assertEquals( "literal regex identity result", 0, resultList.size());
       
        builder = this.processInstanceLogQuery();
-       builder.like().union().identity(regex, regex2);
+       builder.regex().union().identity(regex, regex2);
        resultList = builder.build().getResultList(); 
        assertEquals( "literal regex identity result", 2, resultList.size());
        
        builder = this.processInstanceLogQuery();
-       builder.like().union().identity("*");
+       builder.regex().union().identity("*");
        resultList = builder.build().getResultList(); 
        assertEquals( "literal regex identity result", this.processInstanceLogQuery().build().getResultList().size(), resultList.size());
     }       
@@ -461,7 +464,6 @@ public class AuditQueryTest extends JPAAuditLogService {
        long min = durationOrderedProcInstLogList.get(lastElemIndex).getDuration();
        builder.durationMin(min);
        resultList = builder.build().getResultList();
-       duration = resultList.get(0).getDuration();
        verifyMaxMinDuration(resultList, MIN, min);
            
        // union max and min
@@ -497,70 +499,68 @@ public class AuditQueryTest extends JPAAuditLogService {
     }
 
     @Test
-    public void orderByQueryBuilderTest() { 
-       ProcessInstanceLogQueryBuilder builder = this.processInstanceLogQuery();
-       List<org.kie.api.runtime.manager.audit.ProcessInstanceLog> resultList = builder.build().getResultList();
-       for( int i = 1; i < resultList.size(); ++i ) { 
-          ProcessInstanceLog pilB = (ProcessInstanceLog) resultList.get(i);
-          ProcessInstanceLog pilA = (ProcessInstanceLog) resultList.get(i-1);
-          assertTrue( pilA.getId() < pilB.getId() );
-       }
-       
-       builder.ascending(OrderBy.processInstanceId);
-       resultList = builder.build().getResultList();
-       for( int i = 1; i < resultList.size(); ++i ) { 
-          ProcessInstanceLog pilB = (ProcessInstanceLog) resultList.get(i);
-          ProcessInstanceLog pilA = (ProcessInstanceLog) resultList.get(i-1);
-          assertTrue( "order by process instance id failed:  " + pilA.getProcessInstanceId() + " ? " +  pilB.getProcessInstanceId(),
-                  pilA.getProcessInstanceId() <= pilB.getProcessInstanceId() );
-       }
-       
-       builder.descending(OrderBy.processInstanceId);
-       resultList = builder.build().getResultList();
-       for( int i = 1; i < resultList.size(); ++i ) { 
-          ProcessInstanceLog pilB = (ProcessInstanceLog) resultList.get(i);
-          ProcessInstanceLog pilA = (ProcessInstanceLog) resultList.get(i-1);
-          assertTrue( "order desc by process instance id failed", pilA.getProcessInstanceId() >= pilB.getProcessInstanceId() );
-       }
-      
-       builder.ascending(OrderBy.processId);
-       resultList = builder.build().getResultList();
-       for( int i = 1; i < resultList.size(); ++i ) { 
-          ProcessInstanceLog pilA = (ProcessInstanceLog) resultList.get(i-1);
-          ProcessInstanceLog pilB = (ProcessInstanceLog) resultList.get(i);
-          assertTrue( "order desc by process id failed", pilA.getProcessId().compareTo(pilB.getProcessId()) <= 0 );
-       }
+    public void orderByQueryBuilderTest() {
+        ProcessInstanceLogQueryBuilder builder = this.processInstanceLogQuery();
+
+        builder.ascending(OrderBy.processInstanceId);
+        List<org.kie.api.runtime.manager.audit.ProcessInstanceLog> resultList = builder.build().getResultList();
+        for (int i = 1; i < resultList.size(); ++i) {
+            ProcessInstanceLog pilB = (ProcessInstanceLog) resultList.get(i);
+            ProcessInstanceLog pilA = (ProcessInstanceLog) resultList.get(i - 1);
+            assertTrue("order by asc process instance id failed: " + pilA.getProcessInstanceId() + " ? " + pilB.getProcessInstanceId(),
+                    pilA.getProcessInstanceId() <= pilB.getProcessInstanceId());
+        }
+
+        builder.descending(OrderBy.processInstanceId);
+        resultList = builder.build().getResultList();
+        for (int i = 1; i < resultList.size(); ++i) {
+            ProcessInstanceLog pilB = (ProcessInstanceLog) resultList.get(i);
+            ProcessInstanceLog pilA = (ProcessInstanceLog) resultList.get(i - 1);
+            assertTrue("order by desc process instance id failed: " + pilA.getProcessInstanceId() + " ? " + pilB.getProcessInstanceId(),
+                    pilA.getProcessInstanceId() >= pilB.getProcessInstanceId());
+        }
+
+        builder.ascending(OrderBy.processId);
+        resultList = builder.build().getResultList();
+        for (int i = 1; i < resultList.size(); ++i) {
+            ProcessInstanceLog pilA = (ProcessInstanceLog) resultList.get(i - 1);
+            ProcessInstanceLog pilB = (ProcessInstanceLog) resultList.get(i);
+            assertTrue("order by asc process id failed: " + pilA.getProcessId() + " ? " + pilB.getProcessId(),
+                    pilA.getProcessId().compareTo(pilB.getProcessId()) <= 0);
+        }
+
+        builder.descending(OrderBy.processId);
+        resultList = builder.build().getResultList();
+        for (int i = 1; i < resultList.size(); ++i) {
+            ProcessInstanceLog pilA = (ProcessInstanceLog) resultList.get(i - 1);
+            ProcessInstanceLog pilB = (ProcessInstanceLog) resultList.get(i);
+            assertTrue("order by desc process id failed: " + pilA.getProcessId() + " ? " + pilB.getProcessId(),
+                    pilA.getProcessId().compareTo(pilB.getProcessId()) >= 0);
+        }
     }
    
     @Test
-    public void lastVariableTest() throws Exception { 
-        StandaloneJtaStrategy jtaHelper = new StandaloneJtaStrategy(emf);
-        EntityManager em = jtaHelper.getEntityManager();
-
+    public void lastVariableTest() throws Exception {
         int numLogs = 10;
         VariableInstanceLog [] testData = new VariableInstanceLog[numLogs];
         Calendar cal = GregorianCalendar.getInstance(); 
 
         for( int i = 0; i < 5; ++i ) {
             cal.roll(Calendar.SECOND, 1);
-            testData[i] = new VariableInstanceLog(23l, "org.lots.of.vars", "inst", "first-var", "val-a", "oldVal-" + i);
-            testData[i+5] = new VariableInstanceLog(23l, "org.lots.of.vars", "inst", "second-var", "val-b", "oldVal-" + i);
+            testData[i] = new VariableInstanceLog(23L, "org.lots.of.vars", "inst", "first-var", "val-a", "oldVal-" + i);
+            testData[i+5] = new VariableInstanceLog(23L, "org.lots.of.vars", "inst", "second-var", "val-b", "oldVal-" + i);
             testData[i].setDate(cal.getTime());
             testData[i+5].setDate(cal.getTime());
         }
-        
-        Object tx = jtaHelper.joinTransaction(em);
-        for( int i = 0; i < numLogs; ++i ) {
-            em.persist(testData[i]);
-        }
-        jtaHelper.leaveTransaction(em, tx);
+
+        persistEntities(testData);
        
         VariableInstanceLogQueryBuilder queryBuilder;
         ParametrizedQuery<org.kie.api.runtime.manager.audit.VariableInstanceLog> query ;
         List<org.kie.api.runtime.manager.audit.VariableInstanceLog> logs;
        
         queryBuilder = this.variableInstanceLogQuery();
-        query = queryBuilder.last().intersect().processInstanceId(23l).build();
+        query = queryBuilder.last().intersect().processInstanceId(23L).build();
         logs = query.getResultList();
         assertEquals("2 logs", 2, logs.size());
         
@@ -570,13 +570,12 @@ public class AuditQueryTest extends JPAAuditLogService {
         assertEquals("Only 1 log expected", 1, logs.size());
         assertEquals("Incorrect variable val", "val-a", logs.get(0).getValue());
         assertEquals("Incorrect variable old val", "oldVal-4", logs.get(0).getOldValue());
-    } 
+
+        removeEntities(testData);
+    }
 
     @Test
-    public void variableValueTest() throws Exception { 
-        StandaloneJtaStrategy jtaHelper = new StandaloneJtaStrategy(emf);
-        EntityManager em = jtaHelper.getEntityManager();
-
+    public void variableValueTest() throws Exception {
         int numLogs = 9;
         VariableInstanceLog [] testData = new VariableInstanceLog[numLogs];
         Calendar cal = GregorianCalendar.getInstance(); 
@@ -586,12 +585,8 @@ public class AuditQueryTest extends JPAAuditLogService {
             cal.roll(Calendar.SECOND, 1);
             testData[i] = new VariableInstanceLog(randomLong(), processId, "varInstId", "var-" +i, "val-"+i, "oldVal-" + i);
         }
-        
-        Object tx = jtaHelper.joinTransaction(em);
-        for( int i = 0; i < numLogs; ++i ) {
-            em.persist(testData[i]);
-        }
-        jtaHelper.leaveTransaction(em, tx);
+
+        persistEntities(testData);
        
         VariableInstanceLogQueryBuilder queryBuilder;
         ParametrizedQuery<org.kie.api.runtime.manager.audit.VariableInstanceLog> query ;
@@ -663,7 +658,7 @@ public class AuditQueryTest extends JPAAuditLogService {
         // regex: find 2
         queryBuilder = this.variableInstanceLogQuery();
         query = queryBuilder
-                .like().union()
+                .regex().union()
                 .variableValue("var-2", "val-*")
                 .variableValue("var-3", "val-*")
                 .build();
@@ -678,7 +673,7 @@ public class AuditQueryTest extends JPAAuditLogService {
         queryBuilder = this.variableInstanceLogQuery();
         query = queryBuilder
                 .newGroup()
-                .like().union()
+                .regex().union()
                 .variableValue("var-2", "val-*")
                 .variableValue("var-3", "val-*")
                 .endGroup()
@@ -691,5 +686,33 @@ public class AuditQueryTest extends JPAAuditLogService {
            String id = varLog.getVariableId().substring("var-".length());
            assertEquals( "variable value", "val-" + id, varLog.getValue());
         }
-    } 
+
+        removeEntities(testData);
+    }
+
+    private void persistEntities(VariableInstanceLog[] testData) {
+        StandaloneJtaStrategy jtaHelper = new StandaloneJtaStrategy(emf);
+        EntityManager em = jtaHelper.getEntityManager();
+
+        int numLogs = testData.length;
+        Object tx = jtaHelper.joinTransaction(em);
+        for( int i = 0; i < numLogs; ++i ) {
+            em.persist(testData[i]);
+        }
+        jtaHelper.leaveTransaction(em, tx);
+    }
+
+    private void removeEntities(VariableInstanceLog[] testData) {
+        StandaloneJtaStrategy jtaHelper = new StandaloneJtaStrategy(emf);
+        EntityManager em = jtaHelper.getEntityManager();
+
+        int numLogs = testData.length;
+        Object tx = jtaHelper.joinTransaction(em);
+        for( int i = 0; i < numLogs; ++i ) {
+            VariableInstanceLog mergedEntity = em.merge(testData[i]);
+            em.remove(mergedEntity);
+        }
+        jtaHelper.leaveTransaction(em, tx);
+    }
+
 }

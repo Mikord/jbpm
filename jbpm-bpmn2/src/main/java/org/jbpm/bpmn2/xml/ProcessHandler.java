@@ -1,12 +1,12 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
- * 
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
- * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -69,12 +69,14 @@ import org.jbpm.workflow.core.node.EndNode;
 import org.jbpm.workflow.core.node.EventNode;
 import org.jbpm.workflow.core.node.EventSubProcessNode;
 import org.jbpm.workflow.core.node.EventTrigger;
+import org.jbpm.workflow.core.node.FaultNode;
 import org.jbpm.workflow.core.node.HumanTaskNode;
 import org.jbpm.workflow.core.node.RuleSetNode;
 import org.jbpm.workflow.core.node.Split;
 import org.jbpm.workflow.core.node.StartNode;
 import org.jbpm.workflow.core.node.StateBasedNode;
 import org.jbpm.workflow.core.node.StateNode;
+import org.jbpm.workflow.core.node.SubProcessNode;
 import org.jbpm.workflow.core.node.Trigger;
 import org.jbpm.workflow.core.node.WorkItemNode;
 import org.kie.api.definition.process.Node;
@@ -462,7 +464,7 @@ public class ProcessHandler extends BaseAbstractHandler implements Handler {
             timer.setDelay(timeDuration);
             timer.setTimeType(Timer.TIME_DURATION);
             compositeNode.addTimer(timer, new DroolsConsequenceAction("java",
-                PROCESS_INSTANCE_SIGNAL_EVENT + "Timer-" + attachedTo + "-" + timeDuration + "\", kcontext.getNodeInstance().getId());"));
+                PROCESS_INSTANCE_SIGNAL_EVENT + "Timer-" + attachedTo + "-" + timeDuration + "-" + node.getId() +"\", kcontext.getNodeInstance().getId());"));
         } else if (timeCycle != null) {
             int index = timeCycle.indexOf("###");
             if (index != -1) {
@@ -473,12 +475,12 @@ public class ProcessHandler extends BaseAbstractHandler implements Handler {
             timer.setDelay(timeCycle);
             timer.setTimeType(Timer.TIME_CYCLE);
             compositeNode.addTimer(timer, new DroolsConsequenceAction("java",
-                PROCESS_INSTANCE_SIGNAL_EVENT + "Timer-" + attachedTo + "-" + timeCycle + (timer.getPeriod() == null ? "" : "###" + timer.getPeriod()) + "\", kcontext.getNodeInstance().getId());"));
+                PROCESS_INSTANCE_SIGNAL_EVENT + "Timer-" + attachedTo + "-" + timeCycle + (timer.getPeriod() == null ? "" : "###" + timer.getPeriod()) + "-" + node.getId() + "\", kcontext.getNodeInstance().getId());"));
         } else if (timeDate != null) {
             timer.setDate(timeDate);
             timer.setTimeType(Timer.TIME_DATE);
             compositeNode.addTimer(timer, new DroolsConsequenceAction("java", 
-                PROCESS_INSTANCE_SIGNAL_EVENT + "Timer-" + attachedTo + "-" + timeDate + "\", kcontext.getNodeInstance().getId());"));
+                PROCESS_INSTANCE_SIGNAL_EVENT + "Timer-" + attachedTo + "-" + timeDate + "-" + node.getId() + "\", kcontext.getNodeInstance().getId());"));
         }
         
         if (cancelActivity) {
@@ -677,7 +679,8 @@ public class ProcessHandler extends BaseAbstractHandler implements Handler {
                 || attachedToNode instanceof WorkItemNode 
                 || attachedToNode instanceof ActionNode
                 || attachedToNode instanceof HumanTaskNode
-                || attachedToNode instanceof CompositeNode) ) { 
+                || attachedToNode instanceof CompositeNode
+                || attachedToNode instanceof SubProcessNode) ) { 
             throw new IllegalArgumentException("Compensation Boundary Event [" + ((String) eventNode.getMetaData("UniqueId")) 
                     + "] must be attached to a task or sub-process.");
         }
@@ -685,7 +688,7 @@ public class ProcessHandler extends BaseAbstractHandler implements Handler {
         // - associated node is a task or subProcess
         compensationCheckPassed = false;
         if( target instanceof WorkItemNode || target instanceof HumanTaskNode 
-                || target instanceof CompositeContextNode ) { 
+                || target instanceof CompositeContextNode || target instanceof SubProcessNode ) { 
             compensationCheckPassed = true;
         } else if( target instanceof ActionNode ) { 
             Object nodeTypeObj = ((ActionNode) target).getMetaData("NodeType");
@@ -747,6 +750,7 @@ public class ProcessHandler extends BaseAbstractHandler implements Handler {
     }
 
     private void postProcessNodes(RuleFlowProcess process, NodeContainer container) {
+        List<String> eventSubProcessHandlers = new ArrayList<String>();
         for (Node node: container.getNodes()) {
             
             if (node instanceof StateNode) {
@@ -804,7 +808,9 @@ public class ProcessHandler extends BaseAbstractHandler implements Handler {
                                             exceptionHandler.setAction(action);
                                             exceptionHandler.setFaultVariable(faultVariable);
                                             if (faultCode != null) {
-                                            	exceptionScope.setExceptionHandler(type.replaceFirst(replaceRegExp, ""), exceptionHandler);
+                                                String trimmedType = type.replaceFirst(replaceRegExp, "");
+                                                exceptionScope.setExceptionHandler(trimmedType, exceptionHandler);
+                                                eventSubProcessHandlers.add(trimmedType);
                                             } else {
                                             	exceptionScope.setExceptionHandler(faultCode, exceptionHandler);
                                             }
@@ -838,7 +844,7 @@ public class ProcessHandler extends BaseAbstractHandler implements Handler {
 
                                 if (constraintTrigger.getConstraint() != null) {
                                     String processId = ((RuleFlowProcess) container).getId();
-                                    String type = "RuleFlowStateEventSubProcess-" + processId + "-" + eventSubProcessNode.getUniqueId();
+                                    String type = "RuleFlowStateEventSubProcess-Event-" + processId + "-" + eventSubProcessNode.getUniqueId();
                                     EventTypeFilter eventTypeFilter = new EventTypeFilter();
                                     eventTypeFilter.setType(type);
                                     eventSubProcessNode.addEvent(eventTypeFilter);
@@ -858,6 +864,16 @@ public class ProcessHandler extends BaseAbstractHandler implements Handler {
                 	throw new IllegalArgumentException("Event node '" + node.getName() + "' [" + node.getId() + "] has no incoming connection");
                 }
             }  
+        }
+        
+     // process fault node to disable termnate parent if there is event subprocess handler
+        for (Node node: container.getNodes()) {
+            if (node instanceof FaultNode) {
+                FaultNode faultNode = (FaultNode) node;
+                if (eventSubProcessHandlers.contains(faultNode.getFaultName())) {
+                    faultNode.setTerminateParent(false);
+                }
+            }
         }
     }
 

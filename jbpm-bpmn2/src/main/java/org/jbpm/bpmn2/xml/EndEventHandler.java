@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,17 +33,19 @@ import org.jbpm.workflow.core.impl.DroolsConsequenceAction;
 import org.jbpm.workflow.core.node.EndNode;
 import org.jbpm.workflow.core.node.FaultNode;
 import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.w3c.dom.Text;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 
 public class EndEventHandler extends AbstractNodeHandler {
-    
+
     protected Node createNode(Attributes attrs) {
         EndNode node = new EndNode();
         node.setTerminate(false);
         return node;
     }
-    
+
     @SuppressWarnings("unchecked")
 	public Class generateNodeFor() {
         return EndNode.class;
@@ -100,17 +102,17 @@ public class EndEventHandler extends AbstractNodeHandler {
         ((ProcessBuildData) parser.getData()).addNode(node);
         return node;
     }
-    
-    public void handleTerminateNode(final Node node, final Element element, final String uri, 
+
+    public void handleTerminateNode(final Node node, final Element element, final String uri,
             final String localName, final ExtensibleXmlParser parser) throws SAXException {
         ((EndNode) node).setTerminate(true);
-        
+
         EndNode endNode = (EndNode) node;
         org.w3c.dom.Node xmlNode = element.getFirstChild();
         while (xmlNode != null) {
             String nodeName = xmlNode.getNodeName();
             if ("terminateEventDefinition".equals(nodeName)) {
-                
+
                 String scope = ((Element) xmlNode).getAttribute("scope");
                 if ("process".equalsIgnoreCase(scope)) {
                     endNode.setScope(EndNode.PROCESS_SCOPE);
@@ -121,8 +123,8 @@ public class EndEventHandler extends AbstractNodeHandler {
             xmlNode = xmlNode.getNextSibling();
         }
     }
-    
-    public void handleSignalNode(final Node node, final Element element, final String uri, 
+
+    public void handleSignalNode(final Node node, final Element element, final String uri,
             final String localName, final ExtensibleXmlParser parser) throws SAXException {
         EndNode endNode = (EndNode) node;
         org.w3c.dom.Node xmlNode = element.getFirstChild();
@@ -137,38 +139,30 @@ public class EndEventHandler extends AbstractNodeHandler {
             } else if ("signalEventDefinition".equals(nodeName)) {
                 String signalName = ((Element) xmlNode).getAttribute("signalRef");
                 String variable = (String) endNode.getMetaData("MappingVariable");
-                
-                Map<String, Signal> signals = (Map<String, Signal>) ((ProcessBuildData) parser.getData()).getMetaData("Signals");
-                
-                if (signals != null && signals.containsKey(signalName)) {
-                    Signal signal = signals.get(signalName);                      
-                    signalName = signal.getName();
-                    if (signalName == null) {
-                        throw new IllegalArgumentException("Signal definition must have a name attribute");
-                    }
-                }
+
+                signalName = checkSignalAndConvertToRealSignalNam(parser, signalName);
 
                 endNode.setMetaData("EventType", "signal");
                 endNode.setMetaData("Ref", signalName);
                 endNode.setMetaData("Variable", variable);
-                
+
                 // check if signal should be send async
                 if (dataInputs.containsValue("async")) {
                     signalName = "ASYNC-" + signalName;
                 }
-                
+
                 String signalExpression = getSignalExpression(endNode, signalName, variable);
-                
+
                 List<DroolsAction> actions = new ArrayList<DroolsAction>();
-                actions.add(new DroolsConsequenceAction("mvel",signalExpression));                        
+                actions.add(new DroolsConsequenceAction("mvel",signalExpression));
                 endNode.setActions(EndNode.EVENT_NODE_ENTER, actions);
             }
             xmlNode = xmlNode.getNextSibling();
         }
     }
-    
+
     @SuppressWarnings("unchecked")
-    public void handleMessageNode(final Node node, final Element element, final String uri, 
+    public void handleMessageNode(final Node node, final Element element, final String uri,
             final String localName, final ExtensibleXmlParser parser) throws SAXException {
         EndNode endNode = (EndNode) node;
         org.w3c.dom.Node xmlNode = element.getFirstChild();
@@ -190,13 +184,14 @@ public class EndEventHandler extends AbstractNodeHandler {
                 String variable = (String) endNode.getMetaData("MappingVariable");
                 endNode.setMetaData("MessageType", message.getType());
                 List<DroolsAction> actions = new ArrayList<DroolsAction>();
-                
+
                 actions.add(new DroolsConsequenceAction("java",
                     "org.drools.core.process.instance.impl.WorkItemImpl workItem = new org.drools.core.process.instance.impl.WorkItemImpl();" + EOL +
-                    "workItem.setName(\"Send Task\");" + EOL + 
-                    "workItem.setNodeInstanceId(kcontext.getNodeInstance().getId());" + EOL + 
+                    "workItem.setName(\"Send Task\");" + EOL +
+                    "workItem.setNodeInstanceId(kcontext.getNodeInstance().getId());" + EOL +
+                    "workItem.setProcessInstanceId(kcontext.getProcessInstance().getId());" + EOL +
                     "workItem.setNodeId(kcontext.getNodeInstance().getNodeId());" + EOL +
-                    "workItem.setParameter(\"MessageType\", \"" + message.getType() + "\");" + EOL + 
+                    "workItem.setParameter(\"MessageType\", \"" + message.getType() + "\");" + EOL +
                     (variable == null ? "" : "workItem.setParameter(\"Message\", " + variable + ");" + EOL) +
 					"workItem.setDeploymentId((String) kcontext.getKnowledgeRuntime().getEnvironment().get(\"deploymentId\"));" + EOL +
                     "((org.drools.core.process.instance.WorkItemManager) kcontext.getKnowledgeRuntime().getWorkItemManager()).internalExecuteWorkItem(workItem);"));
@@ -205,18 +200,51 @@ public class EndEventHandler extends AbstractNodeHandler {
             xmlNode = xmlNode.getNextSibling();
         }
     }
-    
+
     protected void readEndDataInputAssociation(org.w3c.dom.Node xmlNode, EndNode endNode) {
         // sourceRef
         org.w3c.dom.Node subNode = xmlNode.getFirstChild();
-        String eventVariable = subNode.getTextContent();
-        if (eventVariable != null && eventVariable.trim().length() > 0) {
-            endNode.setMetaData("MappingVariable", eventVariable);
+        if ("sourceRef".equals(subNode.getNodeName())) {
+            String eventVariable = subNode.getTextContent();
+            if (eventVariable != null && eventVariable.trim().length() > 0) {
+                if (dataInputs.containsKey(eventVariable)) {
+                    eventVariable = dataInputs.get(eventVariable);
+                }
+                
+                endNode.setMetaData("MappingVariable", eventVariable);
+            }
+        } else {
+            // targetRef
+            // assignment
+            subNode = subNode.getNextSibling();
+            if (subNode != null) {
+                org.w3c.dom.Node subSubNode = subNode.getFirstChild();
+                NodeList nl = subSubNode.getChildNodes();
+                if (nl.getLength() > 1) {
+                    endNode.setMetaData("MappingVariable", subSubNode.getTextContent());
+                    return;
+                } else if (nl.getLength() == 0) {
+                    return;
+                }
+                Object result = null;
+                Object from = nl.item(0);
+                if (from instanceof Text) {
+                    String text = ((Text) from).getTextContent();
+                    if (text.startsWith("\"") && text.endsWith("\"")) {
+                        result = text.substring(1, text.length() -1);
+                    } else {
+                        result = text;
+                    }
+                } else {
+                    result = nl.item(0);
+                }
+                endNode.setMetaData("MappingVariable", "\"" + result + "\"");
+            }
         }
     }
 
     @SuppressWarnings("unchecked")
-	public void handleErrorNode(final Node node, final Element element, final String uri, 
+	public void handleErrorNode(final Node node, final Element element, final String uri,
             final String localName, final ExtensibleXmlParser parser) throws SAXException {
         FaultNode faultNode = (FaultNode) node;
         org.w3c.dom.Node xmlNode = element.getFirstChild();
@@ -232,11 +260,11 @@ public class EndEventHandler extends AbstractNodeHandler {
 		                throw new IllegalArgumentException("No errors found");
 		            }
 		            Error error = null;
-		            for( Error listError: errors ) { 
-		                if( errorRef.equals(listError.getId()) ) { 
+		            for( Error listError: errors ) {
+		                if( errorRef.equals(listError.getId()) ) {
 		                    error = listError;
 		                    break;
-		                } 
+		                }
 		            }
 		            if (error == null) {
 		                throw new IllegalArgumentException("Could not find error " + errorRef);
@@ -248,9 +276,9 @@ public class EndEventHandler extends AbstractNodeHandler {
             xmlNode = xmlNode.getNextSibling();
         }
     }
-    
+
     @SuppressWarnings("unchecked")
-	public void handleEscalationNode(final Node node, final Element element, final String uri, 
+	public void handleEscalationNode(final Node node, final Element element, final String uri,
             final String localName, final ExtensibleXmlParser parser) throws SAXException {
         FaultNode faultNode = (FaultNode) node;
         org.w3c.dom.Node xmlNode = element.getFirstChild();
@@ -271,16 +299,16 @@ public class EndEventHandler extends AbstractNodeHandler {
 		                throw new IllegalArgumentException("Could not find escalation " + escalationRef);
 		            }
 		            faultNode.setFaultName(escalation.getEscalationCode());
-                } else { 
-                    // BPMN2 spec, p. 83: end event's with <escalationEventDefintions> 
-                    // are _required_ to reference a specific escalation(-code). 
+                } else {
+                    // BPMN2 spec, p. 83: end event's with <escalationEventDefintions>
+                    // are _required_ to reference a specific escalation(-code).
                     throw new IllegalArgumentException("End events throwing an escalation must throw *specific* escalations (and not general ones).");
                 }
-            } 
+            }
             xmlNode = xmlNode.getNextSibling();
         }
     }
-    
+
     protected void readFaultDataInputAssociation(org.w3c.dom.Node xmlNode, FaultNode faultNode) {
         // sourceRef
         org.w3c.dom.Node subNode = xmlNode.getFirstChild();

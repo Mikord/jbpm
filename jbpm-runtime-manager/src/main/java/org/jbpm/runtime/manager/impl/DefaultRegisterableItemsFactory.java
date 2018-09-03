@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,7 +27,6 @@ import org.drools.core.impl.EnvironmentFactory;
 import org.jbpm.process.audit.AbstractAuditLogger;
 import org.jbpm.process.audit.AuditLoggerFactory;
 import org.jbpm.process.audit.event.AuditEventBuilder;
-import org.jbpm.process.instance.event.listeners.TriggerRulesEventListener;
 import org.jbpm.runtime.manager.impl.jpa.EntityManagerFactoryManager;
 import org.jbpm.services.task.audit.JPATaskLifeCycleEventListener;
 import org.jbpm.services.task.wih.LocalHTWorkItemHandler;
@@ -40,6 +39,8 @@ import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.WorkItemHandler;
 import org.kie.api.task.TaskLifeCycleEventListener;
+import org.kie.internal.runtime.Cacheable;
+import org.kie.internal.runtime.Closeable;
 import org.kie.internal.runtime.conf.AuditMode;
 import org.kie.internal.runtime.conf.DeploymentDescriptor;
 import org.kie.internal.runtime.conf.NamedObjectModel;
@@ -69,6 +70,7 @@ public class DefaultRegisterableItemsFactory extends SimpleRegisterableItemsFact
 	private static final Logger logger = LoggerFactory.getLogger(DefaultRegisterableItemsFactory.class);
 
     private AuditEventBuilder auditBuilder = new ManagedAuditEventBuilderImpl();
+    private AbstractAuditLogger jmsLogger = null;
     
     @Override
     public Map<String, WorkItemHandler> getWorkItemHandlers(RuntimeEngine runtime) {
@@ -110,15 +112,21 @@ public class DefaultRegisterableItemsFactory extends SimpleRegisterableItemsFact
 	        logger.setBuilder(getAuditBuilder(runtime));
 	        defaultListeners.add(logger);
         } else if (descriptor.getAuditMode() == AuditMode.JMS) {
-        	try {
-                Properties properties = new Properties();
-                InputStream input = getRuntimeManager().getEnvironment().getClassLoader().getResourceAsStream("/jbpm.audit.jms.properties");
-                properties.load(input);
-                
-                @SuppressWarnings({ "unchecked", "rawtypes" })
-				AbstractAuditLogger logger =  AuditLoggerFactory.newJMSInstance((Map)properties);
-                logger.setBuilder(getAuditBuilder(runtime));
-    	        defaultListeners.add(logger);
+            try {
+                if (jmsLogger == null) {
+                    Properties properties = new Properties();
+                    InputStream input = getRuntimeManager().getEnvironment().getClassLoader().getResourceAsStream("/jbpm.audit.jms.properties");
+                    // required for junit test
+                    if (input == null) {
+                        input = getRuntimeManager().getEnvironment().getClassLoader().getResourceAsStream("jbpm.audit.jms.properties");
+                    }
+                    properties.load(input);
+                    logger.debug("Creating AsyncAuditLogProducer {}", properties);
+
+                    jmsLogger = AuditLoggerFactory.newJMSInstance((Map) properties);
+                    jmsLogger.setBuilder(getAuditBuilder(runtime));
+                }
+                defaultListeners.add(jmsLogger);
             } catch (IOException e) {
                 logger.error("Unable to load jms audit properties from {}", "/jbpm.audit.jms.properties", e);
             }
@@ -133,7 +141,6 @@ public class DefaultRegisterableItemsFactory extends SimpleRegisterableItemsFact
     @Override
     public List<AgendaEventListener> getAgendaEventListeners(RuntimeEngine runtime) {
         List<AgendaEventListener> defaultListeners = new ArrayList<AgendaEventListener>();
-        defaultListeners.add(new TriggerRulesEventListener(runtime.getKieSession()));
         // add any custom listeners
         defaultListeners.addAll(super.getAgendaEventListeners(runtime));
         // add listeners from descriptor
@@ -207,7 +214,7 @@ public class DefaultRegisterableItemsFactory extends SimpleRegisterableItemsFact
     protected Object getInstanceFromModel(ObjectModel model, ClassLoader classloader, Map<String, Object> contaxtParams) {
     	ObjectModelResolver resolver = ObjectModelResolverProvider.get(model.getResolver());
 		if (resolver == null) {
-			logger.warn("Unable to find ObjectModelResolver for {}", model.getResolver());
+		    throw new IllegalStateException("Unable to find ObjectModelResolver for " + model.getResolver());
 		}
 		
 		return resolver.getInstance(model, classloader, contaxtParams);
@@ -277,6 +284,11 @@ public class DefaultRegisterableItemsFactory extends SimpleRegisterableItemsFact
         		Object listenerInstance = getInstanceFromModel(model, getRuntimeManager().getEnvironment().getClassLoader(), params);
         		if (listenerInstance != null && type.isAssignableFrom(listenerInstance.getClass())) {
         			listeners.add((T) listenerInstance);
+        		} else {
+        		    // close/cleanup instance as it is not going to be used at the moment, except these that are cacheable
+        		    if (listenerInstance instanceof Closeable && !(listenerInstance instanceof Cacheable)) {
+        		        ((Closeable) listenerInstance).close();
+        		    }
         		}
         	}
         }

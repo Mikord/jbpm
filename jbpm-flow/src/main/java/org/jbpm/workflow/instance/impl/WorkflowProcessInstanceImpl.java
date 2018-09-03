@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,60 +21,83 @@ import static org.jbpm.workflow.instance.impl.DummyEventListener.EMPTY_EVENT_LIS
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 
 import org.drools.core.common.InternalKnowledgeRuntime;
+import org.drools.core.util.MVELSafeHelper;
 import org.jbpm.process.core.ContextContainer;
 import org.jbpm.process.core.context.variable.VariableScope;
+import org.jbpm.process.core.timer.BusinessCalendar;
+import org.jbpm.process.core.timer.DateTimeUtils;
 import org.jbpm.process.core.timer.Timer;
 import org.jbpm.process.instance.ContextInstance;
 import org.jbpm.process.instance.InternalProcessRuntime;
 import org.jbpm.process.instance.ProcessInstance;
 import org.jbpm.process.instance.context.variable.VariableScopeInstance;
 import org.jbpm.process.instance.impl.ProcessInstanceImpl;
+import org.jbpm.process.instance.timer.TimerInstance;
+import org.jbpm.util.PatternConstants;
 import org.jbpm.workflow.core.DroolsAction;
 import org.jbpm.workflow.core.impl.NodeImpl;
+import org.jbpm.workflow.core.node.ActionNode;
 import org.jbpm.workflow.core.node.AsyncEventNode;
+import org.jbpm.workflow.core.node.DynamicNode;
+import org.jbpm.workflow.core.node.EndNode;
 import org.jbpm.workflow.core.node.EventNode;
 import org.jbpm.workflow.core.node.EventNodeInterface;
 import org.jbpm.workflow.core.node.EventSubProcessNode;
+import org.jbpm.workflow.core.node.StateBasedNode;
 import org.jbpm.workflow.instance.NodeInstance;
 import org.jbpm.workflow.instance.WorkflowProcessInstance;
 import org.jbpm.workflow.instance.node.CompositeNodeInstance;
+import org.jbpm.workflow.instance.node.DynamicNodeInstance;
 import org.jbpm.workflow.instance.node.EndNodeInstance;
 import org.jbpm.workflow.instance.node.EventBasedNodeInstanceInterface;
 import org.jbpm.workflow.instance.node.EventNodeInstance;
 import org.jbpm.workflow.instance.node.EventNodeInstanceInterface;
 import org.jbpm.workflow.instance.node.EventSubProcessNodeInstance;
+import org.jbpm.workflow.instance.node.FaultNodeInstance;
 import org.kie.api.definition.process.Node;
 import org.kie.api.definition.process.NodeContainer;
 import org.kie.api.definition.process.WorkflowProcess;
+import org.kie.api.runtime.EnvironmentName;
+import org.kie.api.runtime.KieRuntime;
 import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.EventListener;
 import org.kie.api.runtime.process.NodeInstanceContainer;
-import org.kie.internal.runtime.KnowledgeRuntime;
+import org.kie.internal.process.CorrelationKey;
+import org.kie.internal.runtime.manager.InternalRuntimeManager;
 import org.kie.internal.runtime.manager.SessionNotFoundException;
+import org.kie.internal.runtime.manager.context.CaseContext;
 import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
+import org.mvel2.integration.VariableResolverFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Default implementation of a RuleFlow process instance.
- * 
+ *
  */
 public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 		implements WorkflowProcessInstance,
 		org.jbpm.workflow.instance.NodeInstanceContainer {
 
 	private static final long serialVersionUID = 510l;
+	private static final Logger logger = LoggerFactory.getLogger(WorkflowProcessInstanceImpl.class);
 
 	private final List<NodeInstance> nodeInstances = new ArrayList<NodeInstance>();;
 
-	private AtomicLong singleNodeInstanceCounter = new AtomicLong(0);
+	private AtomicLong singleNodeInstanceCounter = new AtomicLong(-1);
 
 	private Map<String, List<EventListener>> eventListeners = new HashMap<String, List<EventListener>>();
 	private Map<String, List<EventListener>> externalEventListeners = new HashMap<String, List<EventListener>>();
@@ -88,14 +111,26 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 
 	private boolean signalCompletion = true;
 
+	private String deploymentId;
+	private String correlationKey;
+
+	private Date startDate;
+	
+	private int slaCompliance = SLA_NA;
+	private Date slaDueDate;
+	private long slaTimerId = -1;
+
     public NodeContainer getNodeContainer() {
 		return getWorkflowProcess();
 	}
 
 	public void addNodeInstance(final NodeInstance nodeInstance) {
-	    long id;
-	    id = singleNodeInstanceCounter.getAndIncrement();
-		((NodeInstanceImpl) nodeInstance).setId(id);
+	    if (nodeInstance.getId() == -1) {
+            // assign new id only if it does not exist as it might already be set by marshalling
+            // it's important to keep same ids of node instances as they might be references e.g. exclusive group
+    	    long id = singleNodeInstanceCounter.incrementAndGet();
+    		((NodeInstanceImpl) nodeInstance).setId(id);
+	    }
 		this.nodeInstances.add(nodeInstance);
 	}
 
@@ -213,13 +248,13 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 		}
 		return result;
 	}
-
+	
 	public NodeInstance getNodeInstance(final Node node) {
 	    Node actualNode = node;
 	    // async continuation handling
 	    if (node instanceof AsyncEventNode) {
             actualNode = ((AsyncEventNode) node).getActualNode();
-        } else if (Boolean.parseBoolean((String)node.getMetaData().get("customAsync"))) {
+        } else if (useAsync(node)) {
             actualNode = new AsyncEventNode(node);
         }
 
@@ -331,6 +366,15 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
         // TODO move most of this to ProcessInstanceImpl
         if (state == ProcessInstance.STATE_COMPLETED
                 || state == ProcessInstance.STATE_ABORTED) {
+            if (this.slaCompliance == SLA_PENDING) {
+                if (System.currentTimeMillis() > slaDueDate.getTime()) {
+                    // completion of the process instance is after expected SLA due date, mark it accordingly
+                    this.slaCompliance = SLA_VIOLATED;
+                } else {
+                    this.slaCompliance = state == ProcessInstance.STATE_COMPLETED ? SLA_MET : SLA_ABORTED;
+                }
+            }
+            
             InternalKnowledgeRuntime kruntime = getKnowledgeRuntime();
             InternalProcessRuntime processRuntime = (InternalProcessRuntime) kruntime.getProcessRuntime();
             processRuntime.getProcessEventSupport().fireBeforeProcessCompleted(this, kruntime);
@@ -340,16 +384,27 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
                 ((org.jbpm.workflow.instance.NodeInstance) nodeInstance)
                         .cancel();
             }
+            if (this.slaTimerId > -1) {
+                processRuntime.getTimerManager().cancelTimer(this.slaTimerId);
+                logger.debug("SLA Timer {} has been canceled", this.slaTimerId);
+            }
             removeEventListeners();
             processRuntime.getProcessInstanceManager().removeProcessInstance(this);
             processRuntime.getProcessEventSupport().fireAfterProcessCompleted(this, kruntime);
 
             if (isSignalCompletion()) {
-                RuntimeManager manager = (RuntimeManager) kruntime.getEnvironment().get("RuntimeManager");
+                RuntimeManager manager = (RuntimeManager) kruntime.getEnvironment().get(EnvironmentName.RUNTIME_MANAGER);
                 if (getParentProcessInstanceId() > 0 && manager != null) {
                 	try {
-    	                RuntimeEngine runtime = manager.getRuntimeEngine(ProcessInstanceIdContext.get(getParentProcessInstanceId()));
-    	                KnowledgeRuntime managedkruntime = (KnowledgeRuntime) runtime.getKieSession();
+                	    org.kie.api.runtime.manager.Context<?> context = ProcessInstanceIdContext.get(getParentProcessInstanceId());
+
+                        String caseId = (String) kruntime.getEnvironment().get(EnvironmentName.CASE_ID);
+                        if (caseId != null) {
+                            context = CaseContext.get(caseId);
+                        }
+
+    	                RuntimeEngine runtime = manager.getRuntimeEngine(context);
+						KieRuntime managedkruntime = (KieRuntime) runtime.getKieSession();
     	                managedkruntime.signalEvent("processInstanceCompleted:" + getId(), this);
                 	} catch (SessionNotFoundException e) {
                 		// in case no session is found for parent process let's skip signal for process instance completion
@@ -378,7 +433,8 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
     }
 
 	public void reconnect() {
-		super.reconnect();
+        validate();
+	    super.reconnect();
 		for (NodeInstance nodeInstance : nodeInstances) {
 			if (nodeInstance instanceof EventBasedNodeInstanceInterface) {
 				((EventBasedNodeInstanceInterface) nodeInstance)
@@ -418,7 +474,50 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 	            }
 	        }
 			super.start(trigger);
+						
 		}
+	}
+	
+	public void configureSLA() {
+	    String slaDueDateExpression = (String) getProcess().getMetaData().get("customSLADueDate");
+        if (slaDueDateExpression != null) {
+            TimerInstance timer = configureSLATimer(slaDueDateExpression);
+            if (timer != null) {
+                this.slaTimerId = timer.getId();
+                this.slaDueDate = new Date(System.currentTimeMillis() + timer.getDelay());
+                this.slaCompliance = SLA_PENDING;
+                logger.debug("SLA for process instance {} is PENDING with due date {}", this.getId(), this.slaDueDate);
+            }
+        }
+	}
+	
+	public TimerInstance configureSLATimer(String slaDueDateExpression) {
+	    // setup SLA if provided        
+        slaDueDateExpression = resolveVariable(slaDueDateExpression);
+        if (slaDueDateExpression == null || slaDueDateExpression.trim().isEmpty()) {
+            logger.debug("Sla due date expression resolved to no value '{}'", slaDueDateExpression);
+            return null;
+        }
+        logger.debug("SLA due date is set to {}", slaDueDateExpression);
+        InternalKnowledgeRuntime kruntime = getKnowledgeRuntime();
+        long duration = -1;
+        if (kruntime != null && kruntime.getEnvironment().get("jbpm.business.calendar") != null){
+            BusinessCalendar businessCalendar = (BusinessCalendar) kruntime.getEnvironment().get("jbpm.business.calendar");
+            
+            duration = businessCalendar.calculateBusinessTimeAsDuration(slaDueDateExpression);
+        } else {
+            duration = DateTimeUtils.parseDuration(slaDueDateExpression);
+        }
+
+        TimerInstance timerInstance = new TimerInstance();
+        timerInstance.setId(-1);
+        timerInstance.setDelay(duration);
+        timerInstance.setPeriod(0);
+        if (useTimerSLATracking()) {
+            ((InternalProcessRuntime)kruntime.getProcessRuntime()).getTimerManager().registerTimer(timerInstance, this);
+        }
+        return timerInstance;
+       
 	}
 
 	private void registerExternalEventNodeListeners() {
@@ -431,6 +530,14 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
                 List<String> events = ((EventSubProcessNode) node).getEvents();
                 for (String type : events) {
                     addEventListener(type, EMPTY_EVENT_LISTENER, true);
+                    if (isVariableExpression(type)) {
+                        addEventListener(resolveVariable(type), EMPTY_EVENT_LISTENER, true);
+                    }
+                }
+            }  else if (node instanceof DynamicNode) {
+                if (((DynamicNode) node).getActivationEventName() != null) {
+                
+                    addEventListener(((DynamicNode) node).getActivationEventName(), EMPTY_EVENT_LISTENER, true);
                 }
             }
 		}
@@ -448,12 +555,42 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 			}
 		}
 	}
+	
+	private void handleSLAViolation() {
+	    if (slaCompliance == SLA_PENDING) {
+	    
+    	    InternalKnowledgeRuntime kruntime = getKnowledgeRuntime();
+            InternalProcessRuntime processRuntime = (InternalProcessRuntime) kruntime.getProcessRuntime();
+            processRuntime.getProcessEventSupport().fireBeforeSLAViolated(this, kruntime);
+            logger.debug("SLA violated on process instance {}", getId());                   
+            this.slaCompliance = SLA_VIOLATED;
+            this.slaTimerId = -1;
+            processRuntime.getProcessEventSupport().fireAfterSLAViolated(this, kruntime);
+	    }
+	}
 
-	public void signalEvent(String type, Object event) {
+	@SuppressWarnings("unchecked")
+    public void signalEvent(String type, Object event) {
+	    logger.debug("Signal {} received with data {} in process instance {}", type, event, getId());
 	    synchronized (this) {
 			if (getState() != ProcessInstance.STATE_ACTIVE) {
 				return;
 			}
+			
+			if ("timerTriggered".equals(type)) {
+	            TimerInstance timer = (TimerInstance) event;
+	            if (timer.getId() == slaTimerId) {
+	                handleSLAViolation();
+	                // no need to pass the event along as it was purely for SLA tracking
+	                return;
+	            }
+	        }
+			if ("slaViolation".equals(type)) {
+                handleSLAViolation();
+                // no need to pass the event along as it was purely for SLA tracking
+                return;                
+            }
+
 			List<NodeInstance> currentView = new ArrayList<NodeInstance>(this.nodeInstances);
 
 			try {
@@ -472,32 +609,48 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 				}
 				for (Node node : getWorkflowProcess().getNodes()) {
 			        if (node instanceof EventNodeInterface) {
-			            if (((EventNodeInterface) node).acceptsEvent(type, event)) {
+			            if (((EventNodeInterface) node).acceptsEvent(type, event, getResolver(node, type, currentView))) {
 			                if (node instanceof EventNode && ((EventNode) node).getFrom() == null) {
 			                    EventNodeInstance eventNodeInstance = (EventNodeInstance) getNodeInstance(node);
 			                    eventNodeInstance.signalEvent(type, event);
-			                } else if (node instanceof EventSubProcessNode ) {
-			                    EventSubProcessNodeInstance eventNodeInstance = (EventSubProcessNodeInstance) getNodeInstance(node);
-			                    eventNodeInstance.signalEvent(type, event);
-			                }  else {
-								List<NodeInstance> nodeInstances = getNodeInstances(node.getId(), currentView);
-			                    if (nodeInstances != null && !nodeInstances.isEmpty()) {
-			                        for (NodeInstance nodeInstance : nodeInstances) {
-										((EventNodeInstanceInterface) nodeInstance).signalEvent(type, event);
-			                        }
+			                } else {
+			                    if (node instanceof EventSubProcessNode && ((resolveVariables(((EventSubProcessNode) node).getEvents()).contains(type)))) {
+			                        EventSubProcessNodeInstance eventNodeInstance = (EventSubProcessNodeInstance) getNodeInstance(node);
+    			                    eventNodeInstance.signalEvent(type, event);
+			                    } if (node instanceof DynamicNode && type.equals(((DynamicNode) node).getActivationEventName())) {
+			                        DynamicNodeInstance dynamicNodeInstance = (DynamicNodeInstance) getNodeInstance(node);
+			                        dynamicNodeInstance.signalEvent(type, event);
+                                } else {
+    								List<NodeInstance> nodeInstances = getNodeInstances(node.getId(), currentView);
+    			                    if (nodeInstances != null && !nodeInstances.isEmpty()) {
+    			                        for (NodeInstance nodeInstance : nodeInstances) {
+    										((EventNodeInstanceInterface) nodeInstance).signalEvent(type, event);
+    			                        }
+    			                    }
 			                    }
 			                }
-			            }
+                        } 
 			        }
 				}
 				if (((org.jbpm.workflow.core.WorkflowProcess) getWorkflowProcess()).isDynamic()) {
 					for (Node node : getWorkflowProcess().getNodes()) {
 						if (type.equals(node.getName()) && node.getIncomingConnections().isEmpty()) {
-			    			NodeInstance nodeInstance = getNodeInstance(node);
-			                ((org.jbpm.workflow.instance.NodeInstance) nodeInstance)
-			                	.trigger(null, NodeImpl.CONNECTION_DEFAULT_TYPE);
+						    NodeInstance nodeInstance = getNodeInstance(node);
+			    			if (event != null) {
+			    			    Map<String, Object> dynamicParams = new HashMap<>();
+			    			    if (event instanceof Map) {
+			    			        dynamicParams.putAll((Map<String, Object>) event);
+			    			    } else {
+			    			        dynamicParams.put("Data", event);
+			    			    }
+			    			    ((org.jbpm.workflow.instance.NodeInstance) nodeInstance).setDynamicParameters(dynamicParams);
+			    			}
+
+			                ((org.jbpm.workflow.instance.NodeInstance) nodeInstance).trigger(null, NodeImpl.CONNECTION_DEFAULT_TYPE);
 			    		}
 					}
+					
+
 				}
 			} finally {
 				if (this.activatingNodeIds != null) {
@@ -507,6 +660,76 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 			}
 		}
 	}
+
+	private Function<String, String> getResolver(Node node, String type, List<NodeInstance> currentView) {
+        if (node instanceof DynamicNode) {
+            // special handling for dynamic node to allow to resolve variables from individual node instances of the dynamic node
+            // instead of just relying on process instance's variables
+            return (e) -> {
+                List<NodeInstance> nodeInstances = getNodeInstances(node.getId(), currentView);
+                if (nodeInstances != null && !nodeInstances.isEmpty()) {
+                    StringBuilder st = new StringBuilder();
+                    for (NodeInstance ni : nodeInstances) {
+                        String result = resolveVariable(e, new NodeInstanceResolverFactory(ni));
+                        st.append(result).append("###");
+                    }
+                    return st.toString();
+                } else {
+                    return resolveVariable(e);    
+                }        
+            };
+        } else {
+            return (e) -> resolveVariable(e);
+           
+        }
+    }
+
+    private void validate() {
+	    InternalRuntimeManager manager = (InternalRuntimeManager) getKnowledgeRuntime().getEnvironment().get("RuntimeManager");
+        if (manager != null) {
+            // check if process instance is owned by the same manager as the one owning ksession
+            if (hasDeploymentId() && !manager.getIdentifier().equals(getDeploymentId())) {
+                throw new IllegalStateException("Process instance " + getId() + " is owned by another deployment " +
+                        getDeploymentId() + " != " + manager.getIdentifier());
+            }
+        }
+    }
+
+    protected List<String> resolveVariables(List<String> events) {
+	    return events.stream().map( event -> resolveVariable(event)).collect(Collectors.toList());
+	}
+
+    private String resolveVariable(String s) {       
+        return resolveVariable(s, new ProcessInstanceResolverFactory(this));
+    }
+    
+    private String resolveVariable(String s, VariableResolverFactory factory) {
+        Map<String, String> replacements = new HashMap<String, String>();
+        Matcher matcher = PatternConstants.PARAMETER_MATCHER.matcher(s);
+        while (matcher.find()) {
+            String paramName = matcher.group(1);
+            if (replacements.get(paramName) == null) {
+
+                Object variableValue = getVariable(paramName);
+                if (variableValue != null) {
+                    String variableValueString = variableValue == null ? "" : variableValue.toString();
+                    replacements.put(paramName, variableValueString);
+                } else {
+                    try {
+                        variableValue = MVELSafeHelper.getEvaluator().eval(paramName, factory);
+                        String variableValueString = variableValue == null ? "" : variableValue.toString();
+                        replacements.put(paramName, variableValueString);
+                    } catch (Throwable t) {
+                        logger.error("Could not find variable scope for variable {}", paramName);
+                    }
+                }
+            }
+        }
+        for (Map.Entry<String, String> replacement: replacements.entrySet()) {
+            s = s.replace("#{" + replacement.getKey() + "}", replacement.getValue());
+        }
+        return s;
+    }
 
 	public void addEventListener(String type, EventListener listener, boolean external) {
 		Map<String, List<EventListener>> eventListeners = external ? this.externalEventListeners : this.eventListeners;
@@ -548,7 +771,7 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 	}
 
 	public String[] getEventTypes() {
-		return externalEventListeners.keySet().toArray(new String[externalEventListeners.size()]);
+		return externalEventListeners.keySet().stream().map(type -> resolveVariable(type)).collect(Collectors.toList()).toArray(new String[externalEventListeners.size()]);
 	}
 
 	public void nodeInstanceCompleted(NodeInstance nodeInstance, String outType) {
@@ -560,7 +783,7 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
 	            return;
 	        }
 	    }
-	    if (nodeInstance instanceof EndNodeInstance ||
+	    if (nodeInstance instanceof FaultNodeInstance || nodeInstance instanceof EndNodeInstance ||
         		((org.jbpm.workflow.core.WorkflowProcess) getWorkflowProcess()).isDynamic()
         		|| nodeInstance instanceof CompositeNodeInstance) {
             if (((org.jbpm.workflow.core.WorkflowProcess) getProcess()).isAutoComplete()) {
@@ -647,4 +870,102 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
         this.signalCompletion = signalCompletion;
     }
 
+    public String getDeploymentId() {
+        return deploymentId;
+    }
+
+    public void setDeploymentId(String deploymentId) {
+        this.deploymentId = deploymentId;
+    }
+    
+    public String getCorrelationKey() {
+        if (correlationKey == null && getMetaData().get("CorrelationKey") != null) {
+            this.correlationKey = ((CorrelationKey) getMetaData().get("CorrelationKey")).toExternalForm();
+        }
+        return correlationKey;
+    }
+
+    public void setCorrelationKey(String correlationKey) {
+        this.correlationKey = correlationKey;
+    }
+    
+    public Date getStartDate() {
+        return startDate;
+    }
+    
+    public void internalSetStartDate(Date startDate) {
+        if(this.startDate == null) {
+            this.startDate = startDate;
+        }
+    }
+
+    protected boolean hasDeploymentId() {
+        if (this.deploymentId == null || this.deploymentId.isEmpty()) {
+            return false;
+        }
+
+        return true;
+    }    
+
+    protected boolean useAsync(final Node node) {
+        if (!(node instanceof EventSubProcessNode) && (node instanceof ActionNode || node instanceof StateBasedNode || node instanceof EndNode)) {              
+            boolean asyncMode = Boolean.parseBoolean((String)node.getMetaData().get("customAsync"));
+            if (asyncMode) {
+                return asyncMode;
+            }
+            
+            return Boolean.parseBoolean((String)getKnowledgeRuntime().getEnvironment().get("AsyncMode"));
+        }
+        
+        return false;
+    }
+    
+    protected boolean useTimerSLATracking() {
+                      
+        String mode = (String) getKnowledgeRuntime().getEnvironment().get("SLATimerMode");
+        if (mode == null) {
+            return true;
+        }
+        
+        return Boolean.parseBoolean(mode);
+        
+    }
+
+    
+    public int getSlaCompliance() {
+        return slaCompliance;
+    }
+    
+    public void internalSetSlaCompliance(int slaCompliance) {
+        this.slaCompliance = slaCompliance;
+    }
+    
+    public Date getSlaDueDate() {
+        return slaDueDate;
+    }
+    
+    public void internalSetSlaDueDate(Date slaDueDate) {
+        this.slaDueDate = slaDueDate;
+    }
+    
+    public Long getSlaTimerId() {
+        return slaTimerId;
+    }
+    
+    public void internalSetSlaTimerId(Long slaTimerId) {
+        this.slaTimerId = slaTimerId;
+    }
+
+    private boolean isVariableExpression(String eventType) {
+        if (eventType == null ){
+            return false;
+        }
+        Matcher matcher = PatternConstants.PARAMETER_MATCHER.matcher(eventType);
+        if (matcher.find()) {
+            return true;
+        }
+
+        return false;
+    }
+    
 }

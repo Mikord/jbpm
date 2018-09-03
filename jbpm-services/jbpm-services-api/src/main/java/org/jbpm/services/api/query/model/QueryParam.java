@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package org.jbpm.services.api.query.model;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -27,6 +28,22 @@ import java.util.List;
 public class QueryParam implements Serializable {
     
     private static final long serialVersionUID = -7751811350486978746L;
+    
+    public static final String MILLISECOND = "MILLISECOND";
+    public static final String HUNDRETH = "HUNDRETH";
+    public static final String TENTH = "TENTH";
+    public static final String SECOND = "SECOND";
+    public static final String MINUTE = "MINUTE";
+    public static final String HOUR = "HOUR";
+    public static final String DAY = "DAY";
+    public static final String DAY_OF_WEEK = "DAY_OF_WEEK";
+    public static final String WEEK = "WEEK";
+    public static final String MONTH = "MONTH";
+    public static final String QUARTER = "QUARTER";
+    public static final String YEAR = "YEAR";
+    public static final String DECADE = "DECADE";
+    public static final String CENTURY = "CENTURY";
+    public static final String MILLENIUM = "MILLENIUM";
     
     private String column;
     private String operator;
@@ -92,6 +109,38 @@ public class QueryParam implements Serializable {
         return new QueryParam(column, "NOT_IN", values);
     }
     
+    public static QueryParam count(String column) {
+        return new QueryParam(column, "COUNT", Arrays.asList(column));
+    }
+    
+    public static QueryParam distinct(String column) {
+        return new QueryParam(column, "DISTINCT", Arrays.asList(column));
+    }
+    
+    public static QueryParam average(String column) {
+        return new QueryParam(column, "AVERAGE", Arrays.asList(column));
+    }
+    
+    public static QueryParam sum(String column) {
+        return new QueryParam(column, "SUM", Arrays.asList(column));
+    }
+    
+    public static QueryParam min(String column) {
+        return new QueryParam(column, "MIN", Arrays.asList(column));
+    }
+    
+    public static QueryParam max(String column) {
+        return new QueryParam(column, "MAX", Arrays.asList(column));
+    }
+    
+    public static QueryParam[] groupBy(String column) {
+        return new QueryParam[] {new QueryParam(column, "group", Arrays.asList(column)), new QueryParam(column, null, Arrays.asList(column))};
+    }
+    
+    public static QueryParam[] groupBy(String column, String intervalSize, int maxInterval) {
+        return new QueryParam[] {new QueryParam(column, "group", Arrays.asList(column, intervalSize, maxInterval)), new QueryParam(column, null, Arrays.asList(column))};
+    }
+    
     public String getColumn() {
         return column;
     }
@@ -114,6 +163,24 @@ public class QueryParam implements Serializable {
     
     public void setValue(List<?> value) {
         this.value = value;
+    }
+    
+    public static Builder getBuilder() {
+        return new Builder();
+    }
+    
+    public static class Builder {
+        private List<QueryParam> parameters = new ArrayList<QueryParam>();
+        
+        public Builder append(QueryParam...params) {
+            this.parameters.addAll(Arrays.asList(params));
+            
+            return this;
+        }
+        
+        public QueryParam[] get() {
+            return this.parameters.toArray(new QueryParam[this.parameters.size()]);
+        }
     }
 
 }

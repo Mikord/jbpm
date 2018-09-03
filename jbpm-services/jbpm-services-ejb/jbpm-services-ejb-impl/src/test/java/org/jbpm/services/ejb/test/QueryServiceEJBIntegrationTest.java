@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,17 +16,6 @@
 
 package org.jbpm.services.ejb.test;
 
-import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_PROCESSID;
-import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_PROCESSNAME;
-import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_STATUS;
-import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_TASK_VAR_NAME;
-import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_TASK_VAR_VALUE;
-import static org.jbpm.services.api.query.QueryResultMapper.COLUMN_VAR_NAME;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.lang.reflect.Field;
@@ -36,7 +25,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import javax.ejb.EJB;
 import javax.inject.Inject;
 
@@ -77,9 +65,13 @@ import org.kie.api.KieServices;
 import org.kie.api.builder.ReleaseId;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.query.QueryContext;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.jbpm.services.api.query.QueryResultMapper.*;
+import static org.junit.Assert.*;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 @RunWith(Arquillian.class)
 public class QueryServiceEJBIntegrationTest extends AbstractTestSupport {
@@ -143,7 +135,7 @@ private static final Logger logger = LoggerFactory.getLogger(QueryServiceEJBInte
         } catch (Exception e) {
 
         }
-        MavenRepository repository = getMavenRepository();
+        KieMavenRepository repository = getKieMavenRepository();
         repository.installArtifact(releaseId, kJar1, pom);
    }
     

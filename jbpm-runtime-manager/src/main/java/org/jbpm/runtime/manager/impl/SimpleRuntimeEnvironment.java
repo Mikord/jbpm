@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -42,6 +42,7 @@ import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.KieSessionConfiguration;
 import org.kie.api.runtime.manager.RegisterableItemsFactory;
 import org.kie.api.task.UserGroupCallback;
+import org.kie.api.task.UserInfo;
 import org.kie.internal.builder.DecisionTableConfiguration;
 import org.kie.internal.builder.DecisionTableInputType;
 import org.kie.internal.builder.KnowledgeBuilder;
@@ -82,6 +83,7 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment, SchedulerPr
     protected RegisterableItemsFactory registerableItemsFactory;
     protected Mapper mapper;
     protected UserGroupCallback userGroupCallback;
+    protected UserInfo userInfo;
     protected GlobalSchedulerService schedulerService;
     protected ClassLoader classLoader;
     
@@ -198,7 +200,7 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment, SchedulerPr
     @Override
     public KieBase getKieBase() {
         if (this.kbase == null) {
-            this.kbase = kbuilder.newKnowledgeBase();
+            this.kbase = kbuilder.newKieBase();
         }
         return this.kbase;
     }
@@ -264,6 +266,8 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment, SchedulerPr
         addIfPresent(EnvironmentName.TRANSACTION, copy);
         addIfPresent(EnvironmentName.USE_LOCAL_TRANSACTIONS, copy);
         addIfPresent(EnvironmentName.USE_PESSIMISTIC_LOCKING, copy);        
+        addIfPresent(EnvironmentName.EXEC_ERROR_MANAGER, copy);
+        addIfPresent(EnvironmentName.DEPLOYMENT_ID, copy);
         
         if (usePersistence()) {
             ObjectMarshallingStrategy[] strategies = (ObjectMarshallingStrategy[]) copy.get(EnvironmentName.OBJECT_MARSHALLING_STRATEGIES);        
@@ -311,6 +315,14 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment, SchedulerPr
     
     public void setUserGroupCallback(UserGroupCallback userGroupCallback) {
         this.userGroupCallback = userGroupCallback;
+    }
+    @Override
+    public UserInfo getUserInfo() {
+        return this.userInfo;
+    }
+
+    public void setUserInfo(UserInfo userInfo) {
+        this.userInfo = userInfo;
     }
 
     public Properties getSessionConfigProperties() {

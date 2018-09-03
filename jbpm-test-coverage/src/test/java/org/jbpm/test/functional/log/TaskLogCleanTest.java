@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,9 @@ package org.jbpm.test.functional.log;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.assertj.core.api.Assertions;
 import org.jbpm.services.task.audit.service.TaskJPAAuditService;
@@ -31,12 +33,15 @@ import org.kie.api.task.TaskService;
 import org.kie.api.task.model.Status;
 import org.kie.api.task.model.Task;
 import org.kie.internal.task.api.AuditTask;
+import org.kie.internal.task.api.TaskVariable;
+
 import qa.tools.ikeeper.annotation.BZ;
 
 /**
  * Tests for:
  * - AuditTaskInstanceLogDeleteBuilder
  * - TaskEventInstanceLogDeleteBuilder
+ * - TaskVariabletInstanceLogDeleteBuilder
  * - TaskJPAAuditService.clear()
  */
 public class TaskLogCleanTest extends JbpmTestCase {
@@ -84,6 +89,7 @@ public class TaskLogCleanTest extends JbpmTestCase {
         kieSession = createKSession(HUMAN_TASK);
 
         processInstanceList = startProcess(kieSession, HUMAN_TASK_ID, 2);
+        abortProcess(kieSession, processInstanceList);
 
         int deletedLogs = taskAuditService.auditTaskDelete()
                 .processId(HUMAN_TASK_ID)
@@ -98,7 +104,8 @@ public class TaskLogCleanTest extends JbpmTestCase {
         kieSession = createKSession(HUMAN_TASK);
 
         processInstanceList = startProcess(kieSession, HUMAN_TASK_ID, 3);
-
+        abortProcess(kieSession, processInstanceList);
+        
         int resultCount = taskAuditService.auditTaskDelete()
                 .processInstanceId(processInstanceList.get(0).getId(), processInstanceList.get(1).getId())
                 .build()
@@ -116,7 +123,7 @@ public class TaskLogCleanTest extends JbpmTestCase {
         kieSession = createKSession(HUMAN_TASK);
 
         processInstanceList = startProcess(kieSession, HUMAN_TASK_ID, 4);
-
+        abortProcess(kieSession, processInstanceList);
         TaskService taskService = getRuntimeEngine().getTaskService();
 
         // Delete the last two task logs
@@ -148,6 +155,8 @@ public class TaskLogCleanTest extends JbpmTestCase {
         Thread.sleep(1000);
         processInstanceList.addAll(startProcess(kieSession, INPUT_ASSOCIATION_ID, 1));
         processInstanceList.addAll(startProcess(kieSession, HUMAN_TASK_ID, 1));
+        
+        abortProcess(kieSession, processInstanceList);
 
         // Delete tasks created from date1 to date2.
         int resultCount = deleteAuditTaskInstanceLogs(date1, date2);
@@ -160,6 +169,7 @@ public class TaskLogCleanTest extends JbpmTestCase {
         kieSession = createKSession(HUMAN_TASK);
 
         processInstanceList.addAll(startProcess(kieSession, HUMAN_TASK_ID, 5));
+        abortProcess(kieSession, processInstanceList);
 
         // Delete tasks created from date1 to date2.
         int resultCount = deleteAuditTaskInstanceLogs(startDate, endDate);
@@ -218,13 +228,97 @@ public class TaskLogCleanTest extends JbpmTestCase {
         // 4) In Progress -> Completed (by complete)
         Assertions.assertThat(resultCount).isEqualTo(4);
     }
+    
+    @Test
+    public void testDeleteTaskVariablesByDateActiveProcess() {
+        kieSession = createKSession(INPUT_ASSOCIATION);
+
+        Date startDate = new Date();
+        processInstanceList = startProcess(kieSession, INPUT_ASSOCIATION_ID, 1);
+
+        // Get the task
+        TaskService taskService = getRuntimeEngine().getTaskService();
+        Task task = taskService.getTaskById(
+                taskService.getTasksByProcessInstanceId(
+                        processInstanceList.get(0).getId()).get(0));
+        Assertions.assertThat(task).isNotNull();
+        Assertions.assertThat(task.getTaskData().getStatus()).isEqualTo(Status.Reserved);
+        
+        List<TaskVariable> vars = taskAuditService.taskVariableQuery()
+                .build()
+                .getResultList();
+        Assertions.assertThat(vars).hasSize(1);
+
+        // Delete all task operation between dates
+        int resultCount = taskAuditService.taskVariableInstanceLogDelete()
+                .dateRangeStart(startDate)
+                .dateRangeEnd(new Date())
+                .build()
+                .execute();
+        Assertions.assertThat(resultCount).isEqualTo(0);
+        
+        vars = taskAuditService.taskVariableQuery()
+                .build()
+                .getResultList();
+        Assertions.assertThat(vars).hasSize(1);
+    }
+    
+    @Test
+    public void testDeleteTaskVariablesByDate() {
+        kieSession = createKSession(HUMAN_TASK_MULTIACTORS);
+
+        Date startDate = new Date();
+        processInstanceList = startProcess(kieSession, HUMAN_TASK_MULTIACTORS_ID, 1);
+
+        // Get the task
+        TaskService taskService = getRuntimeEngine().getTaskService();
+        Task task = taskService.getTaskById(
+                taskService.getTasksByProcessInstanceId(
+                        processInstanceList.get(0).getId()).get(0));
+        Assertions.assertThat(task).isNotNull();
+        Assertions.assertThat(task.getTaskData().getStatus()).isEqualTo(Status.Ready);
+        
+        List<TaskVariable> vars = taskAuditService.taskVariableQuery()
+                .build()
+                .getResultList();
+        Assertions.assertThat(vars).hasSize(0);
+
+        // Perform 2 operation on the task
+        taskService.claim(task.getId(), "krisv");
+        taskService.start(task.getId(), "krisv");
+        
+        Map<String, Object> results = new HashMap<>();
+        results.put("test", "testvalue");
+        taskService.complete(task.getId(), "krisv", results);
+        
+        vars = taskAuditService.taskVariableQuery()
+                .build()
+                .getResultList();
+        Assertions.assertThat(vars).hasSize(1);
+
+        // Remove the instance from the running list as it has ended already.
+        processInstanceList.clear();
+
+        // Delete all task operation between dates
+        int resultCount = taskAuditService.taskVariableInstanceLogDelete()
+                .dateRangeStart(startDate)
+                .dateRangeEnd(new Date())
+                .build()
+                .execute();
+        Assertions.assertThat(resultCount).isEqualTo(1);
+    }
 
     @Test
     @BZ("1192912")
     public void testClearLogs() {
         kieSession = createKSession(HUMAN_TASK);
         processInstanceList = startProcess(kieSession, HUMAN_TASK_ID, 2);
-
+        
+        taskAuditService.clear();
+        Assertions.assertThat(getAllAuditTaskLogs()).hasSize(processInstanceList.size());
+        
+        abortProcess(kieSession, processInstanceList);
+        
         taskAuditService.clear();
         Assertions.assertThat(getAllAuditTaskLogs()).hasSize(0);
     }

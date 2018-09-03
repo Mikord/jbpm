@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package org.jbpm.kie.services.impl.bpmn2;
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,7 +43,7 @@ public class ProcessDescriptor implements Serializable {
     private static final long serialVersionUID = -6304675827486128074L;
 
     private static final Logger logger = LoggerFactory.getLogger(ProcessDescriptor.class);
-            
+
     private ProcessAssetDesc process;
     private Map<String, UserTaskDefinition> tasks = new HashMap<String, UserTaskDefinition>();
     private Map<String, Map<String, String>> taskInputMappings = new HashMap<String, Map<String, String>>();
@@ -52,14 +53,17 @@ public class ProcessDescriptor implements Serializable {
     private Map<String, String> itemDefinitions = new HashMap<String, String>();
     private Map<String, String> serviceTasks = new HashMap<String, String>();
     private Map<String, String> globalItemDefinitions = new HashMap<String, String>();
- 
+
     private Collection<String> reusableSubProcesses = new HashSet<String>(1);
     private Set<String> referencedClasses = new HashSet<String>(1);
     private Set<String> unqualifiedClasses = new HashSet<String>(1);
     private Set<String> referencedRules = new HashSet<String>(1);
-    
+
+    private Collection<String> signals = Collections.emptySet();
+    private Collection<String> globals = Collections.emptySet();
+
     private Queue<String> unresolvedReusableSubProcessNames = new ArrayDeque<String>();
-    
+
     public ProcessDescriptor() {
     }
 
@@ -67,42 +71,42 @@ public class ProcessDescriptor implements Serializable {
         this.process = process;
     }
 
-    public boolean hasUnresolvedReusableSubProcessNames() { 
-       return ! unresolvedReusableSubProcessNames.isEmpty(); 
+    public boolean hasUnresolvedReusableSubProcessNames() {
+       return ! unresolvedReusableSubProcessNames.isEmpty();
     }
-    
+
     public void resolveReusableSubProcessNames( Collection<Process> deploymentProcesses ) {
         // build map of process name -> process id
         Map<String, Process> processNameProcessIdMap = new HashMap<String, Process>(deploymentProcesses.size());
-        for( Process process : deploymentProcesses ) { 
+        for( Process process : deploymentProcesses ) {
             String processName = process.getName();
            Process previousProcess = processNameProcessIdMap.put(processName, process);
-           if( previousProcess != null ) { 
+           if( previousProcess != null ) {
                Comparator<Process> processComparator = StartProcessHelper.getComparator(processName);
-               if( processComparator.compare(previousProcess, process) > 0 ) { 
+               if( processComparator.compare(previousProcess, process) > 0 ) {
                   processNameProcessIdMap.put(processName, previousProcess);
                }
            }
         }
-        
+
         // resolve process names called in process
-        synchronized(unresolvedReusableSubProcessNames) { 
+        synchronized(unresolvedReusableSubProcessNames) {
             Iterator<String> iter = unresolvedReusableSubProcessNames.iterator();
-            while( iter.hasNext() ) { 
+            while( iter.hasNext() ) {
                 String processName  = iter.next();
                 Process deploymentProcess = processNameProcessIdMap.get(processName);
-                if( deploymentProcess == null ) { 
+                if( deploymentProcess == null ) {
                     logger.error("Unable to resolve process name '{}' called in process '{}'", processName, getProcess().getId());
-                } else { 
+                } else {
                     String processIdForProcessName = deploymentProcess.getId();
                     reusableSubProcesses.add(processIdForProcessName);
                     iter.remove();
                 }
             }
-        } 
+        }
     }
 
-    
+
     public ProcessAssetDesc getProcess() {
         return process;
     }
@@ -114,7 +118,7 @@ public class ProcessDescriptor implements Serializable {
     public Map<String, Map<String, String>> getTaskInputMappings() {
         return taskInputMappings;
     }
-    
+
     public Map<String, Map<String, String>> getTaskOutputMappings() {
         return taskOutputMappings;
     }
@@ -144,11 +148,11 @@ public class ProcessDescriptor implements Serializable {
     }
 
     public void addReusableSubProcessName(String processName) {
-        synchronized(unresolvedReusableSubProcessNames) { 
+        synchronized(unresolvedReusableSubProcessNames) {
             unresolvedReusableSubProcessNames.add(processName);
         }
     }
-    
+
     public Set<String> getReferencedClasses() {
         return referencedClasses;
     }
@@ -156,10 +160,26 @@ public class ProcessDescriptor implements Serializable {
     public Set<String> getUnqualifiedClasses() {
         return unqualifiedClasses;
     }
-    
+
     public Set<String> getReferencedRules() {
         return referencedRules;
     }
+
+    public Collection<String> getSignals() {
+        return signals;
+    }
+
+    public void setSignals( Collection<String> signals ) {
+       this.signals = signals;
+    }
+
+    public Collection<String> getGlobals() {
+        return globals;
+    }
+
+    public void setGlobals( Collection<String> globals ) {
+        this.globals = globals;
+     }
 
     public void clear(){
         process = null;
@@ -175,30 +195,30 @@ public class ProcessDescriptor implements Serializable {
         referencedClasses.clear();
         referencedRules.clear();
     }
+    
+    public ProcessDescriptor clone() {
+        
+        ProcessDescriptor cloned = new ProcessDescriptor();
+        
+        cloned.process = this.process.copy();
+        cloned.tasks = new HashMap<String, UserTaskDefinition>(this.tasks);
+        cloned.taskInputMappings = new HashMap<String, Map<String, String>>(this.taskInputMappings);
+        cloned.taskOutputMappings = new HashMap<String, Map<String, String>>(this.taskOutputMappings);
+        cloned.inputs = new HashMap<String, String>(this.inputs);
+        cloned.taskAssignments = new HashMap<String, Collection<String>>(this.taskAssignments);
+        cloned.reusableSubProcesses = new HashSet<String>(this.reusableSubProcesses);
+        cloned.itemDefinitions = new HashMap<String, String>(this.itemDefinitions);
+        cloned.serviceTasks = new HashMap<String, String>(this.serviceTasks);
+        cloned.globalItemDefinitions = new HashMap<String, String>(this.globalItemDefinitions);
+        cloned.referencedClasses = new HashSet<String>(this.referencedClasses);
+        cloned.referencedRules = new HashSet<String>(this.referencedRules);        
+        cloned.unqualifiedClasses = new HashSet<String>(this.unqualifiedClasses);
+        cloned.signals = new HashSet<String>(this.signals);
+        cloned.globals = new HashSet<String>(this.globals);
 
-    public void resolveUnqualifiedClasses() {
-        Set<String> qualifiedClassSimpleNames = new HashSet<String>();
-        for( String className : referencedClasses ) { 
-            qualifiedClassSimpleNames.add(className.substring(className.lastIndexOf('.') + 1)); 
-        }
-        for( Iterator<String> iter = unqualifiedClasses.iterator(); iter.hasNext(); ) { 
-            if( qualifiedClassSimpleNames.contains(iter.next()) ) { 
-                iter.remove();
-            }
-        }
-        for( Iterator<String> iter = unqualifiedClasses.iterator(); iter.hasNext(); ) { 
-            String name = iter.next();
-            if( "Object".equals(name) || "String".equals(name) 
-                || "Float".equals(name) || "Integer".equals(name) 
-                || "Boolean".equals(name) ) { 
-               referencedClasses.add("java.lang." + name );
-               iter.remove();
-            }
-        }
-        for( String className : unqualifiedClasses ) { 
-            logger.warn("Unable to resolve unqualified class name, adding to list of classes: '{}'", className );
-            referencedClasses.add(className);
-        }
+        cloned.unresolvedReusableSubProcessNames = new ArrayDeque<String>(this.unresolvedReusableSubProcessNames);
+        
+        return cloned;
     }
 
 }

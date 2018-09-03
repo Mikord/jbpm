@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,7 +38,8 @@ import org.jbpm.services.task.audit.TaskAuditServiceFactory;
 import org.jbpm.services.task.impl.TaskDeadlinesServiceImpl;
 import org.jbpm.services.task.impl.factories.TaskFactory;
 import org.jbpm.services.task.lifecycle.listeners.BAMTaskEventListener;
-import org.jbpm.services.task.util.CountDownTaskEventListener;
+import org.jbpm.test.listener.task.CountDownTaskEventListener;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -49,8 +50,6 @@ import org.kie.internal.query.QueryFilter;
 import org.kie.internal.task.api.AuditTask;
 import org.kie.internal.task.api.InternalTaskService;
 import org.kie.internal.task.api.model.InternalTask;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 
 public class LocalTaskAuditWithDeadlineTest extends HumanTaskServicesBaseTest {
 
@@ -94,9 +93,12 @@ public class LocalTaskAuditWithDeadlineTest extends HumanTaskServicesBaseTest {
     
         Reader reader = new InputStreamReader(getClass().getResourceAsStream(MvelFilePath.DeadlineWithReassignment));
         Task task = (InternalTask) TaskFactory.evalTask(reader, vars);
-        taskService.addTask(task, new HashMap<String, Object>());
+
+        Map<String, Object> inputVars = new HashMap<String, Object>();
+        inputVars.put("NotCompletedReassign", "[users:Tony Stark,Bobba Fet,Jabba Hutt|groups:]@[500ms]");
+        taskService.addTask(task, inputVars);
         long taskId = task.getId();
-        
+
         taskService.claim(taskId, "Tony Stark");
     
         task = taskService.getTaskById(taskId);

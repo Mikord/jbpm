@@ -1,25 +1,28 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.process.audit.query;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -35,6 +38,8 @@ import org.jbpm.process.audit.strategy.StandaloneJtaStrategy;
 public class AuditQueryDataUtil {
     
     private static Random random = new Random();
+
+    private static List<Object> createdEntities = new LinkedList<>();
 
     static long randomLong() { 
         long result = (long) Math.abs(random.nextInt());
@@ -125,7 +130,8 @@ public class AuditQueryDataUtil {
             em.persist(testData[i]);
         }
         jtaHelper.leaveTransaction(em, tx);
-        
+
+        createdEntities.addAll(Arrays.asList(testData));
         return testData;
     }
 
@@ -183,7 +189,8 @@ public class AuditQueryDataUtil {
             em.persist(testData[i]);
         }
         jtaHelper.leaveTransaction(em, tx);
-        
+
+        createdEntities.addAll(Arrays.asList(testData));
         return testData;
     }
 
@@ -247,7 +254,8 @@ public class AuditQueryDataUtil {
             em.persist(testData[i]);
         }
         jtaHelper.leaveTransaction(em, tx);
-        
+
+        createdEntities.addAll(Arrays.asList(testData));
         return testData;
     }
 
@@ -268,6 +276,20 @@ public class AuditQueryDataUtil {
                assertTrue( "Duration " + dur + " is larger than max " + maxOrMin[1], dur <= maxOrMin[1] ); 
            }
        }
+    }
+
+    static void cleanDB(EntityManagerFactory emf) {
+        StandaloneJtaStrategy jtaHelper = new StandaloneJtaStrategy(emf);
+        EntityManager em = jtaHelper.getEntityManager();
+
+        Object tx = jtaHelper.joinTransaction(em);
+
+        for (Object entity : createdEntities) {
+            Object mergedEntity = em.merge(entity);
+            em.remove(mergedEntity);
+        }
+
+        jtaHelper.leaveTransaction(em, tx);
     }
     
 }

@@ -1,25 +1,20 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.runtime.manager.impl;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -34,6 +29,7 @@ import org.drools.compiler.kie.builder.impl.InternalKieModule;
 import org.jbpm.runtime.manager.util.TestUtil;
 import org.jbpm.services.task.identity.JBossUserGroupCallbackImpl;
 import org.jbpm.test.util.AbstractBaseTest;
+import org.jbpm.test.util.PoolingDataSource;
 import org.jbpm.workflow.instance.WorkflowProcessInstance;
 import org.junit.After;
 import org.junit.Before;
@@ -63,9 +59,10 @@ import org.kie.api.task.model.TaskSummary;
 import org.kie.internal.io.ResourceFactory;
 import org.kie.internal.runtime.manager.context.EmptyContext;
 import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
 
-import bitronix.tm.resource.jdbc.PoolingDataSource;
+import static org.junit.Assert.*;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 public class KjarRuntimeEnvironmentTest extends AbstractBaseTest {
 
@@ -75,7 +72,7 @@ public class KjarRuntimeEnvironmentTest extends AbstractBaseTest {
     
     private static final String ARTIFACT_ID = "kjar-module";
     private static final String GROUP_ID = "org.jbpm.test";
-    private static final String VERSION = "1.0.0-SNAPSHOT";
+    private static final String VERSION = "1.0.0";
     
     @Before
     public void setup() {
@@ -97,7 +94,7 @@ public class KjarRuntimeEnvironmentTest extends AbstractBaseTest {
         } catch (Exception e) {
             
         }
-        MavenRepository repository = getMavenRepository();
+        KieMavenRepository repository = getKieMavenRepository();
         repository.installArtifact(releaseId, kJar1, pom);
         
         Properties properties= new Properties();
@@ -367,7 +364,7 @@ public class KjarRuntimeEnvironmentTest extends AbstractBaseTest {
         ReleaseId releaseId = ks.newReleaseId(GROUP_ID, "xstream-test", VERSION);
         File kjar = new File("src/test/resources/kjar/jbpm-module.jar");
         File pom = new File("src/test/resources/kjar/pom.xml");
-        MavenRepository repository = getMavenRepository();
+        KieMavenRepository repository = getKieMavenRepository();
         repository.installArtifact(releaseId, kjar, pom);
         
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get()

@@ -1,38 +1,42 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.process.audit.query;
-
-import static org.kie.internal.query.QueryParameterIdentifiers.DATE_LIST;
-import static org.kie.internal.query.QueryParameterIdentifiers.PROCESS_ID_LIST;
-import static org.kie.internal.query.QueryParameterIdentifiers.PROCESS_INSTANCE_ID_LIST;
-
-import java.sql.Timestamp;
-import java.util.Date;
 
 import org.jbpm.process.audit.JPAAuditLogService;
 import org.jbpm.process.audit.command.AuditCommand;
 import org.jbpm.query.jpa.builder.impl.AbstractDeleteBuilderImpl;
 import org.jbpm.query.jpa.data.QueryWhere;
 import org.kie.api.runtime.CommandExecutor;
-import org.kie.internal.command.Context;
+import org.kie.api.runtime.Context;
 import org.kie.internal.query.ParametrizedUpdate;
 import org.kie.internal.runtime.manager.audit.query.AuditDeleteBuilder;
 
+import java.sql.Timestamp;
+import java.util.Date;
+
+import static org.kie.internal.query.QueryParameterIdentifiers.*;
+
 public abstract class AbstractAuditDeleteBuilderImpl<T> extends AbstractDeleteBuilderImpl<T> implements AuditDeleteBuilder<T> {
 
+    protected static String ONLY_COMPLETED_PROCESS_INSTANCES = 
+            " l.processInstanceId in (select spl.processInstanceId \n"
+            + "FROM ProcessInstanceLog spl \n"
+            + "WHERE spl.status in (2, 3))";
+    
     protected final CommandExecutor executor; 
     protected final JPAAuditLogService jpaAuditService; 
     
@@ -148,12 +152,16 @@ public abstract class AbstractAuditDeleteBuilderImpl<T> extends AbstractDeleteBu
     
     abstract protected String getQueryBase();
     
+    protected String getSubQuery() {
+        return null;
+    }
+    
     public ParametrizedUpdate build() {
         return new ParametrizedUpdate() {
             private QueryWhere queryWhere = new QueryWhere(getQueryWhere());
             @Override
             public int execute() {
-                int result = getJpaAuditLogService().doDelete(getQueryBase(), queryWhere, getQueryType());
+                int result = getJpaAuditLogService().doDelete(getQueryBase(), queryWhere, getQueryType(), getSubQuery());
                 return result;
             }
         };

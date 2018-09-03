@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,8 +32,11 @@ import javax.transaction.UserTransaction;
 import org.drools.core.WorkingMemory;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.runtime.process.InternalProcessRuntime;
+import org.drools.persistence.api.TransactionManager;
 import org.jbpm.process.audit.variable.ProcessIndexerManager;
+import org.jbpm.process.instance.ProcessInstance;
 import org.jbpm.process.instance.impl.ProcessInstanceImpl;
+import org.jbpm.workflow.instance.NodeInstance;
 import org.jbpm.workflow.instance.impl.NodeInstanceImpl;
 import org.kie.api.event.KieRuntimeEvent;
 import org.kie.api.event.process.ProcessCompletedEvent;
@@ -42,6 +45,7 @@ import org.kie.api.event.process.ProcessNodeLeftEvent;
 import org.kie.api.event.process.ProcessNodeTriggeredEvent;
 import org.kie.api.event.process.ProcessStartedEvent;
 import org.kie.api.event.process.ProcessVariableChangedEvent;
+import org.kie.api.event.process.SLAViolatedEvent;
 import org.kie.api.runtime.Environment;
 import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.KieSession;
@@ -170,6 +174,48 @@ public class JPAWorkingMemoryDbLogger extends AbstractAuditLogger {
     }
 
     @Override
+    public void afterSLAViolated(SLAViolatedEvent event) {
+        EntityManager em = getEntityManager(event);
+        Object tx = joinTransaction(em);
+        if (event.getNodeInstance() != null) {
+            // since node instance is set this is SLA violation for node instance
+            long nodeInstanceId = event.getNodeInstance().getId();
+            long processInstanceId = event.getProcessInstance().getId();
+            NodeInstanceLog log = (NodeInstanceLog) ((NodeInstanceImpl) event.getNodeInstance()).getMetaData().get("NodeInstanceLog");
+            if (log == null) {
+                List<NodeInstanceLog> result = em.createQuery(
+                        "from NodeInstanceLog as log where log.nodeInstanceId = :niId and log.processInstanceId = :piId and log.type = 0")
+                        .setParameter("niId", Long.toString(nodeInstanceId))
+                        .setParameter("piId", processInstanceId).getResultList();
+                if (result != null && !result.isEmpty()) {
+                    log = result.get(result.size() - 1);
+                }
+            }
+            if (log != null) {
+                log.setSlaCompliance(((NodeInstance)event.getNodeInstance()).getSlaCompliance());
+                em.merge(log);
+            }
+        } else {
+            // SLA violation for process instance
+            long processInstanceId = event.getProcessInstance().getId();
+            ProcessInstanceLog log = (ProcessInstanceLog) ((ProcessInstanceImpl) event.getProcessInstance()).getMetaData().get("ProcessInstanceLog");
+            if (log == null) {
+                List<ProcessInstanceLog> result = em.createQuery(
+                        "from ProcessInstanceLog as log where log.processInstanceId = :piId and log.end is null")
+                        .setParameter("piId", processInstanceId).getResultList();
+                if (result != null && !result.isEmpty()) {
+                    log = result.get(result.size() - 1);
+                }
+            }
+            if (log != null) {
+                log.setSlaCompliance(((ProcessInstance) event.getProcessInstance()).getSlaCompliance());
+                em.merge(log);
+            }
+        }
+        leaveTransaction(em, tx);
+    }
+
+    @Override
     public void beforeNodeLeft(ProcessNodeLeftEvent event) {
 
         
@@ -207,8 +253,9 @@ public class JPAWorkingMemoryDbLogger extends AbstractAuditLogger {
      * This method creates a entity manager. 
      */
     private EntityManager getEntityManager(KieRuntimeEvent event) {
+        
         Environment env = event.getKieRuntime().getEnvironment();
-    
+        
         /**
          * It's important to set the sharedEM flag with _every_ operation
          * otherwise, there are situations where:
@@ -221,17 +268,37 @@ public class JPAWorkingMemoryDbLogger extends AbstractAuditLogger {
         if( emf != null ) { 
            return emf.createEntityManager();
         } else if (env != null) {
-            EntityManager em = (EntityManager) env.get(EnvironmentName.CMD_SCOPED_ENTITY_MANAGER);
+            EntityManagerFactory emf = (EntityManagerFactory) env.get(EnvironmentName.ENTITY_MANAGER_FACTORY);
+            
+            // first check active transaction if it contains entity manager
+            EntityManager em = getEntityManagerFromTransaction(env);
+
+            if (em != null && em.isOpen() && em.getEntityManagerFactory().equals(emf)) {
+                sharedEM = true;
+                return em;
+            }
+            // next check the environment itself
+            em = (EntityManager) env.get(EnvironmentName.CMD_SCOPED_ENTITY_MANAGER);
         	if (em != null) {
         		sharedEM = true;
         		return em;
         	}
-            EntityManagerFactory emf = (EntityManagerFactory) env.get(EnvironmentName.ENTITY_MANAGER_FACTORY);
+            // lastly use entity manager factory
             if (emf != null) {
                 return emf.createEntityManager();
             }
         } 
         throw new RuntimeException("Could not find or create a new EntityManager!");
+    }
+
+    protected EntityManager getEntityManagerFromTransaction(Environment env) {
+        if (env.get(EnvironmentName.TRANSACTION_MANAGER) instanceof TransactionManager) {
+            TransactionManager txm = (TransactionManager) env.get(EnvironmentName.TRANSACTION_MANAGER);
+            EntityManager em = (EntityManager) txm.getResource(EnvironmentName.CMD_SCOPED_ENTITY_MANAGER);
+            return em;
+        }
+        
+        return null;
     }
 
     /**
@@ -311,6 +378,7 @@ public class JPAWorkingMemoryDbLogger extends AbstractAuditLogger {
 
         if (!sharedEM) {
             try {  
+                em.flush();
                 em.close(); 
             } catch( Exception e ) { 
                 logger.error("Unable to close created EntityManager: {}", e.getMessage(), e);

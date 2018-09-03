@@ -1,12 +1,12 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
- * 
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
- * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,14 +16,22 @@
 
 package org.jbpm.bpmn2;
 
+import static org.junit.Assert.assertThat;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import org.assertj.core.api.Assertions;
+import org.hamcrest.core.AnyOf;
+import org.hamcrest.core.Is;
+import org.hamcrest.core.IsCollectionContaining;
 import org.jbpm.bpmn2.objects.TestWorkItemHandler;
+import org.jbpm.process.audit.VariableInstanceLog;
 import org.jbpm.process.core.context.exception.CompensationScope;
 import org.jbpm.process.instance.impl.demo.SystemOutWorkItemHandler;
 import org.junit.After;
@@ -34,9 +42,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
+import org.kie.api.event.process.DefaultProcessEventListener;
+import org.kie.api.event.process.ProcessEventListener;
+import org.kie.api.event.process.ProcessNodeLeftEvent;
+import org.kie.api.event.process.ProcessNodeTriggeredEvent;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.process.WorkItem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RunWith(Parameterized.class)
 public class CompensationTest extends JbpmBpmn2TestCase {
@@ -52,6 +66,33 @@ public class CompensationTest extends JbpmBpmn2TestCase {
     public CompensationTest(boolean persistence) {
         super(persistence);
     }
+
+    private Logger logger = LoggerFactory
+            .getLogger(CompensationTest.class);
+
+    private ProcessEventListener LOGGING_EVENT_LISTENER = new DefaultProcessEventListener() {
+
+        @Override
+        public void afterNodeLeft(ProcessNodeLeftEvent event) {
+            logger.info("After node left {}", event.getNodeInstance().getNodeName());
+        }
+
+        @Override
+        public void afterNodeTriggered(ProcessNodeTriggeredEvent event) {
+            logger.info("After node triggered {}", event.getNodeInstance().getNodeName());
+        }
+
+        @Override
+        public void beforeNodeLeft(ProcessNodeLeftEvent event) {
+            logger.info("Before node left {}", event.getNodeInstance().getNodeName());
+        }
+
+        @Override
+        public void beforeNodeTriggered(ProcessNodeTriggeredEvent event) {
+            logger.info("Before node triggered {}", event.getNodeInstance().getNodeName());
+        }
+
+    };
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -131,6 +172,7 @@ public class CompensationTest extends JbpmBpmn2TestCase {
     @Test
     public void compensationOnlyAfterAssociatedActivityHasCompleted() throws Exception {
         KieSession ksession = createKnowledgeSession("compensation/BPMN2-Compensation-UserTaskBeforeAssociatedActivity.bpmn2");
+        ksession.addEventListener(LOGGING_EVENT_LISTENER);
         TestWorkItemHandler workItemHandler = new TestWorkItemHandler();
         ksession.getWorkItemManager().registerWorkItemHandler("Human Task", workItemHandler);
         
@@ -183,7 +225,8 @@ public class CompensationTest extends JbpmBpmn2TestCase {
         String xVal = getProcessVarValue(processInstance, "x");
         // Compensation happens in the *REVERSE* order of completion
         // Ex: if the order is 3, 17, 282, then compensation should happen in the order of 282, 17, 3
-        assertEquals("Compensation did not fire in the same order as the associated activities completed.", "_171:_131:_141:_151:", xVal );
+        // Compensation did not fire in the same order as the associated activities completed.
+        Assertions.assertThat(xVal).isEqualTo("_171:_131:_141:_151:");
     }
     
     @Test
@@ -221,8 +264,11 @@ public class CompensationTest extends JbpmBpmn2TestCase {
         assertProcessInstanceCompleted(processInstance.getId(), ksession);
         if( ! isPersistence() ) { 
             assertProcessVarValue(processInstance, "x", null);
-        } else { 
-            assertProcessVarValue(processInstance, "x", "");
+        } else {
+            // We need to check it this way because of some databases like Oracle RAC etc.
+            List<VariableInstanceLog> logs = logService.findVariableInstances(processInstance.getId(), "x");
+            List<String> values = logs.stream().map(VariableInstanceLog::getValue).collect(Collectors.toList());
+            assertThat(values, IsCollectionContaining.hasItem(AnyOf.anyOf(Is.is(" "), Is.is(""), Is.is((String) null))));
         }
     }
     
@@ -257,5 +303,19 @@ public class CompensationTest extends JbpmBpmn2TestCase {
         assertProcessInstanceCompleted(processInstance.getId(), ksession);
         assertProcessVarValue(processInstance, "compensation", "compensation");
     }
+    
+	/**
+	 * Test to demonstrate that Compensation Events work with Reusable
+	 * Subprocesses
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void compensationWithReusableSubprocess() throws Exception {
+		KieSession ksession = createKnowledgeSession("compensation/BPMN2-Booking.bpmn2",
+				"compensation/BPMN2-BookResource.bpmn2", "compensation/BPMN2-CancelResource.bpmn2");
+		ProcessInstance processInstance = ksession.startProcess("Booking");
+		assertProcessInstanceCompleted(processInstance.getId(), ksession);
+	}
     
 }

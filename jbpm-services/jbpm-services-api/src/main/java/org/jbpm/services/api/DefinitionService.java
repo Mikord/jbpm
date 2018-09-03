@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -59,7 +59,9 @@ public interface DefinitionService {
 	 * NOTE: This method assumes process has already been built by invoking <code>buildProcessDefinition</code> method
 	 * @param deploymentId identifier of deployment that process belongs to
 	 * @param processId identifier of the process
-	 * @return returns complete <code>ProcessDefinition</code> if found otherwise null
+	 * @return returns complete <code>ProcessDefinition</code>
+	 * @throws DeploymentNotFoundException in case deployment with given deploymentId cannot be found
+	 * @throws ProcessDefinitionNotFoundException in case process definition with given processId cannot be found
 	 */
 	ProcessDefinition getProcessDefinition(String deploymentId, String processId);
     

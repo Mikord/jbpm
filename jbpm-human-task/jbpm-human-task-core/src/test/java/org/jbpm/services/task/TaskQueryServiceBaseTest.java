@@ -1,17 +1,17 @@
-/**
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.jbpm.services.task;
@@ -136,6 +136,54 @@ public abstract class TaskQueryServiceBaseTest extends HumanTaskServicesBaseTest
         assertEquals(1, tasks.size());
         
         tasks = taskService.getTasksAssignedAsPotentialOwner("Darth Vader", "en-UK");
+        assertEquals(0, tasks.size());
+    }
+    
+    @Test
+    public void testGetTasksAssignedAsPotentialOwnerWithMultipleExcluded() {
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader'), new User('Luke Cage') ], excludedOwners = [new User('Darth Vader'), new User('Luke Cage')],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name =  'This is my task name' })";
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+        List<TaskSummary> tasks = taskService.getTasksAssignedAsPotentialOwner("Bobba Fet", "en-UK");
+        assertEquals(1, tasks.size());
+        
+        tasks = taskService.getTasksAssignedAsPotentialOwner("Darth Vader", "en-UK");
+        assertEquals(0, tasks.size());
+        
+        tasks = taskService.getTasksAssignedAsPotentialOwner("Luke Cage", "en-UK");
+        assertEquals(0, tasks.size());
+    }
+
+    @Test
+    public void testGetTasksAssignedAsPotentialOwnerWithUserGroupsSingleUserExcluded() {
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += " peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new Group('Crusaders'), ], excludedOwners = [new User('Luke Cage')],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name =  'This is my task name' })";
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+        List<TaskSummary> tasks = taskService.getTasksAssignedAsPotentialOwner("Luke Cage", "en-UK");
+        assertEquals(0, tasks.size());
+
+        tasks = taskService.getTasksAssignedAsPotentialOwner("Bobba Fet", "en-UK");
+        assertEquals(1, tasks.size());
+    }
+
+    @Test
+    public void testGetTasksAssignedAsPotentialOwnerWithUserGroupsMultipleUsersExcluded() {
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += " peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new Group('Crusaders'), ], excludedOwners = [new User('Luke Cage'), new User('Bobba Fet')],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name =  'This is my task name' })";
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+        List<TaskSummary> tasks = taskService.getTasksAssignedAsPotentialOwner("Luke Cage", "en-UK");
+        assertEquals(0, tasks.size());
+
+        tasks = taskService.getTasksAssignedAsPotentialOwner("Bobba Fet", "en-UK");
         assertEquals(0, tasks.size());
     }
     
@@ -929,5 +977,23 @@ public abstract class TaskQueryServiceBaseTest extends HumanTaskServicesBaseTest
         assertEquals(1, tasks.size());
         assertEquals("Bobba Fet", tasks.get(0).getActualOwnerId());
         assertEquals(true, tasks.get(0).isSkipable());
+    }
+    
+    @Test
+    public void testGetTasksAssignedAsPotentialOwnerCheckSubject() {
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { subject = 'test subject', priority = 55, taskData = (with( new TaskData()) {skipable=true } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet')  ],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name = 'This is my task name' })";
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        
+        taskService.addTask(task, new HashMap<String, Object>());
+        List<String> groupIds = new ArrayList<String>();
+        groupIds.add("Crusaders");
+        List<TaskSummary> tasks = taskService.getTasksAssignedAsPotentialOwner("Bobba Fet", groupIds);
+        assertEquals(1, tasks.size());
+        assertEquals("Bobba Fet", tasks.get(0).getActualOwnerId());
+        assertEquals(true, tasks.get(0).isSkipable());
+        assertEquals("test subject", tasks.get(0).getSubject());
     }
 }

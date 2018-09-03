@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,7 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Index;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
@@ -30,7 +31,17 @@ import javax.persistence.TemporalType;
 import javax.persistence.Version;
 
 @Entity
-@Table(name="BAMTaskSummary")
+@Table(name="BAMTaskSummary",
+       indexes = {@Index(name = "IDX_BAMTaskSumm_createdDate",  columnList="createdDate"),
+                  @Index(name = "IDX_BAMTaskSumm_duration",  columnList="duration"),
+                  @Index(name = "IDX_BAMTaskSumm_endDate",  columnList="endDate"),
+                  @Index(name = "IDX_BAMTaskSumm_pInstId",  columnList="processInstanceId"),
+                  @Index(name = "IDX_BAMTaskSumm_startDate",  columnList="startDate"),
+                  @Index(name = "IDX_BAMTaskSumm_status",  columnList="status"),
+                  @Index(name = "IDX_BAMTaskSumm_taskId",  columnList="taskId"),
+                  @Index(name = "IDX_BAMTaskSumm_taskName",  columnList="taskName"),
+                  @Index(name = "IDX_BAMTaskSumm_userId", columnList="userId")})
+
 @SequenceGenerator(name="bamTaskIdSeq", sequenceName="BAM_TASK_ID_SEQ")
 public class BAMTaskSummaryImpl implements Serializable {
 
@@ -95,7 +106,15 @@ public class BAMTaskSummaryImpl implements Serializable {
     }
 
 
-    public Date getStartDate() {
+    public String getTaskName() {
+		return taskName;
+	}
+
+	public void setTaskName(String taskName) {
+		this.taskName = taskName;
+	}
+
+	public Date getStartDate() {
         return startDate;
     }
 

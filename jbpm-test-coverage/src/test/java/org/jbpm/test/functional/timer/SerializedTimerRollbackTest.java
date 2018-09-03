@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.test.functional.timer;
 
@@ -50,7 +51,7 @@ import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import bitronix.tm.TransactionManagerServices;
+import static org.junit.Assert.*;
 
 public class SerializedTimerRollbackTest extends JbpmTestCase {
 
@@ -64,14 +65,15 @@ public class SerializedTimerRollbackTest extends JbpmTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        UserTransaction ut = InitialContext.doLookup("java:comp/UserTransaction");
         try {
-            UserTransaction ut = InitialContext.doLookup("java:comp/UserTransaction");
             ut.begin();
             EntityManager em = getEmf().createEntityManager();
             em.createQuery("delete from SessionInfo").executeUpdate();
             em.close();
             ut.commit();
         } catch (Exception e) {
+            ut.rollback();
             logger.error("Something went wrong deleting the Session Info", e);
         }
 
@@ -86,7 +88,7 @@ public class SerializedTimerRollbackTest extends JbpmTestCase {
             TaskService taskService = runtimeEngine.getTaskService();
             logger.debug("Created knowledge session");
             
-            TransactionManager tm = TransactionManagerServices.getTransactionManager();
+            TransactionManager tm = com.arjuna.ats.jta.TransactionManager.transactionManager();
 
             List<Long> committedProcessInstanceIds = new ArrayList<Long>();
             for (int i = 0; i < 10; i++) {
@@ -111,7 +113,7 @@ public class SerializedTimerRollbackTest extends JbpmTestCase {
             assertNotNull(b);
 
             KnowledgeBuilder builder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-            ProtobufMarshaller marshaller = new ProtobufMarshaller(builder.newKnowledgeBase(), new MarshallingConfigurationImpl());
+            ProtobufMarshaller marshaller = new ProtobufMarshaller(builder.newKieBase(), new MarshallingConfigurationImpl());
             StatefulKnowledgeSession session = marshaller.unmarshall(b.getBinaryStream());
             assertNotNull(session);
 
@@ -178,7 +180,7 @@ public class SerializedTimerRollbackTest extends JbpmTestCase {
             assertNotNull(b);
 
             KnowledgeBuilder builder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-            ProtobufMarshaller marshaller = new ProtobufMarshaller(builder.newKnowledgeBase(), new MarshallingConfigurationImpl());
+            ProtobufMarshaller marshaller = new ProtobufMarshaller(builder.newKieBase(), new MarshallingConfigurationImpl());
             StatefulKnowledgeSession session = marshaller.unmarshall(b.getBinaryStream());
             assertNotNull(session);
 

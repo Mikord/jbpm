@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +20,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
-import java.util.List;
 import java.util.Properties;
 
 import javax.persistence.EntityManagerFactory;
@@ -29,15 +28,13 @@ import javax.persistence.Persistence;
 import org.jbpm.executor.ExecutorServiceFactory;
 import org.jbpm.executor.impl.ExecutorServiceImpl;
 import org.jbpm.executor.test.CountDownAsyncJobListener;
-import org.jbpm.runtime.manager.impl.DefaultRegisterableItemsFactory;
 import org.jbpm.services.task.identity.JBossUserGroupCallbackImpl;
 import org.jbpm.test.util.AbstractExecutorBaseTest;
-import org.jbpm.test.util.CountDownProcessEventListener;
 import org.jbpm.test.util.ExecutorTestUtil;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.kie.api.event.process.ProcessEventListener;
 import org.kie.api.executor.ExecutorService;
 import org.kie.api.io.ResourceType;
 import org.kie.api.runtime.KieSession;
@@ -51,8 +48,6 @@ import org.kie.api.task.UserGroupCallback;
 import org.kie.internal.io.ResourceFactory;
 import org.kie.internal.runtime.manager.RuntimeManagerRegistry;
 import org.kie.internal.runtime.manager.context.EmptyContext;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 
 public class AsyncThrowSignalEventTest extends AbstractExecutorBaseTest {
 
@@ -115,9 +110,6 @@ public class AsyncThrowSignalEventTest extends AbstractExecutorBaseTest {
         
         ProcessInstance processInstanceThrow = ksession.startProcess("SendEvent");
         assertEquals(ProcessInstance.STATE_COMPLETED, processInstanceThrow.getState());
-        // make sure that waiting for event process is not finished yet as it must be through executor/async
-        processInstance = runtime.getKieSession().getProcessInstance(processInstance.getId());
-        assertNotNull(processInstance);
         
         countDownListener.waitTillCompleted();
         
@@ -147,9 +139,6 @@ public class AsyncThrowSignalEventTest extends AbstractExecutorBaseTest {
         
         ProcessInstance processInstanceThrow = ksession.startProcess("SendIntermediateEvent");
         assertEquals(ProcessInstance.STATE_COMPLETED, processInstanceThrow.getState());
-        // make sure that waiting for event process is not finished yet as it must be through executor/async
-        processInstance = runtime.getKieSession().getProcessInstance(processInstance.getId());
-        assertNotNull(processInstance);
         
         countDownListener.waitTillCompleted();
         
@@ -176,11 +165,7 @@ public class AsyncThrowSignalEventTest extends AbstractExecutorBaseTest {
         ProcessInstance processInstance = ksession.startProcess("WaitForEvent");
         assertEquals(ProcessInstance.STATE_ACTIVE, processInstance.getState());
 
-        ksession.signalEvent("ASYNC-MySignal", null);
-
-        // make sure that waiting for event process is not finished yet as it must be through executor/async
-        processInstance = runtime.getKieSession().getProcessInstance(processInstance.getId());
-        assertNotNull(processInstance);
+        ksession.signalEvent("ASYNC-MySignal", null);      
         
         countDownListener.waitTillCompleted();
         

@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,8 +19,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 import javax.enterprise.inject.spi.BeanManager;
 import javax.inject.Inject;
@@ -52,7 +54,10 @@ import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.manager.RuntimeManagerFactory;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.query.QueryContext;
+import org.kie.api.task.model.Status;
+import org.kie.api.task.model.TaskSummary;
 import org.kie.internal.io.ResourceFactory;
+import org.kie.internal.query.QueryFilter;
 import org.kie.internal.runtime.manager.context.EmptyContext;
 
 
@@ -189,7 +194,7 @@ public class RuntimeDataServiceTest extends AbstractKieServicesBaseTest {
         Collection<NodeInstanceDesc> nodeInstanceLogs = runtimeDataService.getProcessInstanceHistoryCompleted(
                 processInstance.getId(), new QueryContext());
 
-        // assert if logs are ordered by log.date DESC, log.id DESC
+        // assert if logs are ordered by log.id ASC
         Iterator<NodeInstanceDesc> iterator = nodeInstanceLogs.iterator();
         NodeInstanceDesc log0 = iterator.next();
         assertEquals("End", log0.getName());
@@ -231,5 +236,38 @@ public class RuntimeDataServiceTest extends AbstractKieServicesBaseTest {
 
         manager.close();
 
+    }
+    
+
+    @Test
+    public void testGetTasksAssignedAsPotentialOwnerGroupFromCallback() {
+        String id = "cdi-manager";
+        AbstractAuditLogger auditLogger = AuditLoggerFactory.newJPAInstance();
+        ServicesAwareAuditEventBuilder auditEventBuilder = new ServicesAwareAuditEventBuilder();
+        auditEventBuilder.setIdentityProvider(new TestIdentifyProviderCDI());
+        auditEventBuilder.setDeploymentUnitId(id);
+        auditLogger.setBuilder(auditEventBuilder);
+        RuntimeEnvironmentBuilder builder = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder()
+                .entityManagerFactory(emf)
+                .registerableItemsFactory(InjectableRegisterableItemsFactory.getFactory(beanManager, auditLogger));
+
+        builder.addAsset(ResourceFactory.newClassPathResource("repo/processes/general/BPMN2-UserTasksAssignedToGroup.bpmn2"), ResourceType.BPMN2);
+
+        RuntimeManager manager = managerFactory.newSingletonRuntimeManager(builder.get(), id);
+        RuntimeEngine runtime = manager.getRuntimeEngine(EmptyContext.get());
+        KieSession ksession = runtime.getKieSession();
+
+        ProcessInstance processInstance = ksession.startProcess("UserTask");
+                
+        List<Status> statuses = new ArrayList<Status>();
+        statuses.add(Status.Ready);
+        statuses.add(Status.Reserved);
+
+        List<TaskSummary> tasks = runtimeDataService.getTasksAssignedAsPotentialOwnerByStatus("katy", statuses, new QueryFilter());
+        assertNotNull(tasks);
+        assertEquals(1, tasks.size());
+        
+        ksession.abortProcessInstance(processInstance.getId());
+        
     }
 }

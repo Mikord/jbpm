@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,19 +19,20 @@ package org.jbpm.test.functional.jobexec;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import javax.persistence.EntityManagerFactory;
+
 import org.assertj.core.api.Assertions;
 import org.jbpm.executor.impl.ExecutorServiceImpl;
 import org.jbpm.process.audit.JPAAuditLogService;
+import org.jbpm.runtime.manager.impl.jpa.EntityManagerFactoryManager;
 import org.jbpm.services.task.audit.service.TaskJPAAuditService;
 import org.jbpm.test.JbpmAsyncJobTestCase;
 import org.jbpm.test.listener.CountDownAsyncJobListener;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.task.TaskService;
 import org.kie.internal.executor.api.CommandContext;
-
 import qa.tools.ikeeper.annotation.BZ;
 
 /**
@@ -55,6 +56,8 @@ public class LogCleanupCommandTest extends JbpmAsyncJobTestCase {
 
     private TaskJPAAuditService taskAuditService;
     private JPAAuditLogService auditLogService;
+    
+    private EntityManagerFactory emfErrors = null;
 
     // ------------------------ Test Methods ------------------------
 
@@ -65,6 +68,8 @@ public class LogCleanupCommandTest extends JbpmAsyncJobTestCase {
         taskAuditService.clear();
         auditLogService = new JPAAuditLogService(getEmf());
         auditLogService.clear();
+        
+        emfErrors = EntityManagerFactoryManager.get().getOrCreate("org.jbpm.persistence.complete");
     }
 
     @Override
@@ -74,6 +79,10 @@ public class LogCleanupCommandTest extends JbpmAsyncJobTestCase {
             taskAuditService.dispose();
             auditLogService.clear();
             auditLogService.dispose();
+            
+            if (emfErrors != null) {
+                emfErrors.close();
+            }
         } finally {
             super.tearDown();
         }
@@ -100,7 +109,6 @@ public class LogCleanupCommandTest extends JbpmAsyncJobTestCase {
         Assertions.assertThat(getNodeInstanceLogSize(HELLO_WORLD_ID)).isPositive();
     }
 
-    @Ignore
     @Test(timeout=10000)
     public void skipTaskLog() throws Exception {
         KieSession kieSession = null;
@@ -155,7 +163,6 @@ public class LogCleanupCommandTest extends JbpmAsyncJobTestCase {
         // Verify presence of data
         Assertions.assertThat(getProcessLogSize(runProcess)).isPositive();
         Assertions.assertThat(getNodeInstanceLogSize(runProcess)).isPositive();
-//        Assertions.assertThat(getExecutorLogSize()).isZero(); // TBD: Should be zero but is > zero
 
         // Set to NOW if date was not provided
         if (date == null) {
@@ -177,7 +184,6 @@ public class LogCleanupCommandTest extends JbpmAsyncJobTestCase {
         Assertions.assertThat(getNodeInstanceLogSize(HELLO_WORLD_ID)).isPositive();
     }
 
-    @Ignore
     @Test(timeout=10000)
     @BZ("1190881")
     public void deleteAllLogsOlderThanNow() throws Exception {
@@ -189,7 +195,6 @@ public class LogCleanupCommandTest extends JbpmAsyncJobTestCase {
         Assertions.assertThat(getNodeInstanceLogSize(HELLO_WORLD_ID)).isZero();
     }
 
-    @Ignore
     @Test(timeout=10000)
     public void deleteAllLogsOlderThanTomorrow() throws Exception {
         CountDownAsyncJobListener countDownListener = new CountDownAsyncJobListener(1);
@@ -210,7 +215,6 @@ public class LogCleanupCommandTest extends JbpmAsyncJobTestCase {
         Assertions.assertThat(getNodeInstanceLogSize(HELLO_WORLD_ID)).isPositive();
     }
 
-    @Ignore
     @Test(timeout=10000)
     @BZ("1190881")
     public void deleteAllLogsOlderThanPeriod() throws Exception {
@@ -220,20 +224,20 @@ public class LogCleanupCommandTest extends JbpmAsyncJobTestCase {
         KieSession kieSession = createKSession(HELLO_WORLD);
         startProcess(kieSession, HELLO_WORLD_ID, 3);
 
-        countDownListener.waitTillCompleted();
-
-        startProcess(kieSession, HELLO_WORLD_ID, 2);
+        // Advance time 1+ second forward
+        Thread.sleep(1010);
 
         // Verify presence of data
-        Assertions.assertThat(getProcessLogSize(HELLO_WORLD_ID)).isEqualTo(5);
+        Assertions.assertThat(getProcessLogSize(HELLO_WORLD_ID)).isEqualTo(3);
         Assertions.assertThat(getNodeInstanceLogSize(HELLO_WORLD_ID)).isPositive();
 
         // Schedule cleanup job
-        scheduleLogCleanup(false, false, false, null, "8s", HELLO_WORLD_ID);
+        scheduleLogCleanup(false, false, false, null, "1s", HELLO_WORLD_ID);
         countDownListener.waitTillCompleted();
 
         // Verify absence of data
-        Assertions.assertThat(getProcessLogSize(HELLO_WORLD_ID)).isEqualTo(2);
+        Assertions.assertThat(getProcessLogSize(HELLO_WORLD_ID)).isZero();
+        Assertions.assertThat(getNodeInstanceLogSize(HELLO_WORLD_ID)).isZero();
     }
 
     // ------------------------ Helper Methods ------------------------

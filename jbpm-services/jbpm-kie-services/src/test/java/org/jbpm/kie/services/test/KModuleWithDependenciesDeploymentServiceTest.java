@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,12 +15,6 @@
  */
 
 package org.jbpm.kie.services.test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -43,12 +37,15 @@ import org.kie.api.builder.ReleaseId;
 import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.ProcessInstance;
-import org.kie.api.task.model.TaskSummary;
 import org.kie.api.runtime.query.QueryContext;
+import org.kie.api.task.model.TaskSummary;
 import org.kie.internal.runtime.manager.InternalRuntimeManager;
 import org.kie.internal.runtime.manager.context.EmptyContext;
 import org.kie.internal.task.api.InternalTaskService;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
+
+import static org.junit.Assert.*;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 public class KModuleWithDependenciesDeploymentServiceTest extends AbstractKieServicesBaseTest {
    
@@ -69,14 +66,14 @@ public class KModuleWithDependenciesDeploymentServiceTest extends AbstractKieSer
         ReleaseId releaseId = ks.newReleaseId(GROUP_ID, ARTIFACT_ID, VERSION);
         File kjar = new File("src/test/resources/kjar-with-deps/jbpm-module.jar");
         File pom = new File("src/test/resources/kjar-with-deps/pom.xml");
-        MavenRepository repository = getMavenRepository();
-        repository.deployArtifact(releaseId, kjar, pom);
+        KieMavenRepository repository = getKieMavenRepository();
+        repository.installArtifact(releaseId, kjar, pom);
         
         ReleaseId dataReleaseId = ks.newReleaseId(DATA_GROUP_ID, DATA_ARTIFACT_ID, DATA_VERSION);
         File datajar = new File("src/test/resources/kjar-with-deps/custom-data.jar");
         File datapom = new File("src/test/resources/kjar-with-deps/data-pom.xml");
         
-        repository.deployArtifact(dataReleaseId, datajar, datapom);
+        repository.installArtifact(dataReleaseId, datajar, datapom);
     }
     
     @After

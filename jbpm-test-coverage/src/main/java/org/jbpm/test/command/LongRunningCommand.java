@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,15 +25,15 @@ import org.kie.api.executor.ExecutionResults;
 public class LongRunningCommand implements Command {
 
     public ExecutionResults execute(CommandContext ctx) {
-        System.out.println("[INFO] Command executed on executor with data " + ctx.getData());
+        System.out.println(Thread.currentThread().getName() + " [INFO] Command executed on executor with data " + ctx.getData());
         long time = 8 * 1000;
 
-        System.out.println("[INFO] Simulating long running task, sleep time " + time + "ms");
+        System.out.println(Thread.currentThread().getName() + " [INFO] Simulating long running task, sleep time " + time + "ms");
         try {
             Thread.sleep(time);
         } catch (Exception ex) {
         }
-        System.out.println("[INFO] Long running task finished after " + time + "ms");
+        System.out.println(Thread.currentThread().getName() + " [INFO] Long running task finished after " + time + "ms");
         ExecutionResults executionResults = new ExecutionResults();
         return executionResults;
     }

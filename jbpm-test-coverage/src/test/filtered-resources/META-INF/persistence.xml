@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<persistence version="2.0"
-             xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd"
-             xmlns="http://java.sun.com/xml/ns/persistence"
-             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<persistence version="2.1"
+             xmlns="http://xmlns.jcp.org/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd">
 
   <persistence-unit name="org.jbpm.test.persistence" transaction-type="JTA">
 
-    <provider>org.hibernate.ejb.HibernatePersistence</provider>
+    <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
     <jta-data-source>jdbc/jbpm-ds</jta-data-source>
 
     <mapping-file>META-INF/Executor-orm.xml</mapping-file>
@@ -60,6 +60,9 @@
     <class>org.jbpm.services.task.audit.impl.model.TaskVariableImpl</class>
 
     <class>org.jbpm.test.entity.DocumentVariable</class>
+    
+    <!-- error handling -->
+    <class>org.jbpm.runtime.manager.impl.jpa.ExecutionErrorInfo</class>
 
     <exclude-unlisted-classes>true</exclude-unlisted-classes>
 
@@ -72,13 +75,15 @@
 
       <!-- BZ 841786: AS7/EAP 6/Hib 4 uses new (sequence) generators which seem to cause problems -->
       <property name="hibernate.id.new_generator_mappings" value="false"/>
+      <property name="hibernate.connection.release_mode" value="after_transaction"/>
       <property name="hibernate.transaction.jta.platform"
-                value="org.hibernate.service.jta.platform.internal.BitronixJtaPlatform"/>
+                value="org.hibernate.service.jta.platform.internal.JBossStandAloneJtaPlatform"/>
     </properties>
   </persistence-unit>
   
   <persistence-unit name="org.jbpm.persistence.patient.example" transaction-type="JTA">
-    <provider>org.hibernate.ejb.HibernatePersistence</provider>
+    <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
+    <jta-data-source>jdbc/jbpm-ds</jta-data-source>
     <class>org.jbpm.test.entity.Patient</class>
     <class>org.jbpm.test.entity.MedicalRecord</class>
     <class>org.jbpm.test.entity.RecordRow</class>
@@ -93,17 +98,12 @@
         <!-- BZ 841786: AS7/EAP 6/Hib 4 uses new (sequence) generators which seem to cause problems -->      
         <property name="hibernate.id.new_generator_mappings" value="false" />                    
         
-        <property name="hibernate.connection.driver_class" value="org.h2.Driver" />
-        <property name="hibernate.connection.url" value="jdbc:h2:mem:mydb" />
-        <property name="hibernate.connection.username" value="sa" />
-        <property name="hibernate.connection.password" value="sasa" />
-        
-        <property name="hibernate.transaction.jta.platform" value="org.hibernate.service.jta.platform.internal.BitronixJtaPlatform" /> 
+        <property name="hibernate.transaction.jta.platform" value="org.hibernate.service.jta.platform.internal.JBossStandAloneJtaPlatform" /> 
       </properties>        
     </persistence-unit>
     
     <persistence-unit name="org.jbpm.services.task" transaction-type="JTA">
-      <provider>org.hibernate.ejb.HibernatePersistence</provider>
+      <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
       <jta-data-source>jdbc/jbpm-ds</jta-data-source>
       <mapping-file>META-INF/Taskorm.xml</mapping-file>
       <mapping-file>META-INF/TaskAuditorm.xml</mapping-file>
@@ -150,8 +150,28 @@
           seem to cause problems -->
         <property name="hibernate.id.new_generator_mappings" value="false" />
         <property name="hibernate.transaction.jta.platform"
-          value="org.hibernate.service.jta.platform.internal.BitronixJtaPlatform" />
+          value="org.hibernate.service.jta.platform.internal.JBossStandAloneJtaPlatform" />
       </properties>
     </persistence-unit>
+    
+  <persistence-unit name="org.jbpm.persistence.parent-child" transaction-type="JTA">
+    <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
+    <jta-data-source>jdbc/jbpm-ds</jta-data-source>
+    <class>org.jbpm.test.entity.Application</class>
+    <class>org.jbpm.test.entity.Person</class>
+    <exclude-unlisted-classes>true</exclude-unlisted-classes>
+
+    <properties>
+        <property name="hibernate.max_fetch_depth" value="3"/>
+        <property name="hibernate.hbm2ddl.auto" value="update" />
+        <property name="hibernate.show_sql" value="false" />
+        <property name="hibernate.dialect" value="${maven.hibernate.dialect}"/>
+        
+        <!-- BZ 841786: AS7/EAP 6/Hib 4 uses new (sequence) generators which seem to cause problems -->      
+        <property name="hibernate.id.new_generator_mappings" value="false" />                    
+        
+        <property name="hibernate.transaction.jta.platform" value="org.hibernate.service.jta.platform.internal.JBossStandAloneJtaPlatform" /> 
+      </properties>        
+    </persistence-unit>    
 
 </persistence>    

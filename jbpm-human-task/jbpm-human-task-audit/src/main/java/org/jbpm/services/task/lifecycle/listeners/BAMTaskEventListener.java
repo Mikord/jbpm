@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -80,13 +80,13 @@ public class BAMTaskEventListener extends PersistableEventListener  {
     	updateTask(event, new BAMTaskWorker() {
             @Override
             public BAMTaskSummaryImpl createTask(BAMTaskSummaryImpl bamTask, Task task) {
-                bamTask.setStartDate(new Date());
+                bamTask.setStartDate(event.getEventDate());
                 return bamTask;
             }
 
             @Override
             public BAMTaskSummaryImpl updateTask(BAMTaskSummaryImpl bamTask, Task task) {
-                bamTask.setStartDate(new Date());
+                bamTask.setStartDate(event.getEventDate());
                 return bamTask;
             }
         });
@@ -110,7 +110,7 @@ public class BAMTaskEventListener extends PersistableEventListener  {
 
             @Override
             public BAMTaskSummaryImpl updateTask(BAMTaskSummaryImpl bamTask, Task task) {
-                Date completedDate = new Date();
+                Date completedDate = event.getEventDate();
                 bamTask.setEndDate(completedDate);
                 bamTask.setDuration(completedDate.getTime() - bamTask.getStartDate().getTime());
                 return bamTask;
@@ -122,31 +122,18 @@ public class BAMTaskEventListener extends PersistableEventListener  {
         createTask(event, null, null);
     }
 
-    /**
-     * When a task is skipped, the status for dashbuilder integration task must be Exited.
-     *
-     * @param ti The task.
-     */
+
     public void afterTaskSkippedEvent(TaskEvent event) {
-        createOrUpdateTask(event, Status.Exited);
+        createOrUpdateTask(event, Status.Obsolete);
     }
 
-    /**
-     * When a task is stopped, the status for dashbuilder integration task must be Exited.
-     *
-     * @param ti The task.
-     */
     public void afterTaskStoppedEvent(TaskEvent event) {
-        createOrUpdateTask(event, Status.Exited);
+        updateTask(event);
     }
 
-    /**
-     * When a task is failed, the status for dashbuilder integration task must be Exited.
-     *
-     * @param ti The task.
-     */
+    
     public void afterTaskFailedEvent(TaskEvent event) {
-        createOrUpdateTask(event, Status.Error);
+        createOrUpdateTask(event, Status.Failed);
     }
 
     public void afterTaskExitedEvent(TaskEvent event) {
@@ -245,7 +232,7 @@ public class BAMTaskEventListener extends PersistableEventListener  {
 	            actualOwner = ti.getTaskData().getActualOwner().getId();
 	        }
 	
-	        result = new BAMTaskSummaryImpl(ti.getId(), ti.getName(), status.toString(), new Date(), actualOwner, ti.getTaskData().getProcessInstanceId());
+	        result = new BAMTaskSummaryImpl(ti.getId(), ti.getName(), status.toString(), event.getEventDate(), actualOwner, ti.getTaskData().getProcessInstanceId());
 	        if (worker != null) worker.createTask(result, ti);
 	        persistenceContext.persist(result);
 	    

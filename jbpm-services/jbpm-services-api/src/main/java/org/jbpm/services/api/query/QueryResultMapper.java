@@ -1,11 +1,11 @@
 /*
- * Copyright 2016 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -74,10 +74,14 @@ public interface QueryResultMapper<T> extends Serializable {
     public static final String COLUMN_CORRELATIONKEY = "CORRELATIONKEY";
     public static final String COLUMN_EXTERNALID = "EXTERNALID";
     public static final String COLUMN_PROCESSINSTANCEDESCRIPTION = "PROCESSINSTANCEDESCRIPTION";
+    public static final String COLUMN_SLA_DUE_DATE = "SLA_DUE_DATE";
+    public static final String COLUMN_SLA_COMPLIANCE = "SLACOMPLIANCE";
+    public static final String COLUMN_PROCESS_LASTMODIFICATIONDATE = "LASTMODIFICATIONDATE";
     
     // process variable related
     public static final String COLUMN_VAR_NAME = "VARIABLEID";
     public static final String COLUMN_VAR_VALUE = "VALUE";
+    
     
     // task related
     public static final String COLUMN_ACTIVATIONTIME = "ACTIVATIONTIME";
@@ -88,6 +92,7 @@ public interface QueryResultMapper<T> extends Serializable {
     public static final String COLUMN_DESCRIPTION = "DESCRIPTION";
     public static final String COLUMN_DUEDATE = "DUEDATE";
     public static final String COLUMN_NAME = "NAME";
+    public static final String COLUMN_SUBJECT = "SUBJECT";
     public static final String COLUMN_PARENTID = "PARENTID";
     public static final String COLUMN_PRIORITY = "PRIORITY";
     public static final String COLUMN_TASK_PROCESSID = "PROCESSID";
@@ -95,8 +100,18 @@ public interface QueryResultMapper<T> extends Serializable {
     public static final String COLUMN_TASK_STATUS = "STATUS";
     public static final String COLUMN_TASKID = "TASKID";
     public static final String COLUMN_WORKITEMID = "WORKITEMID";
-    public static final String COLUMN_ORGANIZATIONAL_ENTITY = "OEID";
+    public static final String COLUMN_ORGANIZATIONAL_ENTITY = "ID";
+    public static final String COLUMN_EXCLUDED_OWNER = "ENTITY_ID";
+    public static final String COLUMN_EXPIRATIONTIME = "EXPIRATIONDATE";
+    public static final String COLUMN_POTOWNER = "POTOWNER";
+    public static final String COLUMN_TASK_TYPE = "TASKTYPE";
+    public static final String COLUMN_FORM_NAME = "FORMNAME";
     
+    
+    //task event related
+    public static final String COLUMN_LASTMODIFICATION_USER = "LASTMODIFICATIONUSER";
+    public static final String COLUMN_LASTMODIFICATION_DATE = "LASTMODIFICATIONDATE";
+
     // task variables related
     public static final String COLUMN_TASK_VAR_NAME = "TVNAME";
     public static final String COLUMN_TASK_VAR_VALUE = "TVVALUE";
@@ -109,5 +124,21 @@ public interface QueryResultMapper<T> extends Serializable {
     public static final String COLUMN_JOB_COMMANDNAME = "commandName";
     public static final String COLUMN_JOB_MESSAGE = "message";
     public static final String COLUMN_JOB_BUSINESSKEY = "businessKey";
+    
+    // execution error
+    public static final String COLUMN_ERROR_ID = "ERROR_ID";
+    public static final String COLUMN_ERROR_TYPE = "ERROR_TYPE";
+    public static final String COLUMN_ERROR_DEPLOYMENT_ID = "DEPLOYMENT_ID";
+    public static final String COLUMN_ERROR_PROCESS_INST_ID = "PROCESS_INST_ID";
+    public static final String COLUMN_ERROR_PROCESS_ID = "PROCESS_ID";
+    public static final String COLUMN_ERROR_ACTIVITY_ID = "ACTIVITY_ID";
+    public static final String COLUMN_ERROR_ACTIVITY_NAME = "ACTIVITY_NAME";
+    public static final String COLUMN_ERROR_JOB_ID = "JOB_ID";
+    public static final String COLUMN_ERROR_MSG = "ERROR_MSG";
+    public static final String COLUMN_ERROR = "ERROR_INFO";
+    public static final String COLUMN_ERROR_ACK = "ERROR_ACK";
+    public static final String COLUMN_ERROR_ACK_BY = "ERROR_ACK_BY";
+    public static final String COLUMN_ERROR_ACK_AT = "ERROR_ACK_AT";
+    public static final String COLUMN_ERROR_DATE = "ERROR_DATE";
    
 }

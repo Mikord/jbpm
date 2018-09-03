@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Embeddable;
@@ -111,6 +112,31 @@ public class TaskDataImpl implements InternalTaskData {
     @JoinColumn(name = "TaskData_Attachments_Id", nullable = true)
     @OrderBy("id ASC")
     private List<Attachment> attachments = Collections.emptyList();
+   
+
+    // transient task variables for improved access
+    private transient Map<String, Object> taskInputVariables;
+    private transient Map<String, Object> taskOutputVariables;
+    
+    @Override
+    public Map<String, Object> getTaskInputVariables() {
+        return taskInputVariables;
+    }
+
+    @Override
+    public void setTaskInputVariables(Map<String, Object> taskInputVariables) {
+        this.taskInputVariables = taskInputVariables;
+    }
+
+    @Override
+    public Map<String, Object> getTaskOutputVariables() {
+        return taskOutputVariables;
+    }
+
+    @Override
+    public void setTaskOutputVariables(Map<String, Object> taskOutputVariables) {
+        this.taskOutputVariables = taskOutputVariables;
+    }
 
     public void writeExternal(ObjectOutput out) throws IOException {
         if (status != null) {

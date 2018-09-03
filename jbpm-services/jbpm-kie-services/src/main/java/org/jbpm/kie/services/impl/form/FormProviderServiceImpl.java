@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,11 +26,13 @@ import org.jbpm.services.api.DeploymentService;
 import org.jbpm.services.api.RuntimeDataService;
 import org.jbpm.services.api.model.DeployedUnit;
 import org.jbpm.services.api.model.ProcessDefinition;
+import org.jbpm.services.task.commands.GetUserTaskCommand;
 import org.jbpm.services.task.impl.TaskContentRegistry;
 import org.jbpm.services.task.utils.ContentMarshallerHelper;
 import org.kie.api.task.TaskService;
 import org.kie.api.task.model.Content;
 import org.kie.api.task.model.Task;
+import org.kie.internal.identity.IdentityProvider;
 import org.kie.internal.runtime.manager.InternalRuntimeManager;
 import org.kie.internal.task.api.ContentMarshallerContext;
 import org.slf4j.Logger;
@@ -41,15 +43,17 @@ public class FormProviderServiceImpl implements FormProviderService {
 
     private static Logger logger = LoggerFactory.getLogger(FormProviderServiceImpl.class);
 
-    
+
     private TaskService taskService;
-    
+
     private DefinitionService bpmn2Service;
-    
+
     private RuntimeDataService dataService;
-    
-    private DeploymentService deploymentService;    
-    
+
+    private DeploymentService deploymentService;
+
+    private IdentityProvider identityProvider;
+
     public void setTaskService(TaskService taskService) {
 		this.taskService = taskService;
 	}
@@ -70,9 +74,11 @@ public class FormProviderServiceImpl implements FormProviderService {
 		this.providers = providers;
 	}
 
-	private Set<FormProvider> providers;
+    public void setIdentityProvider(IdentityProvider identityProvider) {
+        this.identityProvider = identityProvider;
+    }
 
-
+    private Set<FormProvider> providers;
 
     @Override
     public String getFormDisplayProcess(String deploymentId, String processId) {
@@ -102,12 +108,17 @@ public class FormProviderServiceImpl implements FormProviderService {
     @Override
     @SuppressWarnings("unchecked")
     public String getFormDisplayTask(long taskId) {
-        Task task = taskService.getTaskById(taskId);
+        Task task = taskService.execute(new GetUserTaskCommand(identityProvider.getName(), taskId));
         if (task == null) {
             return "";
         }
         String name = task.getName();
-        ProcessDefinition processDesc = dataService.getProcessesByDeploymentIdProcessId(task.getTaskData().getDeploymentId(), task.getTaskData().getProcessId());
+        final String deploymentId = task.getTaskData().getDeploymentId();
+        final String processId = task.getTaskData().getProcessId();
+        ProcessDefinition processDesc = null;
+        if(deploymentId != null && processId != null) {
+            processDesc = dataService.getProcessesByDeploymentIdProcessId(deploymentId, processId);
+        }
         Map<String, Object> renderContext = new HashMap<String, Object>();
 
         ContentMarshallerContext marshallerContext = getMarshallerContext(task);
@@ -133,12 +144,11 @@ public class FormProviderServiceImpl implements FormProviderService {
         }
 
         // prepare task variables for rendering
-        String processId = task.getTaskData().getProcessId();
         Map<String, Object> finalOutput = new HashMap<String, Object>();
 
         if (processId != null && !processId.equals("")) {
             // If task has an associated process let's merge the outputs
-            Map<String, String> taskOutputMappings = bpmn2Service.getTaskOutputMappings(task.getTaskData().getDeploymentId(), processId, task.getName());
+            Map<String, String> taskOutputMappings = bpmn2Service.getTaskOutputMappings(deploymentId, processId, task.getName());
             if (taskOutputMappings == null) {
                 taskOutputMappings = new HashMap<String, String>();
             }
@@ -158,7 +168,7 @@ public class FormProviderServiceImpl implements FormProviderService {
             finalOutput.putAll( (Map<String, Object>) output );
         }
 
-        // merge template with process variables        
+        // merge template with process variables
         renderContext.put("task", task);
         renderContext.put("marshallerContext", marshallerContext);
 
@@ -186,7 +196,7 @@ public class FormProviderServiceImpl implements FormProviderService {
             }
         }
 
-        logger.warn("Unable to find form to render for task '{}' on process '{}'", name, processDesc.getName());
+        logger.warn("Unable to find form to render for task '{}' on process '{}'", name, processDesc == null ? "" : processDesc.getName());
         return "";
     }
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -143,6 +143,17 @@ public interface RuntimeDataService {
      *         the given correlation key
      */
     Collection<ProcessInstanceDesc> getProcessInstancesByCorrelationKey(CorrelationKey correlationKey, QueryContext queryContext);
+    
+    /**
+     * Returns process instances descriptions filtered by their states found for given correlation key if found otherwise empty list.
+     * This query uses 'like' to match correlation key so it allows to pass only partial keys - though matching
+     * is done based on 'starts with'
+     * @param correlationKey correlation key assigned to process instance
+     * @param states A list of possible state (int) values that the {@link ProcessInstance} can have.
+     * @return A list of {@link ProcessInstanceDesc} instances representing the process instances that match
+     *         the given correlation key
+     */
+    Collection<ProcessInstanceDesc> getProcessInstancesByCorrelationKeyAndStatus(CorrelationKey correlationKey, List<Integer> states, QueryContext queryContext);
 
     /**
      * Returns list of process instance descriptions found for given process definition id
@@ -182,6 +193,16 @@ public interface RuntimeDataService {
      */
     Collection<ProcessInstanceDesc> getProcessInstancesByVariableAndValue(String variableName, String variableValue, List<Integer> states, QueryContext queryContext);
 
+    /**
+     * Returns list of process instance descriptions
+     * @param parentProcessInstanceId id of the parent process instance
+     * @param states list of possible state (int) values that the {@link ProcessInstance} can have. If null will return only active instances
+     * @param queryContext control parameters for the result e.g. sorting, paging
+     * @return A list of {@link ProcessInstanceDesc} instances representing the available process instances.
+     */
+    Collection<ProcessInstanceDesc> getProcessInstancesByParent(Long parentProcessInstanceId, List<Integer> states, QueryContext queryContext);
+    
+    
     // Node and Variable instance information
 
     /**
@@ -230,6 +251,27 @@ public interface RuntimeDataService {
     Collection<NodeInstanceDesc> getProcessInstanceFullHistoryByType(long processInstanceId, EntryType type, QueryContext queryContext);
 
 
+    /**
+     * Returns trace of all nodes for a given node types and process instance id
+     * @param deploymentId unique identifier of the deployment unit
+     * @param processInstanceId unique identifier of process instance
+     * @param nodeTypes list of node types to filter nodes of process instance
+     * @param queryContext control parameters for the result e.g. sorting, paging
+     * @return
+     */
+    Collection<NodeInstanceDesc> getNodeInstancesByNodeType(long processInstanceId, List<String> nodeTypes, QueryContext queryContext);
+    
+    /**
+     * Returns trace of all nodes for a given node types and correlation key
+     * @param deploymentId unique identifier of the deployment unit
+     * @param processInstanceId unique identifier of process instance
+     * @param nodeTypes list of node types to filter nodes of process instance
+     * @param queryContext control parameters for the result e.g. sorting, paging
+     * @return
+     */
+    Collection<NodeInstanceDesc> getNodeInstancesByCorrelationKeyNodeType(CorrelationKey correlationKey,  List<Integer> states, List<String> nodeTypes, QueryContext queryContext);
+    
+    
     /**
      * Returns collections of all process variables current value for given process instance
      * @param processInstanceId The process instance id.

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,23 +17,29 @@ package org.jbpm.services.task.audit.impl.model;
 
 import java.io.Serializable;
 import java.util.Date;
-
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Index;
 import javax.persistence.SequenceGenerator;
+import javax.persistence.Table;
 import javax.persistence.Temporal;
 
 import org.kie.internal.task.api.AuditTask;
 
-/**
- *
- * @author salaboy
- */
 @Entity
+@Table(name = "AuditTaskImpl", indexes = {
+        @Index(name = "IDX_AuditTaskImpl_taskId", columnList = "taskId"),
+        @Index(name = "IDX_AuditTaskImpl_pInstId", columnList = "processInstanceId"),
+        @Index(name = "IDX_AuditTaskImpl_workItemId", columnList = "workItemId"),
+        @Index(name = "IDX_AuditTaskImpl_name", columnList = "name"),
+        @Index(name = "IDX_AuditTaskImpl_processId", columnList = "processId"),
+        @Index(name = "IDX_AuditTaskImpl_status", columnList = "status")
+})
 @SequenceGenerator(name = "auditIdSeq", sequenceName = "AUDIT_ID_SEQ", allocationSize = 1)
-public class AuditTaskImpl implements Serializable, AuditTask {
+public class AuditTaskImpl implements Serializable,
+                                      AuditTask {
 
     private static final long serialVersionUID = 5388016330549830043L;
 
@@ -61,15 +67,28 @@ public class AuditTaskImpl implements Serializable, AuditTask {
     private long parentId;
     private String deploymentId;
     private Long workItemId;
-   
+    @Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    private Date lastModificationDate;
 
     public AuditTaskImpl() {
     }
 
-    public AuditTaskImpl(long taskId, String name, String status, Date activationTime,
-            String actualOwner, String description, int priority, String createdBy,
-            Date createdOn, Date dueDate, long processInstanceId, String processId,
-            long processSessionId, String deploymentId, long parentId, long workItemId) {
+    public AuditTaskImpl(long taskId,
+                         String name,
+                         String status,
+                         Date activationTime,
+                         String actualOwner,
+                         String description,
+                         int priority,
+                         String createdBy,
+                         Date createdOn,
+                         Date dueDate,
+                         long processInstanceId,
+                         String processId,
+                         long processSessionId,
+                         String deploymentId,
+                         long parentId,
+                         long workItemId) {
         this.taskId = taskId;
         this.status = status;
         this.activationTime = activationTime;
@@ -86,6 +105,43 @@ public class AuditTaskImpl implements Serializable, AuditTask {
         this.deploymentId = deploymentId;
         this.parentId = parentId;
         this.workItemId = workItemId;
+        this.lastModificationDate = new Date();
+    }
+
+    public AuditTaskImpl(long taskId,
+                         String name,
+                         String status,
+                         Date activationTime,
+                         String actualOwner,
+                         String description,
+                         int priority,
+                         String createdBy,
+                         Date createdOn,
+                         Date dueDate,
+                         long processInstanceId,
+                         String processId,
+                         long processSessionId,
+                         String deploymentId,
+                         long parentId,
+                         long workItemId,
+                         Date lastModificationDate) {
+        this.taskId = taskId;
+        this.status = status;
+        this.activationTime = activationTime;
+        this.name = name;
+        this.description = description;
+        this.priority = priority;
+        this.createdBy = createdBy;
+        this.createdOn = createdOn;
+        this.actualOwner = actualOwner;
+        this.dueDate = dueDate;
+        this.processInstanceId = processInstanceId;
+        this.processId = processId;
+        this.processSessionId = processSessionId;
+        this.deploymentId = deploymentId;
+        this.parentId = parentId;
+        this.workItemId = workItemId;
+        this.lastModificationDate = lastModificationDate;
     }
 
     public Long getId() {
@@ -252,4 +308,11 @@ public class AuditTaskImpl implements Serializable, AuditTask {
         this.workItemId = workItemId;
     }
 
+    public Date getLastModificationDate() {
+        return lastModificationDate;
+    }
+
+    public void setLastModificationDate(Date lastModificationDate) {
+        this.lastModificationDate = lastModificationDate;
+    }
 }

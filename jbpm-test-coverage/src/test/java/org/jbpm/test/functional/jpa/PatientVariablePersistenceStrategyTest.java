@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.test.functional.jpa;
 
@@ -53,6 +54,8 @@ import org.kie.api.task.model.TaskSummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.Assert.*;
+
 public class PatientVariablePersistenceStrategyTest extends JbpmTestCase {
 
     private static final Logger logger = LoggerFactory.getLogger(PatientVariablePersistenceStrategyTest.class);
@@ -72,7 +75,6 @@ public class PatientVariablePersistenceStrategyTest extends JbpmTestCase {
         emfDomain = Persistence.createEntityManagerFactory("org.jbpm.persistence.patient.example");
         addEnvironmentEntry(EnvironmentName.OBJECT_MARSHALLING_STRATEGIES, 
         		new ObjectMarshallingStrategy[] {
-                new ProcessInstanceResolverStrategy(),
                 new JPAPlaceholderResolverStrategy(emfDomain),
                 new SerializablePlaceholderResolverStrategy(ClassObjectMarshallingStrategyAcceptor.DEFAULT) });
         
@@ -115,7 +117,7 @@ public class PatientVariablePersistenceStrategyTest extends JbpmTestCase {
         taskService.start(frontDeskTasks.get(0).getId(), "frontDesk");
         //frontDesk completes its task
         MedicalRecord taskMedicalRecord = getTaskContent(runtimeEngine, frontDeskTasks.get(0));
-        Assert.assertNotNull(taskMedicalRecord.getId());
+        assertNotNull(taskMedicalRecord.getId());
         taskMedicalRecord.setDescription("Initial Description of the Medical Record");
                 
         Map<String, Object> output = new HashMap<String, Object>();
@@ -141,13 +143,18 @@ public class PatientVariablePersistenceStrategyTest extends JbpmTestCase {
         taskMedicalRecord.setDescription("Initial Description of the Medical Record - Updated");
         
         UserTransaction ut = InitialContext.doLookup("java:comp/UserTransaction");
-        ut.begin();
-        em.merge(taskMedicalRecord);
-        ut.commit();
+        try {
+            ut.begin();
+            em.merge(taskMedicalRecord);
+            ut.commit();
+        } catch (Exception ex) {
+            ut.rollback();
+            throw ex;
+        }
         
         taskMedicalRecord = getTaskContent(runtimeEngine, doctorTasks.get(0));
         
-        Assert.assertNotNull(taskMedicalRecord.getId());
+        assertNotNull(taskMedicalRecord.getId());
         taskMedicalRecord.setDescription("Initial Description of the Medical Record - Updated");
         
         taskService.start(doctorTasks.get(0).getId(), "doctor");

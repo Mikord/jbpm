@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.persistence.scripts;
 
 import java.io.File;
@@ -19,6 +35,7 @@ public class UpgradeScriptsTest {
     private static final String TEST_PROCESS_ID = "minimalProcess";
     private static final Long TEST_PROCESS_INSTANCE_ID = 1L;
     private static final Integer TEST_SESSION_ID = 1;
+    private static final String DB_UPGRADE_SCRIPTS_RESOURCE_PATH = "/db/upgrade-scripts";
 
     /**
      * Tests that DB schema is upgraded properly using database upgrade scripts.
@@ -40,13 +57,13 @@ public class UpgradeScriptsTest {
             // Prepare 6.0. schema
             scriptRunnerContext.executeScripts(new File(getClass().getResource("/ddl60").getFile()));
             // Execute upgrade scripts.
-            scriptRunnerContext.executeScripts(new File(getClass().getResource("/upgrade-scripts").getFile()), type);
+            scriptRunnerContext.executeScripts(new File(getClass().getResource(DB_UPGRADE_SCRIPTS_RESOURCE_PATH).getFile()), type);
         } finally {
             scriptRunnerContext.clean();
         }
 
         final TestPersistenceContext dbTestingContext = new TestPersistenceContext();
-        dbTestingContext.init(PersistenceUnit.DB_TESTING);
+        dbTestingContext.init(PersistenceUnit.DB_TESTING_VALIDATE);
         try {
             dbTestingContext.startAndPersistSomeProcess(TEST_PROCESS_ID);
             Assert.assertTrue(dbTestingContext.getStoredProcessesCount() == 1);
@@ -80,13 +97,13 @@ public class UpgradeScriptsTest {
             scriptRunnerContext.persistOldProcessAndSession(TEST_SESSION_ID, TEST_PROCESS_ID, TEST_PROCESS_INSTANCE_ID);
             scriptRunnerContext.createSomeTask();
             // Execute upgrade scripts.
-            scriptRunnerContext.executeScripts(new File(getClass().getResource("/upgrade-scripts").getFile()), type);
+            scriptRunnerContext.executeScripts(new File(getClass().getResource(DB_UPGRADE_SCRIPTS_RESOURCE_PATH).getFile()), type);
         } finally {
             scriptRunnerContext.clean();
         }
 
         final TestPersistenceContext dbTestingContext = new TestPersistenceContext();
-        dbTestingContext.init(PersistenceUnit.DB_TESTING);
+        dbTestingContext.init(PersistenceUnit.DB_TESTING_VALIDATE);
         try {
             Assert.assertTrue(dbTestingContext.getStoredProcessesCount() == 1);
             Assert.assertTrue(dbTestingContext.getStoredSessionsCount() == 1);

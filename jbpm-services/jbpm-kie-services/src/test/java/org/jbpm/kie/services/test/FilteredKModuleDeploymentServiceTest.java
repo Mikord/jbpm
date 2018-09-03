@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,21 +16,16 @@
 
 package org.jbpm.kie.services.test;
 
-import static org.junit.Assert.*;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.annotation.XmlRootElement;
 
-import org.codehaus.jackson.annotate.JsonAnyGetter;
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
 import org.jbpm.kie.services.impl.KModuleDeploymentUnit;
 import org.jbpm.kie.test.objects.Building;
@@ -61,9 +56,12 @@ import org.kie.api.runtime.conf.ClockTypeOption;
 import org.kie.api.runtime.query.QueryContext;
 import org.kie.internal.io.ResourceFactory;
 import org.kie.internal.runtime.conf.DeploymentDescriptor;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.Assert.*;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 public class FilteredKModuleDeploymentServiceTest extends AbstractKieServicesBaseTest {
 
@@ -93,7 +91,7 @@ public class FilteredKModuleDeploymentServiceTest extends AbstractKieServicesBas
         } catch (Exception e) {
 
         }
-        MavenRepository repository = getMavenRepository();
+        KieMavenRepository repository = getKieMavenRepository();
         repository.deployArtifact(releaseId, kJar1, pom);
     }
 
@@ -435,5 +433,44 @@ public class FilteredKModuleDeploymentServiceTest extends AbstractKieServicesBas
        deploymentService.deploy(parentDeploymentUnit);
 
        verifyDeployedUnitContainsCorrectClasses(parentDeploymentUnit);
+    }
+
+    @Test
+    public void testMultipleRemotableInPojoJar() {
+        String groupId = "org.test";
+        String pojoArtifactId = "jbpm-kie-services-filter-test-pojo";
+        String projectArtifactId = "jbpm-kie-services-filter-test-project";
+        String version = VERSION;
+
+        KieServices ks = KieServices.Factory.get();
+        ReleaseId pojoReleaseId = ks.newReleaseId( groupId, pojoArtifactId, VERSION );
+        File pojojar = new File( "src/test/resources/multi-remotable/pojo.jar" ); // contains two @Remotable classes MyPojo, MyPojo2
+        File pojopom = new File( this.getClass().getResource("/multi-remotable/pojo-pom.xml").getFile());
+        KieMavenRepository.getKieMavenRepository().installArtifact( pojoReleaseId, pojojar, pojopom );
+
+        FluentKieModuleDeploymentHelper.newFluentInstance()
+            .setGroupId( groupId )
+            .setArtifactId( projectArtifactId )
+            .setVersion( version )
+            .addDependencies( groupId + ":" + pojoArtifactId + ":" + version )
+            .createKieJarAndDeployToMaven();
+
+        configureServices();
+
+        KModuleDeploymentUnit deploymentUnit = new KModuleDeploymentUnit( groupId, projectArtifactId, version );
+        DeploymentDescriptor depDesc = new DeploymentDescriptorImpl().getBuilder().setLimitSerializationClasses( true ).get();
+        deploymentUnit.setDeploymentDescriptor( depDesc );
+        deploymentService.deploy( deploymentUnit );
+
+        DeployedUnit deployedUnit = deploymentService.getDeployedUnit( deploymentUnit.getIdentifier() );
+        Collection<Class<?>> deployedClasses = deployedUnit.getDeployedClasses();
+        ClassLoader classLoader = deploymentUnit.getKieContainer().getClassLoader();
+
+        try {
+            assertTrue( "MyPojo is not added", deployedClasses.contains( classLoader.loadClass( "com.sample.MyPojo" ) ) );
+            assertTrue( "MyPojo2 is not added", deployedClasses.contains( classLoader.loadClass( "com.sample.MyPojo2" ) ) );
+        } catch ( ClassNotFoundException e ) {
+            fail( e.getMessage() );
+        }
     }
 }

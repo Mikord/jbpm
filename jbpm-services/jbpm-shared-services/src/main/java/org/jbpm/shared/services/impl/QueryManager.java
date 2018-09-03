@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -138,11 +138,27 @@ public class QueryManager {
 				return "log.identity";
 			} else if (orderBy.equals("ProcessVersion")) {
 				return "log.processVersion";
-			} else if (orderBy.equals("Status")) {
+			} else if (orderBy.equals("State")) {
 				return "log.status";
 			} else if (orderBy.equals("StartDate")) {
 				return "log.start";
-			} 
+			} else if (orderBy.equalsIgnoreCase("Task")) {
+                return "t.name";
+            } else if (orderBy.equalsIgnoreCase("Description")) {
+                return "t.description";
+            } else if (orderBy.equalsIgnoreCase("TaskId")) {
+                return "t.id";
+            } else if (orderBy.equalsIgnoreCase("Priority")) {
+                return "t.priority";
+            } else if (orderBy.equalsIgnoreCase("Status")) {
+                return "t.taskData.status";
+            } else if (orderBy.equalsIgnoreCase("CreatedOn")) {
+                return "t.taskData.createdOn";
+            } else if (orderBy.equalsIgnoreCase("CreatedBy")) {
+                return "t.taskData.createdBy.id";
+            } else if (orderBy.equalsIgnoreCase("DueOn")) {
+                return "t.taskData.expirationTime";
+            }
 		}
 		return orderBy;
 	}

@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,8 +27,6 @@ import java.util.Set;
 
 import org.drools.compiler.compiler.xml.XmlDumper;
 import org.drools.compiler.rule.builder.dialect.java.JavaDialect;
-import org.drools.core.process.core.Work;
-import org.drools.core.process.core.datatype.impl.type.ObjectDataType;
 import org.drools.core.xml.Handler;
 import org.drools.core.xml.SemanticModule;
 import org.drools.core.xml.SemanticModules;
@@ -39,10 +37,12 @@ import org.jbpm.bpmn2.core.Error;
 import org.jbpm.bpmn2.core.ItemDefinition;
 import org.jbpm.compiler.xml.XmlProcessReader;
 import org.jbpm.process.core.ContextContainer;
+import org.jbpm.process.core.Work;
 import org.jbpm.process.core.context.swimlane.Swimlane;
 import org.jbpm.process.core.context.swimlane.SwimlaneContext;
 import org.jbpm.process.core.context.variable.Variable;
 import org.jbpm.process.core.context.variable.VariableScope;
+import org.jbpm.process.core.datatype.impl.type.ObjectDataType;
 import org.jbpm.process.core.event.EventFilter;
 import org.jbpm.process.core.event.EventTypeFilter;
 import org.jbpm.process.core.impl.ProcessImpl;
@@ -69,6 +69,8 @@ import org.kie.api.definition.process.Node;
 import org.kie.api.definition.process.NodeContainer;
 import org.kie.api.definition.process.Process;
 import org.kie.api.definition.process.WorkflowProcess;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class XmlBPMNProcessDumper implements XmlProcessDumper {
 
@@ -77,12 +79,15 @@ public class XmlBPMNProcessDumper implements XmlProcessDumper {
 	public static final String RULE_LANGUAGE = "http://www.jboss.org/drools/rule";
     public static final String XPATH_LANGUAGE = "http://www.w3.org/1999/XPath";
     public static final String JAVASCRIPT_LANGUAGE = "http://www.javascript.com/javascript";
+    public static final String FEEL_LANGUAGE = "http://www.omg.org/spec/FEEL/20140401";
 
     public static final int NO_META_DATA = 0;
     public static final int META_DATA_AS_NODE_PROPERTY = 1;
     public static final int META_DATA_USING_DI = 2;
 
 	public static final XmlBPMNProcessDumper INSTANCE = new XmlBPMNProcessDumper();
+
+    private static final Logger logger = LoggerFactory.getLogger(XmlBPMNProcessDumper.class);
 
     private final static String EOL = System.getProperty( "line.separator" );
 
@@ -566,19 +571,23 @@ public class XmlBPMNProcessDumper implements XmlProcessDumper {
                 }
             } else if (node instanceof ActionNode) {
             	ActionNode actionNode = (ActionNode) node;
-            	DroolsConsequenceAction action = (DroolsConsequenceAction) actionNode.getAction();
-        		if (action != null) {
-        		    String s = action.getConsequence();
-	            	if (s.startsWith("org.drools.core.process.instance.context.exception.ExceptionScopeInstance scopeInstance = (org.drools.core.process.instance.context.exception.ExceptionScopeInstance) ((org.drools.workflow.instance.NodeInstance) kcontext.getNodeInstance()).resolveContextInstance(org.drools.core.process.core.context.exception.ExceptionScope.EXCEPTION_SCOPE, \"")) {
-	            		s = s.substring(327);
-	                    String type = s.substring(0, s.indexOf("\""));
-	            		if (!escalations.contains(type)) {
-	            			escalations.add(type);
-		                    xmlDump.append(
-	                            "  <escalation id=\"" + XmlBPMNProcessDumper.replaceIllegalCharsAttribute(type) + "\" escalationCode=\"" + XmlBPMNProcessDumper.replaceIllegalCharsAttribute(type) + "\" />" + EOL);
-	            		}
-	            	}
-        		}
+            	if(actionNode.getAction() instanceof DroolsConsequenceAction) {
+                    DroolsConsequenceAction action = (DroolsConsequenceAction) actionNode.getAction();
+                    if (action != null) {
+                        String s = action.getConsequence();
+                        if (s.startsWith("org.drools.core.process.instance.context.exception.ExceptionScopeInstance scopeInstance = (org.drools.core.process.instance.context.exception.ExceptionScopeInstance) ((org.drools.workflow.instance.NodeInstance) kcontext.getNodeInstance()).resolveContextInstance(org.drools.core.process.core.context.exception.ExceptionScope.EXCEPTION_SCOPE, \"")) {
+                            s = s.substring(327);
+                            String type = s.substring(0, s.indexOf("\""));
+                            if (!escalations.contains(type)) {
+                                escalations.add(type);
+                                xmlDump.append(
+                                        "  <escalation id=\"" + XmlBPMNProcessDumper.replaceIllegalCharsAttribute(type) + "\" escalationCode=\"" + XmlBPMNProcessDumper.replaceIllegalCharsAttribute(type) + "\" />" + EOL);
+                            }
+                        }
+                    }
+                } else {
+            	    logger.warn("Cannot serialize custom implementation of the Action interface to XML");
+                }
             } else if (node instanceof EventNode) {
             	EventNode eventNode = (EventNode) node;
             	String type = (String) eventNode.getMetaData("EscalationEvent");
@@ -764,8 +773,10 @@ public class XmlBPMNProcessDumper implements XmlProcessDumper {
                             xmlDump.append("language=\"" + JAVA_LANGUAGE + "\" ");
                         } else if ("XPath".equals(constraint.getDialect())) {
                             xmlDump.append("language=\"" + XPATH_LANGUAGE + "\" ");
-                        }  else if ("JavaScript".equals(constraint.getDialect())) {
+                        } else if ("JavaScript".equals(constraint.getDialect())) {
                             xmlDump.append("language=\"" + JAVASCRIPT_LANGUAGE + "\" ");
+                        } else if ("FEEL".equals(constraint.getDialect())) {
+                            xmlDump.append("language=\"" + FEEL_LANGUAGE + "\" ");
                         }
                     } else {
                         xmlDump.append("language=\"" + RULE_LANGUAGE + "\" ");

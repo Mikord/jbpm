@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,10 +19,12 @@ package org.jbpm.workflow.instance.impl;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.drools.core.common.InternalKnowledgeRuntime;
 import org.drools.core.spi.ProcessContext;
@@ -40,6 +42,7 @@ import org.jbpm.process.instance.context.exclusive.ExclusiveGroupInstance;
 import org.jbpm.process.instance.context.variable.VariableScopeInstance;
 import org.jbpm.process.instance.impl.Action;
 import org.jbpm.process.instance.impl.ConstraintEvaluator;
+import org.jbpm.process.instance.impl.NoOpExecutionErrorHandler;
 import org.jbpm.workflow.core.impl.NodeImpl;
 import org.jbpm.workflow.instance.WorkflowProcessInstance;
 import org.jbpm.workflow.instance.WorkflowRuntimeException;
@@ -47,8 +50,11 @@ import org.jbpm.workflow.instance.node.ActionNodeInstance;
 import org.jbpm.workflow.instance.node.CompositeNodeInstance;
 import org.kie.api.definition.process.Connection;
 import org.kie.api.definition.process.Node;
+import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.process.NodeInstance;
 import org.kie.api.runtime.process.NodeInstanceContainer;
+import org.kie.internal.runtime.error.ExecutionErrorHandler;
+import org.kie.internal.runtime.error.ExecutionErrorManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,12 +67,18 @@ public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.Nod
 	private static final long serialVersionUID = 510l;
 	protected static final Logger logger = LoggerFactory.getLogger(NodeInstanceImpl.class);
 	
-	private long id;
+	private long id = -1;
     private long nodeId;
     private WorkflowProcessInstance processInstance;
     private org.jbpm.workflow.instance.NodeInstanceContainer nodeInstanceContainer;
     private Map<String, Object> metaData = new HashMap<String, Object>();
     private int level;
+    
+    protected int slaCompliance = ProcessInstance.SLA_NA;
+    protected Date slaDueDate;
+    protected long slaTimerId = -1;
+    
+    protected transient Map<String, Object> dynamicParameters;
 
     public void setId(final long id) {
         this.id = id;
@@ -163,12 +175,20 @@ public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.Nod
 	    	    }
 	    	}
     	}
+    	if (dynamicParameters != null) {
+            for (Entry<String, Object> entry : dynamicParameters.entrySet()) {
+                setVariable(entry.getKey(), entry.getValue());
+            }
+        }
+    	configureSla();
+    	
     	InternalKnowledgeRuntime kruntime = getProcessInstance().getKnowledgeRuntime();
     	if (!hidden) {
     		((InternalProcessRuntime) kruntime.getProcessRuntime())
     			.getProcessEventSupport().fireBeforeNodeTriggered(this, kruntime);
     	}
         try {
+            getExecutionErrorHandler().processing(this);
             internalTrigger(from, type);
         }
         catch (WorkflowRuntimeException e) {
@@ -209,6 +229,7 @@ public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.Nod
     }
     
     protected void triggerCompleted(String type, boolean remove) {
+        getExecutionErrorHandler().processed(this);
         Node node = getNode();
         if (node != null) {
 	    	String uniqueId = (String) node.getMetaData().get("UniqueId");
@@ -391,10 +412,13 @@ public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.Nod
     	org.jbpm.workflow.instance.NodeInstance nodeInstance = (org.jbpm.workflow.instance.NodeInstance)
     		((org.jbpm.workflow.instance.NodeInstanceContainer) getNodeInstanceContainer())
             	.getNodeInstance(getNode().getNodeContainer().getNode(nodeId));
-    	triggerNodeInstance(nodeInstance, null);
+    	triggerNodeInstance(nodeInstance, org.jbpm.workflow.core.Node.CONNECTION_DEFAULT_TYPE);
     }
     
     public Context resolveContext(String contextId, Object param) {
+        if (getNode() == null) {
+            return null;
+        }
         return ((NodeImpl) getNode()).resolveContext(contextId, param);
     }
     
@@ -509,4 +533,43 @@ public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.Nod
     	}
     }
     
+    public void setDynamicParameters(Map<String, Object> dynamicParameters) {
+        this.dynamicParameters = dynamicParameters;
+    }
+    
+    protected ExecutionErrorHandler getExecutionErrorHandler() {
+        ExecutionErrorManager errorManager = (ExecutionErrorManager) getProcessInstance().getKnowledgeRuntime().getEnvironment().get(EnvironmentName.EXEC_ERROR_MANAGER);
+        if (errorManager == null) {
+            return new NoOpExecutionErrorHandler();
+        }
+        return errorManager.getHandler();
+    }
+    
+    protected void configureSla() {
+        
+    }
+    
+    public int getSlaCompliance() {
+        return slaCompliance;
+    }
+    
+    public void internalSetSlaCompliance(int slaCompliance) {
+        this.slaCompliance = slaCompliance;
+    }
+    
+    public Date getSlaDueDate() {
+        return slaDueDate;
+    }
+    
+    public void internalSetSlaDueDate(Date slaDueDate) {
+        this.slaDueDate = slaDueDate;
+    }
+    
+    public Long getSlaTimerId() {
+        return slaTimerId;
+    }
+    
+    public void internalSetSlaTimerId(Long slaTimerId) {
+        this.slaTimerId = slaTimerId;
+    }
 }

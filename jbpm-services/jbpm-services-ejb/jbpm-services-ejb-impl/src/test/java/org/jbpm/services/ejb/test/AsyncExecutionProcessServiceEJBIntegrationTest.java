@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,11 +15,6 @@
  */
 
 package org.jbpm.services.ejb.test;
-
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -31,8 +26,7 @@ import java.util.Map;
 import javax.ejb.EJB;
 
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
-import org.drools.core.command.impl.GenericCommand;
-import org.drools.core.command.impl.KnowledgeCommandContext;
+import org.drools.core.command.impl.RegistryContext;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
@@ -42,16 +36,22 @@ import org.jbpm.services.api.model.DeploymentUnit;
 import org.jbpm.services.ejb.api.DeploymentServiceEJBLocal;
 import org.jbpm.services.ejb.api.ProcessServiceEJBLocal;
 import org.jbpm.services.ejb.api.RuntimeDataServiceEJBLocal;
-import org.jbpm.test.util.CountDownProcessEventListener;
+import org.jbpm.test.listener.process.NodeLeftCountDownProcessEventListener;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.kie.api.KieServices;
 import org.kie.api.builder.ReleaseId;
+import org.kie.api.command.ExecutableCommand;
+import org.kie.api.runtime.Context;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
-import org.kie.internal.command.Context;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
+
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 @RunWith(Arquillian.class)
 public class AsyncExecutionProcessServiceEJBIntegrationTest extends AbstractTestSupport {
@@ -64,7 +64,7 @@ public class AsyncExecutionProcessServiceEJBIntegrationTest extends AbstractTest
 		}
 		WebArchive war = ShrinkWrap.createFromZipFile(WebArchive.class, archive);
 		war.addPackage("org.jbpm.services.ejb.test"); // test cases
-		war.addClass("org.jbpm.test.util.CountDownProcessEventListener");
+		war.addClass("org.jbpm.test.listener.process.NodeLeftCountDownProcessEventListener");
 		// deploy test kjar
 		deployKjar();
 		
@@ -87,7 +87,7 @@ public class AsyncExecutionProcessServiceEJBIntegrationTest extends AbstractTest
         } catch (Exception e) {
             
         }
-        MavenRepository repository = getMavenRepository();
+        KieMavenRepository repository = getKieMavenRepository();
         repository.installArtifact(releaseId, kJar1, pom);
 	}
 	
@@ -120,7 +120,7 @@ public class AsyncExecutionProcessServiceEJBIntegrationTest extends AbstractTest
     @Test
     public void testStartProcessWithParms() throws Exception {
     	assertNotNull(deploymentService);
-    	final CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Task 1", 1);
+    	final NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("Task 1", 1);
         
         KModuleDeploymentUnit deploymentUnit = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, VERSION);
 
@@ -134,13 +134,13 @@ public class AsyncExecutionProcessServiceEJBIntegrationTest extends AbstractTest
     	
         
         // register count down listener
-        processService.execute(deploymentUnit.getIdentifier(), new GenericCommand<Void>() {
+        processService.execute(deploymentUnit.getIdentifier(), new ExecutableCommand<Void>() {
 
             private static final long serialVersionUID = -5416366832158798895L;
 
             @Override
             public Void execute(Context context) {
-                KieSession ksession = ((KnowledgeCommandContext) context).getKieSession();
+                KieSession ksession = ((RegistryContext) context).lookup( KieSession.class );
                 ksession.addEventListener(countDownListener);
                 return null;
             }

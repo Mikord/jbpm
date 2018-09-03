@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -49,6 +49,7 @@ public class FireUntilHaltTest extends JbpmTestCase {
         res.put(PROCESS, ResourceType.BPMN2);
         res.put(PROCESS_DRL, ResourceType.DRL);
         final KieSession ksession = createKSession(res);
+        ksession.getEnvironment().set("org.jbpm.rule.task.waitstate", true);
 
         TrackingAgendaEventListener listener = new TrackingAgendaEventListener();
         ksession.addEventListener(listener);
@@ -92,7 +93,7 @@ public class FireUntilHaltTest extends JbpmTestCase {
         Assertions.assertThat(listener.ruleFiredCount("change unwanted person to wanted")).isEqualTo(unwantedPersonsNum);
         // 5 + 2 changed + 1 added
         Assertions.assertThat(listener.ruleFiredCount("person detector"))
-                .isEqualTo(wantedPersonsNum + 2 * unwantedPersonsNum + 1);
+                .isEqualTo(wantedPersonsNum * unwantedPersonsNum);
         Assertions.assertThat(listener.ruleFiredCount("closing actions")).isEqualTo(1);
         ksession.halt();
     }

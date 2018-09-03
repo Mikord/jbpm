@@ -1,26 +1,28 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 package org.jbpm.services.task.identity;
 
-import javax.naming.Context;
 import java.util.List;
 import java.util.Properties;
+import javax.naming.Context;
 
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.SoftAssertions;
+import org.jbpm.services.task.utils.LdapSearcher.SearchScope;
 import org.junit.After;
 import org.junit.Test;
 import org.kie.api.task.UserGroupCallback;
@@ -55,7 +57,7 @@ public class LDAPUserGroupCallbackImplTest extends LDAPBaseTest {
         UserGroupCallback ldapUserGroupCallback = createLdapUserGroupCallback(Configuration.CUSTOM);
         Assertions.assertThat(ldapUserGroupCallback).isNotNull();
 
-        List<String> userGroups = ldapUserGroupCallback.getGroupsForUser("john", null, null);
+        List<String> userGroups = ldapUserGroupCallback.getGroupsForUser("john");
         Assertions.assertThat(userGroups).hasSize(1);
     }
 
@@ -82,7 +84,7 @@ public class LDAPUserGroupCallbackImplTest extends LDAPBaseTest {
         UserGroupCallback ldapUserGroupCallback = createLdapUserGroupCallback(Configuration.DEFAULT);
         Assertions.assertThat(ldapUserGroupCallback).isNotNull();
 
-        List<String> userGroups = ldapUserGroupCallback.getGroupsForUser("john", null, null);
+        List<String> userGroups = ldapUserGroupCallback.getGroupsForUser("john");
         Assertions.assertThat(userGroups).hasSize(1);
     }
 
@@ -109,7 +111,7 @@ public class LDAPUserGroupCallbackImplTest extends LDAPBaseTest {
         UserGroupCallback ldapUserGroupCallback = createLdapUserGroupCallback(Configuration.SYSTEM);
         Assertions.assertThat(ldapUserGroupCallback).isNotNull();
 
-        List<String> userGroups = ldapUserGroupCallback.getGroupsForUser("john", null, null);
+        List<String> userGroups = ldapUserGroupCallback.getGroupsForUser("john");
         Assertions.assertThat(userGroups).hasSize(1);
     }
 
@@ -282,9 +284,36 @@ public class LDAPUserGroupCallbackImplTest extends LDAPBaseTest {
         assertGroups(ldapUserGroupCallback, true, true, false, false);
     }
 
+    @Test
+    public void testUserExistsWithCommaInDN() {
+        UserGroupCallback ldapUserGroupCallback = createLdapUserGroupCallback(Configuration.CUSTOM);
+        Assertions.assertThat(ldapUserGroupCallback).isNotNull();
+
+        boolean userExists = ldapUserGroupCallback.existsUser("john,jr");
+        Assertions.assertThat(userExists).isTrue();
+    }
+
+    @Test
+    public void testGroupExistsWithCommaInDN() {
+        UserGroupCallback ldapUserGroupCallback = createLdapUserGroupCallback(Configuration.CUSTOM);
+        Assertions.assertThat(ldapUserGroupCallback).isNotNull();
+
+        boolean groupExists = ldapUserGroupCallback.existsGroup("manager,eng");
+        Assertions.assertThat(groupExists).isTrue();
+    }   
+    
+    @Test
+    public void testGroupsForUserWithCommaInDN() {
+        UserGroupCallback ldapUserGroupCallback = createLdapUserGroupCallback(Configuration.CUSTOM);
+        Assertions.assertThat(ldapUserGroupCallback).isNotNull();
+
+        List<String> userGroups = ldapUserGroupCallback.getGroupsForUser("john,jr");
+        Assertions.assertThat(userGroups).hasSize(1).allMatch(s -> s.equals("manager,eng"));
+    }
+    
     private Properties createUserGroupCallbackProperties() {
         Properties properties = new Properties();
-        properties.setProperty(Context.PROVIDER_URL, "ldap://localhost:10389");
+        properties.setProperty(Context.PROVIDER_URL, SERVER_URL);
         properties.setProperty(LDAPUserGroupCallbackImpl.USER_CTX, "ou=People,dc=jbpm,dc=org");
         properties.setProperty(LDAPUserGroupCallbackImpl.ROLE_CTX, "ou=Roles,dc=jbpm,dc=org");
         properties.setProperty(LDAPUserGroupCallbackImpl.USER_FILTER, "(uid={0})");
@@ -325,7 +354,7 @@ public class LDAPUserGroupCallbackImplTest extends LDAPBaseTest {
     }
 
     private void assertUsers(UserGroupCallback userGroupCallback, boolean john, boolean mary, boolean peter,
-            boolean mike) {
+                             boolean mike) {
         Assertions.assertThat(userGroupCallback).isNotNull();
 
         SoftAssertions assertions = new SoftAssertions();
@@ -337,7 +366,7 @@ public class LDAPUserGroupCallbackImplTest extends LDAPBaseTest {
     }
 
     private void assertGroups(UserGroupCallback userGroupCallback, boolean manager, boolean user, boolean analyst,
-            boolean developer) {
+                              boolean developer) {
         Assertions.assertThat(userGroupCallback).isNotNull();
 
         SoftAssertions assertions = new SoftAssertions();

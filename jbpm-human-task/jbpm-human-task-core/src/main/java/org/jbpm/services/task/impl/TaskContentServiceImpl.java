@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 package org.jbpm.services.task.impl;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -61,9 +62,12 @@ public class TaskContentServiceImpl implements TaskContentService {
     @SuppressWarnings("unchecked")
 	public long addOutputContent(long taskId, Map<String, Object> params) {
         Task task = persistenceContext.findTask(taskId);
+        loadTaskVariables(task);
         long outputContentId = task.getTaskData().getOutputContentId();
         Content outputContent = persistenceContext.findContent(outputContentId);
 
+        Map<String, Object> initialContent = new HashMap<>();
+        
         long contentId = -1;
         if (outputContent == null) { 
             ContentMarshallerContext context = getMarshallerContext(task);
@@ -71,14 +75,16 @@ public class TaskContentServiceImpl implements TaskContentService {
             Content content = TaskModelProvider.getFactory().newContent();
             ((InternalContent) content).setContent(outputContentData.getContent());
             persistenceContext.persistContent(content);
-            
-            ((InternalTaskData) task.getTaskData()).setOutput(content.getId(), outputContentData);
+            persistenceContext.setOutputToTask(content, outputContentData, task);
             contentId = content.getId();
         } else {
             // I need to merge it if it already exist
             ContentMarshallerContext context = getMarshallerContext(task);
             Object unmarshalledObject = ContentMarshallerHelper.unmarshall(outputContent.getContent(), context.getEnvironment(), context.getClassloader());
             if(unmarshalledObject != null && unmarshalledObject instanceof Map){
+                // set initial content before updating with this params
+                initialContent.putAll((Map<String, Object>)unmarshalledObject);
+                
                 ((Map<String, Object>)unmarshalledObject).putAll(params);
             }
             ContentData outputContentData = ContentMarshallerHelper.marshal(task, unmarshalledObject, context.getEnvironment());
@@ -86,8 +92,11 @@ public class TaskContentServiceImpl implements TaskContentService {
             persistenceContext.persistContent(outputContent);
             contentId = outputContentId;
         }
-        
+        taskEventSupport.fireBeforeTaskOutputVariablesChanged(task, context, initialContent);
+                
+        ((InternalTaskData)task.getTaskData()).setTaskOutputVariables(params);        
         taskEventSupport.fireAfterTaskOutputVariablesChanged(task, context, params);
+        persistenceContext.updateTask(task);
         
         return contentId;
     }
@@ -140,5 +149,44 @@ public class TaskContentServiceImpl implements TaskContentService {
 
     public ContentMarshallerContext getMarshallerContext(Task task) {
         return TaskContentRegistry.get().getMarshallerContext(task);
+    }
+
+    @Override
+    public Task loadTaskVariables(Task task) {
+        // load input
+        if (task.getTaskData().getTaskInputVariables() == null) {
+            Map<String, Object> input = loadContentData(task.getTaskData().getDocumentContentId(), task);
+            ((InternalTaskData)task.getTaskData()).setTaskInputVariables(input);
+        }
+        // load output
+        if (task.getTaskData().getTaskOutputVariables() == null) {
+            Map<String, Object> output = loadContentData(task.getTaskData().getOutputContentId(), task);
+            ((InternalTaskData)task.getTaskData()).setTaskOutputVariables(output);
+        }
+        return task;
+    }
+    
+    @SuppressWarnings("unchecked")
+    protected Map<String, Object> loadContentData(Long contentId, Task task) {
+        
+        if (contentId != null) {           
+            Map<String, Object> data = null;
+            Content contentById = getContentById(contentId);
+            
+            if (contentById != null) {
+                ContentMarshallerContext mContext = getMarshallerContext(task);
+                Object unmarshalledObject = ContentMarshallerHelper.unmarshall(contentById.getContent(), mContext.getEnvironment(), mContext.getClassloader());
+                if (!(unmarshalledObject instanceof Map)) {            
+                    data = new HashMap<String, Object>();
+                    data.put("Content", unmarshalledObject);
+        
+                } else {
+                    data = (Map<String, Object>) unmarshalledObject;
+                }
+                
+                return data;
+            }  
+        }
+        return null;
     }
 }

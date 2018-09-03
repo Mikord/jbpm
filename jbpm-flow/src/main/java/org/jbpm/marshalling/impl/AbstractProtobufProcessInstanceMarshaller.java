@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -63,6 +63,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,15 +88,27 @@ public abstract class AbstractProtobufProcessInstanceMarshaller
                 .setNodeInstanceCounter( workFlow.getNodeInstanceCounter() )
                 .setProcessType( workFlow.getProcess().getType() )
                 .setParentProcessInstanceId(workFlow.getParentProcessInstanceId())
-                .setSignalCompletion(workFlow.isSignalCompletion());;
+                .setSignalCompletion(workFlow.isSignalCompletion())
+                .setSlaCompliance(workFlow.getSlaCompliance());
         if (workFlow.getProcessXml() != null) {
             _instance.setProcessXml( workFlow.getProcessXml());
         }
         if (workFlow.getDescription() != null) {
             _instance.setDescription(workFlow.getDescription());
         }
-        
+        if (workFlow.getDeploymentId() != null) {
+            _instance.setDeploymentId(workFlow.getDeploymentId());
+        }
         _instance.addAllCompletedNodeIds(workFlow.getCompletedNodeIds());
+        if (workFlow.getCorrelationKey() != null) {
+            _instance.setCorrelationKey(workFlow.getCorrelationKey());
+        }
+        if (workFlow.getSlaDueDate() != null) {
+            _instance.setSlaDueDate(workFlow.getSlaDueDate().getTime());
+        }
+        if (workFlow.getSlaTimerId() != null) {
+            _instance.setSlaTimerId(workFlow.getSlaTimerId());
+        }
 
         SwimlaneContextInstance swimlaneContextInstance = (SwimlaneContextInstance) workFlow.getContextInstance( SwimlaneContext.SWIMLANE_SCOPE );
         if ( swimlaneContextInstance != null ) {
@@ -178,8 +191,16 @@ public abstract class AbstractProtobufProcessInstanceMarshaller
         JBPMMessages.ProcessInstance.NodeInstance.Builder _node = JBPMMessages.ProcessInstance.NodeInstance.newBuilder()
                 .setId( nodeInstance.getId() )
                 .setNodeId( nodeInstance.getNodeId())
-                .setLevel(((org.jbpm.workflow.instance.NodeInstance)nodeInstance).getLevel());
+                .setLevel(((org.jbpm.workflow.instance.NodeInstance)nodeInstance).getLevel())
+                .setSlaCompliance(((org.jbpm.workflow.instance.NodeInstance)nodeInstance).getSlaCompliance());
                         
+        if (((org.jbpm.workflow.instance.NodeInstance)nodeInstance).getSlaDueDate() != null) {
+            _node.setSlaDueDate(((org.jbpm.workflow.instance.NodeInstance)nodeInstance).getSlaDueDate().getTime());
+        }
+        if (((org.jbpm.workflow.instance.NodeInstance)nodeInstance).getSlaTimerId() != null) {
+            _node.setSlaTimerId(((org.jbpm.workflow.instance.NodeInstance)nodeInstance).getSlaTimerId());
+        }
+        
         _node.setContent( writeNodeInstanceContent( _node, 
                                                     nodeInstance, 
                                                     context ) );
@@ -501,8 +522,17 @@ public abstract class AbstractProtobufProcessInstanceMarshaller
         processInstance.setState( _instance.getState() );
         processInstance.setParentProcessInstanceId(_instance.getParentProcessInstanceId());
         processInstance.setSignalCompletion(_instance.getSignalCompletion());
+        processInstance.setDeploymentId(_instance.getDeploymentId());
+        processInstance.setCorrelationKey(_instance.getCorrelationKey());
+        processInstance.internalSetSlaCompliance(_instance.getSlaCompliance());
+        if (_instance.getSlaDueDate() > 0) {
+            processInstance.internalSetSlaDueDate(new Date(_instance.getSlaDueDate()));
+        }
+        processInstance.internalSetSlaTimerId(_instance.getSlaTimerId());
+        
         long nodeInstanceCounter = _instance.getNodeInstanceCounter();
         processInstance.setKnowledgeRuntime( wm.getKnowledgeRuntime() );
+        processInstance.internalSetNodeInstanceCounter( nodeInstanceCounter );
         for( String completedNodeId : _instance.getCompletedNodeIdsList() ) { 
             processInstance.addCompletedNodeId(completedNodeId);
         }
@@ -555,8 +585,7 @@ public abstract class AbstractProtobufProcessInstanceMarshaller
             for ( JBPMMessages.IterationLevel _level : _instance.getIterationLevelsList()) {
                 processInstance.getIterationLevels().put(_level.getId(), _level.getLevel());
             }
-        }
-        processInstance.internalSetNodeInstanceCounter( nodeInstanceCounter );
+        }        
     	processInstance.reconnect();
         return processInstance;
     }
@@ -572,11 +601,16 @@ public abstract class AbstractProtobufProcessInstanceMarshaller
                                                                  context, 
                                                                  processInstance);
 
-        nodeInstance.setNodeId( _node.getNodeId() );
+        nodeInstance.setNodeId( _node.getNodeId() );                
+        nodeInstance.setId( _node.getId() );
         nodeInstance.setNodeInstanceContainer( nodeInstanceContainer );
         nodeInstance.setProcessInstance( (org.jbpm.workflow.instance.WorkflowProcessInstance) processInstance );
-        nodeInstance.setId( _node.getId() );
         nodeInstance.setLevel(_node.getLevel()==0?1:_node.getLevel());
+        nodeInstance.internalSetSlaCompliance(_node.getSlaCompliance());
+        if (_node.getSlaDueDate() > 0) {
+            nodeInstance.internalSetSlaDueDate(new Date(_node.getSlaDueDate()));
+        }
+        nodeInstance.internalSetSlaTimerId(_node.getSlaTimerId());
 
         switch ( _node.getContent().getType() ) {
             case COMPOSITE_CONTEXT_NODE :

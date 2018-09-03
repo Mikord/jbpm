@@ -1,17 +1,18 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 /*
  * To change this template, choose Tools | Templates
@@ -20,6 +21,7 @@
 package org.jbpm.services.task.impl;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -111,13 +113,14 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     	resolveTaskDetailsForTaskProperties(task);    	
     	
     	if (params != null) {
+    	    taskEventSupport.fireBeforeTaskInputVariablesChanged(task, context, Collections.emptyMap());
     	    resolveTaskDetails(params, task);
     	    
     	    ContentData contentData = ContentMarshallerHelper.marshal(task, params, TaskContentRegistry.get().getMarshallerContext(task).getEnvironment());
 			Content content = TaskModelProvider.getFactory().newContent();
 			((InternalContent) content).setContent(contentData.getContent());
 			persistenceContext.persistContent(content);
-			((InternalTaskData) task.getTaskData()).setDocument(content.getId(), contentData);
+			persistenceContext.setDocumentToTask(content, contentData, task);
 			
 			taskEventSupport.fireAfterTaskInputVariablesChanged(task, context, params);
 		}
@@ -138,7 +141,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
             Content content = TaskModelProvider.getFactory().newContent();
             ((InternalContent) content).setContent(contentData.getContent());
             persistenceContext.persistContent(content);
-            ((InternalTaskData) task.getTaskData()).setDocument(content.getId(), contentData);
+            persistenceContext.setDocumentToTask(content, contentData, task);
         }
         
         
@@ -200,7 +203,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
         FaultData data = TaskModelProvider.getFactory().newFaultData();
         persistenceContext.removeContent(content);
         
-        ((InternalTaskData) task.getTaskData()).setFault(0, data);
+        persistenceContext.setFaultToTask(null, data, task);
     }
 
     public void deleteOutput(long taskId, String userId) {
@@ -208,12 +211,20 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     	
     	long contentId = task.getTaskData().getOutputContentId();
         Content content = persistenceContext.findContent(contentId);
+        
+        Map<String, Object> initialContent = new HashMap<>();
+        ContentMarshallerContext context = TaskContentRegistry.get().getMarshallerContext(task);
+        Object unmarshalledObject = ContentMarshallerHelper.unmarshall(content.getContent(), context.getEnvironment(), context.getClassloader());
+        if(unmarshalledObject != null && unmarshalledObject instanceof Map){
+            // set initial content before updating with this params
+            initialContent.putAll((Map<String, Object>)unmarshalledObject);
+        }
+        taskEventSupport.fireBeforeTaskOutputVariablesChanged(task, this.context, initialContent);
+        
         ContentData data = TaskModelProvider.getFactory().newContentData();
         persistenceContext.removeContent(content);
-        
-        ((InternalTaskData) task.getTaskData()).setOutput(0, data);
-        
-        taskEventSupport.fireAfterTaskOutputVariablesChanged(task, context, null);
+        persistenceContext.setOutputToTask(null, data, task);
+        taskEventSupport.fireAfterTaskOutputVariablesChanged(task, this.context, null);
     }
 
     public void exit(long taskId, String userId) {
@@ -252,7 +263,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
     	Content content = TaskModelProvider.getFactory().newContent();
 		((InternalContent) content).setContent(fault.getContent());
 		persistenceContext.persistContent(content);
-		((InternalTaskData) task.getTaskData()).setFault(content.getId(), fault);
+		persistenceContext.setFaultToTask(content, fault, task);
     }
 
     public void setOutput(long taskId, String userId, Object outputContentData) {
@@ -262,7 +273,7 @@ public class TaskInstanceServiceImpl implements TaskInstanceService {
 		Content content = TaskModelProvider.getFactory().newContent();
 		((InternalContent) content).setContent(contentData.getContent());
 		persistenceContext.persistContent(content);
-		((InternalTaskData) task.getTaskData()).setOutput(content.getId(), contentData);
+		persistenceContext.setOutputToTask(content, contentData, task);
     }
 
     public void setPriority(long taskId, int priority) {

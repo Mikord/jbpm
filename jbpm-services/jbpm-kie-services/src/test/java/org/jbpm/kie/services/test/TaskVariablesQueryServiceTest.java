@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,10 +15,6 @@
  */
 
 package org.jbpm.kie.services.test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -42,6 +38,7 @@ import org.jbpm.services.api.model.DeploymentUnit;
 import org.jbpm.services.api.model.ProcessDefinition;
 import org.jbpm.services.api.model.UserTaskInstanceWithVarsDesc;
 import org.jbpm.services.api.query.model.QueryDefinition.Target;
+import org.jbpm.test.util.PoolingDataSource;
 import org.jbpm.services.api.query.model.QueryParam;
 import org.junit.After;
 import org.junit.Before;
@@ -57,11 +54,13 @@ import org.kie.api.task.model.TaskSummary;
 import org.kie.internal.runtime.conf.DeploymentDescriptor;
 import org.kie.internal.runtime.conf.ObjectModel;
 import org.kie.internal.runtime.manager.InternalRuntimeManager;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import bitronix.tm.resource.jdbc.PoolingDataSource;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 /**
  * This test should not be seen as part of the regular test suite... at least not for now
  * it is for demo purpose of task variables search capabilities
@@ -136,8 +135,6 @@ public class TaskVariablesQueryServiceTest extends AbstractKieServicesBaseTest {
 
 
         ds.setClassName("org.postgresql.xa.PGXADataSource");
-        ds.setMaxPoolSize(30);
-        ds.setAllowLocalTransactions(true);
         ds.getDriverProperties().put("user", "bpms");
         ds.getDriverProperties().put("password", "bpms");
         ds.getDriverProperties().put("serverName", "localhost");
@@ -155,14 +152,14 @@ public class TaskVariablesQueryServiceTest extends AbstractKieServicesBaseTest {
         ReleaseId releaseId = ks.newReleaseId(GROUP_ID, ARTIFACT_ID, VERSION);
         File kjar = new File("src/test/resources/kjar-task-vars/task-vars-1.0.jar");
         File pom = new File("src/test/resources/kjar-task-vars/pom.xml");
-        MavenRepository repository = getMavenRepository();
-        repository.deployArtifact(releaseId, kjar, pom);
+        KieMavenRepository repository = getKieMavenRepository();
+        repository.installArtifact(releaseId, kjar, pom);
         
         ReleaseId releaseIdSales = ks.newReleaseId("org.jbpm.test", "product-sale", "1.0");
         File kjarSales = new File("src/test/resources/kjar-sales/product-sale-1.0.jar");
         File pomSales = new File("src/test/resources/kjar-sales/pom.xml");
         
-        repository.deployArtifact(releaseIdSales, kjarSales, pomSales);
+        repository.installArtifact(releaseIdSales, kjarSales, pomSales);
         
         
         assertNotNull(deploymentService);

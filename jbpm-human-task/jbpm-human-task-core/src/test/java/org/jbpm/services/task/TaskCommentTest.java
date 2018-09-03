@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,15 +21,17 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotEquals;
 
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 import java.io.StringReader;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
 
+import org.assertj.core.api.Assertions;
 import org.jbpm.services.task.impl.factories.TaskFactory;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -45,6 +47,7 @@ import org.kie.internal.task.api.model.InternalOrganizationalEntity;
 public class TaskCommentTest extends HumanTaskServicesBaseTest{
         private PoolingDataSource pds;
         private EntityManagerFactory emf;
+        private static final Date TODAY = new Date();
 
         @Before
         public void setup() {
@@ -82,8 +85,7 @@ public class TaskCommentTest extends HumanTaskServicesBaseTest{
             TaskSummary taskSum = tasks.get(0);
 
             Comment comment = TaskModelProvider.getFactory().newComment();
-            Date date = new Date();
-            ((InternalComment)comment).setAddedAt(date);
+            ((InternalComment)comment).setAddedAt(TODAY);
             User user = TaskModelProvider.getFactory().newUser();
             ((InternalOrganizationalEntity) user).setId("Troll");
             ((InternalComment)comment).setAddedBy(user);
@@ -96,7 +98,7 @@ public class TaskCommentTest extends HumanTaskServicesBaseTest{
             Comment commentById = taskService.getCommentById(commentId.longValue());
             assertNotNull(commentById);
             assertEquals(commentId, commentById.getId());
-            assertEquals(date, commentById.getAddedAt());
+            Assertions.assertThat(commentById.getAddedAt()).isCloseTo(TODAY, 1000);
             assertEquals(user, commentById.getAddedBy());
             assertEquals(txt, commentById.getText());
 
@@ -146,32 +148,36 @@ public class TaskCommentTest extends HumanTaskServicesBaseTest{
             List<TaskSummary> tasks = taskService.getTasksAssignedAsBusinessAdministrator("Bobba Fet", "en-UK");
             TaskSummary taskSum = tasks.get(0);
 
-            String[] messages = new String[commentsCount];
-            Long[] commentId = new Long[commentsCount];
-
+            final Map<Long, Comment> savedComments = new HashMap<>();
             for(int i = 0; i < commentsCount; i++) {
                 Comment comment = TaskModelProvider.getFactory().newComment();
-                messages[i] = "Comment "+i+".";
-                ((InternalComment)comment).setAddedAt(new Date());
+                ((InternalComment)comment).setAddedAt(TODAY);
                 User user = TaskModelProvider.getFactory().newUser();
                 ((InternalOrganizationalEntity) user).setId("Troll");
                 ((InternalComment)comment).setAddedBy(user);
-                ((InternalComment)comment).setText(messages[i]);
+                ((InternalComment)comment).setText("Comment "+i+".");
 
-                commentId[i] = taskService.addComment(taskSum.getId(), comment);
-                assertNotNull(commentId[i]);
+                final Long commentId = taskService.addComment(taskSum.getId(), comment);
+                assertNotNull(commentId);
+                savedComments.put(commentId, comment);
             }
 
             List<Comment> allCommentList = taskService.getAllCommentsByTaskId(taskSum.getId());
             assertEquals(commentsCount, allCommentList.size());
 
-            for(int i = 0; i < commentsCount; i++) {
-                Comment comment = allCommentList.get(i);
+            Long lastId = 0L;
+            for (Comment comment : allCommentList) {
                 assertNotNull(comment);
-                assertEquals(commentId[i], comment.getId());
+                assertNotNull(comment.getId());
+                assertTrue(comment.getId() > lastId);
+
+                Comment savedComment = savedComments.get(comment.getId());
+                assertNotNull(savedComment);
                 assertNotNull(comment.getAddedAt());
-                assertEquals(messages[i], comment.getText());
+                Assertions.assertThat(comment.getAddedAt()).isCloseTo(TODAY, 1000);
+                assertEquals(savedComment.getText(), comment.getText());
                 assertEquals("Troll", comment.getAddedBy().getId());
+                lastId = comment.getId();
             }
         }
 }

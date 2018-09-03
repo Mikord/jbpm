@@ -1,11 +1,11 @@
-/**
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -80,7 +80,6 @@ import org.jbpm.query.jpa.data.QueryWhere.QueryCriteriaType;
 import org.jbpm.query.jpa.impl.QueryAndParameterAppender;
 import org.jbpm.query.jpa.impl.QueryCriteriaUtil;
 import org.kie.api.runtime.Environment;
-import org.kie.api.runtime.EnvironmentName;
 import org.kie.internal.runtime.manager.audit.query.NodeInstanceLogDeleteBuilder;
 import org.kie.internal.runtime.manager.audit.query.NodeInstanceLogQueryBuilder;
 import org.kie.internal.runtime.manager.audit.query.ProcessInstanceLogDeleteBuilder;
@@ -295,18 +294,15 @@ public class JPAAuditLogService extends JPAService implements AuditLogService {
         EntityManager em = getEntityManager();
         Object newTx = joinTransaction(em);
         try {
-	        List<ProcessInstanceLog> processInstances = em.createQuery("FROM ProcessInstanceLog").getResultList();
-	        for (ProcessInstanceLog processInstance: processInstances) {
-	            em.remove(processInstance);
-	        }
-	        List<NodeInstanceLog> nodeInstances = em.createQuery("FROM NodeInstanceLog").getResultList();
-	        for (NodeInstanceLog nodeInstance: nodeInstances) {
-	            em.remove(nodeInstance);
-	        }
-	        List<VariableInstanceLog> variableInstances = em.createQuery("FROM VariableInstanceLog").getResultList();
-	        for (VariableInstanceLog variableInstance: variableInstances) {
-	            em.remove(variableInstance);
-	        }
+            	        
+	        int deletedNodes = em.createQuery("delete FROM NodeInstanceLog WHERE processInstanceId in (select spl.processInstanceId FROM ProcessInstanceLog spl WHERE spl.status in (2, 3))").executeUpdate();
+	        logger.debug("CLEAR:: deleted node instances {}", deletedNodes);
+	        
+	        int deletedVariables = em.createQuery("delete FROM VariableInstanceLog WHERE processInstanceId in (select spl.processInstanceId FROM ProcessInstanceLog spl WHERE spl.status in (2, 3))").executeUpdate();
+	        logger.debug("CLEAR:: deleted variable instances {}", deletedVariables);
+	        
+	        int deletedProcesses = em.createQuery("delete FROM ProcessInstanceLog WHERE status in (2, 3)").executeUpdate();
+            logger.debug("CLEAR:: deleted process instances {}", deletedProcesses);
         } finally {
         	closeEntityManager(em, newTx);
         }
@@ -410,11 +406,11 @@ public class JPAAuditLogService extends JPAService implements AuditLogService {
         criteriaFieldClasses.put(listId, type );
     }
     
-    public int doDelete(String queryBase, QueryWhere queryData, Class<?> resultType) { 
+    public int doDelete(String queryBase, QueryWhere queryData, Class<?> resultType, String subQuery) { 
         // create query
         
         Map<String, Object> queryParams = new HashMap<String, Object>();
-        String queryString = createDeleteQuery(queryBase, queryData, queryParams, true);
+        String queryString = createDeleteQuery(queryBase, queryData, queryParams, true, subQuery);
         
         // logging
         logger.debug("DELETE statement:\n {}", queryString);
@@ -434,13 +430,13 @@ public class JPAAuditLogService extends JPAService implements AuditLogService {
         Query query = em.createQuery(queryString);
     
         int result = executeWithParameters(queryParams, query);
-        
+        logger.debug("Deleted rows " + result);
         closeEntityManager(em, newTx);
         
         return result;
     }
     
-    private static String createDeleteQuery(String queryBase, QueryWhere queryWhere, Map<String, Object> queryParams, boolean skipMetaParams) { 
+    private static String createDeleteQuery(String queryBase, QueryWhere queryWhere, Map<String, Object> queryParams, boolean skipMetaParams, String subQuery) { 
         // setup
         StringBuilder queryBuilder = new StringBuilder(queryBase);
         QueryAndParameterAppender queryAppender = new QueryAndParameterAppender(queryBuilder, queryParams);
@@ -502,6 +498,10 @@ public class JPAAuditLogService extends JPAService implements AuditLogService {
         if( addLastCriteria ) { 
             addLastInstanceCriteria(queryAppender);
         }
+        if (subQuery != null && !subQuery.isEmpty()) {
+            queryAppender.addToQueryBuilder(subQuery, false);
+        }
+        
 
         // meta criteria (order, asc/desc) does not apply to delete queries 
         

@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 Red Hat, Inc. and/or its affiliates.
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,6 @@
 package org.jbpm.workflow.instance.node;
 
 import org.drools.core.common.InternalAgenda;
-import org.drools.core.common.InternalKnowledgeRuntime;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.spi.Activation;
 import org.jbpm.workflow.core.node.MilestoneNode;
@@ -72,11 +71,29 @@ public class MilestoneNodeInstance extends StateBasedNodeInstance implements Age
     
     private void addActivationListener() {
     	getProcessInstance().getKnowledgeRuntime().addEventListener(this);
+    	getProcessInstance().addEventListener(getActivationEventType(), this, true);
     }
 
     public void removeEventListeners() {
         super.removeEventListeners();
         getProcessInstance().getKnowledgeRuntime().removeEventListener(this);
+        getProcessInstance().removeEventListener(getActivationEventType(), this, true);
+    }
+    
+    private String getActivationEventType() {
+        return "RuleFlow-Milestone-" + getProcessInstance().getProcessId()
+            + "-" + getMilestoneNode().getUniqueId();
+    }
+
+    @Override
+    public void signalEvent(String type, Object event) {
+        if (getActivationEventType().equals(type)) {
+            if (event instanceof MatchCreatedEvent) {
+                matchCreated((MatchCreatedEvent) event);
+            }
+        } else {
+            super.signalEvent(type, event);
+        }
     }
 
     public void matchCreated(MatchCreatedEvent event) {
@@ -86,13 +103,14 @@ public class MilestoneNodeInstance extends StateBasedNodeInstance implements Age
             // new activations of the rule associate with a milestone node
             // trigger node instances of that milestone node
             String ruleName = event.getMatch().getRule().getName();
-            String milestoneName = "RuleFlow-Milestone-" + getProcessInstance().getProcessId() + "-" + getNodeId();
-            if (milestoneName.equals(ruleName) && checkProcessInstance((Activation) event.getMatch())) {
-                ((InternalKnowledgeRuntime) getProcessInstance().getKnowledgeRuntime()).executeQueuedActions();
-            	synchronized(getProcessInstance()) {
-	                removeEventListeners();
-	                triggerCompleted();
-            	}
+            String milestoneName = "RuleFlow-Milestone-" + getProcessInstance().getProcessId() + "-" + getMilestoneNode().getUniqueId();
+            if (milestoneName.equals(ruleName) && checkProcessInstance((Activation) event.getMatch()) && checkDeclarationMatch(event.getMatch(), getMilestoneNode().getMatchVariable())) {
+                
+                	synchronized(getProcessInstance()) {
+    	                removeEventListeners();
+    	                triggerCompleted();
+                	}
+                
             }
         }
     }

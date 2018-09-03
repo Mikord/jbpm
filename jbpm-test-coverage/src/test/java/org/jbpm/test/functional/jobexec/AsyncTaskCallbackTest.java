@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,11 +24,13 @@ import org.jbpm.executor.impl.wih.AsyncWorkItemHandler;
 import org.jbpm.process.audit.JPAAuditLogService;
 import org.jbpm.process.audit.VariableInstanceLog;
 import org.jbpm.test.JbpmAsyncJobTestCase;
-import org.jbpm.test.listener.CountDownProcessEventListener;
+import org.jbpm.test.listener.process.NodeLeftCountDownProcessEventListener;
 import org.junit.Test;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.process.WorkItemManager;
+
+import static org.junit.Assert.*;
 
 //
 // BZ-1121396
@@ -72,9 +74,9 @@ public class AsyncTaskCallbackTest extends JbpmAsyncJobTestCase {
         }
     }
 
-    @Test(timeout=10000)
+    @Test(timeout=30000)
     public void testTaskCallback() throws Exception {
-        CountDownProcessEventListener countDownListener = new CountDownProcessEventListener("Continue", 1);
+        NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("Continue", 1);
         addProcessEventListener(countDownListener);
         KieSession ksession = createKSession(ASYNC_EXECUTOR_CALLBACK, ASYNC_DATA_EXECUTOR);
         WorkItemManager wim = ksession.getWorkItemManager();

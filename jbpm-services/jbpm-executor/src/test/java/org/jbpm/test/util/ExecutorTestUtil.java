@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,11 +23,10 @@ import java.io.InputStream;
 import java.util.Properties;
 
 import org.jbpm.persistence.util.PersistenceUtil;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 
 public class ExecutorTestUtil {
     
@@ -108,7 +107,7 @@ public class ExecutorTestUtil {
         String[] defaultPropArr = { 
                 "", "", "", "jdbc:h2:mem:jbpm-db;MVCC=true",
                 "sa", "", 
-                "org.h2.Driver", "bitronix.tm.resource.jdbc.lrc.LrcXADataSource", 
+                "org.h2.Driver", "org.h2.jdbcx.JdbcDataSource", 
                 "5", "true" };
         Assert.assertTrue("Unequal number of keys for default properties", keyArr.length == defaultPropArr.length);
         for (int i = 0; i < keyArr.length; ++i) {
