@@ -13,20 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.jbpm.workflow.instance.impl;
 
-package org.jbpm.workflow.instance;
-
-import org.kie.api.runtime.process.EventListener;
-import org.jbpm.process.instance.ProcessInstance;
+import org.kie.api.definition.process.Node;
 
 import java.util.Map;
 
-public interface WorkflowProcessInstance extends ProcessInstance, org.kie.api.runtime.process.WorkflowProcessInstance {
+/**
+ * @author Tim Urmancheev
+ */
+public interface MessageCorrelation {
 
-    Map<String, Object> getVariables();
-
-    void addEventListener(String type, EventListener eventListener, boolean external);
-    
-    void removeEventListener(String type, EventListener eventListener, boolean external);
-
+  boolean matches(Object event, Node node, Map<String, Object> variables);
 }

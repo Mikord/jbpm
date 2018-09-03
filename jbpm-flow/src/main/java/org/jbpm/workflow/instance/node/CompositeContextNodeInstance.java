@@ -23,19 +23,21 @@ import java.util.Map;
 
 import org.jbpm.process.core.Context;
 import org.jbpm.process.core.ContextContainer;
+import org.jbpm.process.core.context.variable.VariableScope;
 import org.jbpm.process.instance.ContextInstance;
 import org.jbpm.process.instance.ContextInstanceContainer;
 import org.jbpm.process.instance.ContextableInstance;
 import org.jbpm.process.instance.ProcessInstance;
+import org.jbpm.process.instance.context.variable.VariableScopeInstance;
 import org.jbpm.process.instance.impl.ContextInstanceFactory;
 import org.jbpm.process.instance.impl.ContextInstanceFactoryRegistry;
 import org.jbpm.workflow.core.node.CompositeContextNode;
 
 public class CompositeContextNodeInstance extends CompositeNodeInstance implements ContextInstanceContainer, ContextableInstance {
 
-	private static final long serialVersionUID = 510l;
-	
-	private Map<String, ContextInstance> contextInstances = new HashMap<String, ContextInstance>();
+    private static final long serialVersionUID = 510l;
+
+    private Map<String, ContextInstance> contextInstances = new HashMap<String, ContextInstance>();
     private Map<String, List<ContextInstance>> subContextInstances = new HashMap<String, List<ContextInstance>>();
 
     protected CompositeContextNode getCompositeContextNode() {
@@ -86,7 +88,7 @@ public class CompositeContextNodeInstance extends CompositeNodeInstance implemen
     public ContextInstance getContextInstance(String contextId, long id) {
         List<ContextInstance> contextInstances = subContextInstances.get(contextId);
         if (contextInstances != null) {
-            for (ContextInstance contextInstance: contextInstances) {
+            for (ContextInstance contextInstance : contextInstances) {
                 if (contextInstance.getContextId() == id) {
                     return contextInstance;
                 }
@@ -107,4 +109,34 @@ public class CompositeContextNodeInstance extends CompositeNodeInstance implemen
         return contextInstance;
     }
 
+    /**
+     * Copied from {@link org.jbpm.workflow.instance.impl.WorkflowProcessInstanceImpl}
+     */
+    @Override
+    protected Map<String, Object> getVariables() {
+        // for disconnected process instances, try going through the variable scope instances
+        // (as the default variable scope cannot be retrieved as the link to the process could
+        // be null and the associated working memory is no longer accessible)
+        if (getProcessInstance().getKnowledgeRuntime() == null) {
+            List<ContextInstance> variableScopeInstances =
+                    getContextInstances(VariableScope.VARIABLE_SCOPE);
+            if (variableScopeInstances == null) {
+                return null;
+            }
+            Map<String, Object> result = new HashMap<String, Object>();
+            for (ContextInstance contextInstance : variableScopeInstances) {
+                Map<String, Object> variables =
+                        ((VariableScopeInstance) contextInstance).getVariables();
+                result.putAll(variables);
+            }
+            return result;
+        }
+        // else retrieve the variable scope
+        VariableScopeInstance variableScopeInstance = (VariableScopeInstance)
+                getContextInstance(VariableScope.VARIABLE_SCOPE);
+        if (variableScopeInstance == null) {
+            return null;
+        }
+        return variableScopeInstance.getVariables();
+    }
 }
