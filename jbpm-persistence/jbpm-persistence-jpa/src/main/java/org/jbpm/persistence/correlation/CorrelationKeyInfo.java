@@ -50,8 +50,7 @@ public class CorrelationKeyInfo implements PersistentCorrelationKey, Serializabl
     private int version;
     
     private long processInstanceId;
-
-    @Column(columnDefinition = "text")
+    
     private String name;
     
     @OneToMany(mappedBy="correlationKey", cascade=CascadeType.ALL)
