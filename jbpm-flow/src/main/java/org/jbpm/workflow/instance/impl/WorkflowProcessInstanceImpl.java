@@ -577,7 +577,7 @@ public abstract class WorkflowProcessInstanceImpl extends ProcessInstanceImpl
   }
 
 	@SuppressWarnings("unchecked")
-  public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
+	public void signalEvent(String type, Object event, MessageCorrelation messageCorrelation) {
 	    synchronized (this) {
 			if (getState() != ProcessInstance.STATE_ACTIVE) {
 				return;
