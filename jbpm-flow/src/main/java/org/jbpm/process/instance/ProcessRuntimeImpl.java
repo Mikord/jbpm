@@ -395,10 +395,9 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
 	        if (eventTransformer != null) {
     			event = eventTransformer.transformEvent(event);
     		}
-	        Map<String, Object> params = null;
+	        Map<String, Object> params = new HashMap<>();
+	        params.put(StartProcessHelper.SIGNAL_DATA, event);
 	        if ( inMappings != null && !inMappings.isEmpty() ) {
-	        	params = new HashMap<String, Object>();
-	        	
 	        	if (inMappings.size() == 1) {
 	        		params.put( inMappings.keySet().iterator().next(), event );
 	        	} else {
