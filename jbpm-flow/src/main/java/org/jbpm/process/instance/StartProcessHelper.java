@@ -29,7 +29,7 @@ import org.kie.api.runtime.process.ProcessInstance;
 public final class StartProcessHelper {
     
     public static final String PROCESS_COMPARATOR_CLASS_KEY = "jbpm.process.name.comparator";
-    public static final String SIGNAL_DATA = "signal_data";
+    public static final String SIGNAL_UUID= "signal_uuid";
     
     private static String comparatorClass = System.getProperty(PROCESS_COMPARATOR_CLASS_KEY);
 	
