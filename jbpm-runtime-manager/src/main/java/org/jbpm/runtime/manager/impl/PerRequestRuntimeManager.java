@@ -175,6 +175,14 @@ public class PerRequestRuntimeManager extends AbstractRuntimeManager {
         local.get().remove(identifier);
     }
 
+    public void clearThreadLocalContext() {
+      RuntimeEngine engine = local.get().get(identifier);
+
+      if (engine != null) {
+        local.get().remove(identifier);
+      }
+    }
+
     @Override
     public void close() {
         try {
